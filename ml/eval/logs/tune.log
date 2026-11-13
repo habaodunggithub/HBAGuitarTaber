@@ -1,0 +1,6 @@
+120 train takes (players ['00', '01', '02', '03']), 60 test takes (players ['04', '05'])
+baseline   train F1=0.808 TDR=0.556 | test F1=0.833 TDR=0.591
+segment tuned: train F1=0.856
+fingering tuned: train TDR=0.651
+tuned      train F1=0.839 TDR=0.651 | test F1=0.858 TDR=0.642
+wrote ml/eval/tuned.json

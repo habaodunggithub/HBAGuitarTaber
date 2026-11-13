@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Taber · Field sketchbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Six+Caps&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #efe7d6; --paper-2: #e6dcc6; --ink: #1d1b18; --ink-2: #4a453c; --blue: #2457c5; --wash: #3d6fd6; --lamp: #f2b33d;
+    --sky: transparent; --night: 0;
+  }
+  :root.night { --paper: #161c2c; --paper-2: #1d2538; --ink: #ece4d2; --ink-2: #a9a28f; --blue: #8fb0ff; --wash: #3c5fb8; --night: 1; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--paper); color: var(--ink); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 14px; overflow: hidden;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .3  0 0 0 0 .22  0 0 0 .09 0'/></filter><rect width='300' height='300' filter='url(%23n)'/></svg>");
+  }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; }
+  .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .blue { color: var(--blue); }
+
+  /* top rail */
+  .top { position: absolute; inset: 28px 56px auto 56px; display: flex; align-items: center; gap: 28px; }
+  .top nav { display: flex; gap: 18px; }
+  .top a { color: var(--ink); text-decoration: none; }
+  .top a:hover { color: var(--blue); }
+  .top .sep { color: var(--ink-2); }
+  .top .mid { margin-left: 120px; display: flex; gap: 22px; color: var(--ink); }
+  .top .right { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); display: inline-block; box-shadow: 0 0 0 0 var(--blue); animation: ping 2.4s infinite; }
+  @keyframes ping { 70% { box-shadow: 0 0 0 7px transparent; } }
+
+  /* headline */
+  h1 { position: absolute; left: 50px; top: 66px; margin: 0; font-family: 'Six Caps', sans-serif; font-weight: 400; line-height: .82; letter-spacing: -.005em; filter: url(#rough-text); }
+  h1 .l1 { display: block; font-size: 330px; }
+  h1 .l2 { display: flex; align-items: flex-start; font-size: 330px; margin-top: -8px; }
+  h1 .the { font-size: 150px; color: var(--blue); margin-right: 18px; margin-top: 12px; line-height: .8; }
+  .lede { position: absolute; left: 60px; top: 650px; line-height: 1.6; font-size: 14px; }
+  .lede::after { content: ''; display: block; width: 34px; height: 2px; background: var(--blue); margin-top: 14px; }
+
+  /* the drawing */
+  .scene { position: absolute; left: 430px; top: 70px; width: 800px; height: 676px; }
+  .scene svg { width: 100%; height: 100%; overflow: visible; }
+  .ink { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .ink.thin { stroke-width: 1.2; }
+  .ink.hair { stroke-width: .8; opacity: .7; }
+  .fill-paper { fill: var(--paper); }
+  .wash { fill: var(--wash); opacity: .55; mix-blend-mode: multiply; filter: url(#watercolor); }
+  :root.night .wash { mix-blend-mode: screen; opacity: .45; }
+  .boil { filter: url(#wobble); }
+  .lampglow { fill: var(--lamp); opacity: calc(.35 + var(--night) * .5); filter: blur(calc(6px + var(--night) * 18px)); transition: opacity .6s; }
+  .lampbtn { cursor: pointer; }
+  .lampbtn:focus-visible { outline: none; }
+  .lampbtn:focus-visible .lampcore { stroke: var(--blue); stroke-width: 3; }
+  .stars { opacity: var(--night); transition: opacity .8s .2s; }
+  .stars circle { fill: var(--ink); animation: twinkle 3s infinite alternate; }
+  @keyframes twinkle { to { opacity: .2; } }
+
+  /* annotations */
+  .note { position: absolute; font-size: 12px; line-height: 1.7; letter-spacing: .06em; text-transform: uppercase; }
+  .note b { color: var(--blue); font-weight: 500; display: block; }
+  .hint { left: 1196px; top: 160px; }
+  .arch { left: 1206px; top: 360px; }
+
+  /* drop zone: a dashed record outline on the table */
+  .drop { position: absolute; left: 1150px; top: 560px; width: 250px; height: 168px; border: 1.5px dashed var(--ink); padding: 18px 20px; cursor: pointer; background: color-mix(in srgb, var(--paper) 70%, transparent); transition: transform .25s cubic-bezier(.23,1,.32,1), border-color .2s; }
+  .drop:hover, .drop.over { transform: translateY(-3px) rotate(-.6deg); border-color: var(--blue); }
+  .drop b { color: var(--blue); font-weight: 500; }
+  .drop .plus { position: absolute; right: 12px; top: 8px; color: var(--blue); font-size: 18px; }
+  .drop p { margin: 8px 0 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; line-height: 1.7; }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  /* recent tabs as waypoints on a dashed path */
+  .path { position: absolute; left: 330px; top: 752px; width: 760px; height: 130px; }
+  .path > svg { position: absolute; inset: 0; overflow: visible; }
+  .wp { position: absolute; width: 190px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; line-height: 1.6; cursor: pointer; }
+  .wp .date { color: var(--ink-2); }
+  .wp .name { color: var(--blue); font-weight: 500; display: block; }
+  .wp .tabline { display: block; margin-top: 6px; }
+  .wp .tabline path { stroke: var(--ink); stroke-width: 1.4; fill: none; stroke-dasharray: 260; stroke-dashoffset: 260; transition: stroke-dashoffset .9s cubic-bezier(.77,0,.175,1); }
+  .wp .tabline text { font-size: 11px; fill: var(--ink); opacity: 0; transition: opacity .3s .5s; }
+  .wp:hover .tabline path, .wp:focus-visible .tabline path { stroke-dashoffset: 0; }
+  .wp:hover .tabline text, .wp:focus-visible .tabline text { opacity: 1; }
+  .wp:focus-visible { outline: 1.5px dashed var(--blue); outline-offset: 6px; }
+
+  .take { position: absolute; left: 56px; top: 760px; width: 230px; border: 1.2px solid var(--ink); padding: 12px 14px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; line-height: 1.7; }
+  .take b { color: var(--blue); font-weight: 500; }
+  .take::before, .take::after { content: '+'; position: absolute; color: var(--blue); font-size: 16px; }
+  .take::before { left: -8px; bottom: -12px; } .take::after { right: -8px; top: -12px; }
+  .scroll { position: absolute; left: 20px; top: 420px; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .14em; color: var(--ink-2); }
+
+  @media (prefers-reduced-motion: reduce) { .boil { filter: none; } * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="wobble"><feTurbulence id="boilnoise" type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="1"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter>
+  <filter id="rough-text"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.05" result="holes"/><feComposite in="SourceGraphic" in2="holes" operator="in" result="ink"/><feTurbulence type="fractalNoise" baseFrequency=".04" numOctaves="2" seed="2" result="w"/><feDisplacementMap in="ink" in2="w" scale="4"/></filter>
+  <filter id="watercolor" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".015" numOctaves="3" seed="8" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="40" result="d"/><feGaussianBlur in="d" stdDeviation="3"/></filter>
+  <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--ink)" stroke-width="1"/></pattern>
+  <pattern id="grille" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 0 L9 9 M9 0 L0 9" style="stroke:var(--ink)" stroke-width=".6" opacity=".55"/></pattern>
+</svg>
+
+<div class="page">
+  <header class="top label">
+    <nav aria-label="Main"><a href="#">Library</a><span class="sep">|</span><a href="#">New tab</a><span class="sep">|</span><a href="#">Shortcuts</a></nav>
+    <div class="mid"><span>Tuning E standard</span><span>Key C major</span><span aria-hidden="true">⌖</span><span>110 BPM</span></div>
+    <div class="right"><span>Sketchbook_07</span><span id="mode">Day mode</span><span><span class="dot" aria-hidden="true"></span> 1 worker online</span></div>
+  </header>
+
+  <h1><span class="l1">Write</span><span class="l2"><span class="the">The</span>Solo</span></h1>
+  <p class="lede">Some solos are meant<br>to be written down,<br>not forgotten.</p>
+  <div class="scroll">Scroll to your tabs ↓</div>
+
+  <div class="scene" aria-hidden="false">
+    <svg viewBox="0 0 900 760" role="img" aria-label="Ink drawing: an electric guitar leaning on a small amp">
+      <g class="stars">
+        <circle cx="520" cy="60" r="1.6"/><circle cx="610" cy="20" r="1.2" style="animation-delay:-1s"/><circle cx="700" cy="90" r="1.8" style="animation-delay:-2s"/><circle cx="430" cy="130" r="1.1"/><circle cx="790" cy="40" r="1.4" style="animation-delay:-.5s"/><circle cx="330" cy="40" r="1.3" style="animation-delay:-1.6s"/>
+      </g>
+      <!-- watercolor washes -->
+      <ellipse class="wash" cx="600" cy="560" rx="170" ry="120"/>
+      <ellipse class="wash" cx="330" cy="300" rx="70" ry="210" transform="rotate(-18 330 300)" style="opacity:.28"/>
+      <!-- floor line -->
+      <path class="ink thin boil" d="M40 700 C200 694 420 700 880 690"/>
+      <path class="ink hair boil" d="M90 716 L170 715 M240 718 L420 716 M520 714 L720 712"/>
+
+      <!-- amp -->
+      <g class="boil">
+        <rect class="ink fill-paper" x="450" y="430" width="300" height="250" rx="10"/>
+        <rect x="470" y="490" width="260" height="170" rx="4" style="fill:url(#grille)"/>
+        <rect class="ink" x="470" y="490" width="260" height="170" rx="4"/>
+        <path class="ink" d="M560 430 C560 400 640 400 640 430"/>
+        <g class="ink thin"><circle cx="572" cy="460" r="8"/><circle cx="604" cy="460" r="8"/><circle cx="636" cy="460" r="8"/><circle cx="668" cy="460" r="8"/><circle cx="700" cy="460" r="8"/></g>
+        <path class="ink hair" d="M572 452v6 M604 452l3 6 M636 452l-2 6 M668 452l4 5 M700 452v6"/>
+        <text x="482" y="472" font-family="IBM Plex Mono" font-size="11" fill="currentColor" style="color:var(--ink)">TABER 15</text>
+        <path class="ink hair" d="M455 680 L455 692 M745 680 L745 692"/>
+        <path d="M748 440 L760 448 L760 690 L748 680" class="ink thin" fill="url(#hatch)" style="color:var(--ink)"/>
+      </g>
+      <!-- lamp: the switch -->
+      <g class="lampbtn" id="lamp" tabindex="0" role="button" aria-label="Switch to night practice">
+        <circle class="lampglow" cx="728" cy="460" r="22"/>
+        <circle class="ink lampcore" cx="728" cy="460" r="8" fill="var(--lamp)"/>
+      </g>
+
+      <!-- guitar leaning on the amp -->
+      <g class="boil" transform="rotate(-22 330 420) translate(170 20)">
+        <!-- headstock -->
+        <path class="ink fill-paper" d="M144 104 L144 40 C144 20 160 6 180 8 C198 10 204 24 196 40 L184 64 L184 104 Z"/>
+        <g class="ink thin"><circle cx="194" cy="26" r="4"/><circle cx="190" cy="42" r="4"/><circle cx="186" cy="58" r="4"/><circle cx="184" cy="74" r="4"/><circle cx="184" cy="88" r="4"/><circle cx="184" cy="100" r="3.5"/></g>
+        <!-- neck -->
+        <rect class="ink fill-paper" x="144" y="104" width="40" height="340"/>
+        <g class="ink hair">
+          <path d="M144 108h40 M144 140h40 M144 170h40 M144 198h40 M144 224h40 M144 248h40 M144 270h40 M144 291h40 M144 310h40 M144 328h40 M144 345h40 M144 361h40 M144 376h40 M144 390h40"/>
+        </g>
+        <g fill="currentColor" style="color:var(--ink)"><circle cx="164" cy="184" r="2.6"/><circle cx="164" cy="236" r="2.6"/><circle cx="164" cy="281" r="2.6"/><circle cx="164" cy="319" r="2.6"/><circle cx="157" cy="368" r="2.4"/><circle cx="171" cy="368" r="2.4"/></g>
+        <!-- body -->
+        <path class="ink fill-paper" d="M96 456 C76 440 66 414 78 401 C92 390 110 402 122 420 C132 432 150 438 164 438 C182 438 198 430 208 414 C218 398 234 386 250 392 C268 400 262 430 242 456 C274 488 298 544 294 606 C290 694 240 764 164 766 C88 764 36 702 34 630 C34 560 64 496 96 456 Z"/>
+        <path class="ink thin" d="M118 470 C112 520 104 560 120 600 C140 640 186 650 214 628 C240 606 246 560 232 520 C224 500 210 480 196 470"/>
+        <path class="ink hair" d="M70 640 C80 700 120 744 164 748" />
+        <path d="M60 600 C64 680 110 740 170 752 C120 730 84 690 70 620 Z" fill="url(#hatch)" style="color:var(--ink);opacity:.5"/>
+        <!-- pickups, bridge, knobs -->
+        <g class="ink thin fill-paper"><rect x="142" y="500" width="44" height="12" rx="5"/><rect x="142" y="540" width="44" height="12" rx="5"/><rect x="140" y="584" width="48" height="12" rx="5" transform="rotate(-8 164 590)"/><rect x="138" y="632" width="52" height="14" rx="2"/></g>
+        <g class="ink thin"><circle cx="226" cy="600" r="8"/><circle cx="234" cy="630" r="8"/><circle cx="226" cy="660" r="7"/></g>
+        <!-- strings -->
+        <g class="ink hair"><path d="M150 104 L150 640 M156 104 L156 640 M161 104 L161 640 M167 104 L167 640 M172 104 L172 640 M178 104 L178 640"/></g>
+      </g>
+
+      <!-- annotation lines -->
+      <path class="ink hair boil" d="M735 455 C780 420 800 380 820 300" stroke-dasharray="4 5"/>
+      <path class="ink hair boil" d="M818 300 l-7 2 m7 -2 l1 7"/>
+      <path class="ink hair boil" d="M400 160 L470 160 L520 110" stroke-dasharray="3 4"/>
+    </svg>
+  </div>
+
+  <div class="note hint"><b>Click the amp lamp</b>switch the desk<br>from day to night</div>
+  <div class="note arch"><b>String note</b>6 strings, E A D G B E<br>string 1 is the high e<br>frets counted from the nut</div>
+
+  <label class="drop" id="drop">
+    <span class="plus" aria-hidden="true">+</span>
+    <b class="label">Drop a recording</b>
+    <p>wav, mp3, flac, m4a, ogg<br>or a video: mp4, mov, webm<br><span class="blue">click to choose a file</span></p>
+    <input type="file" accept="audio/*,video/*" aria-label="Guitar recording" />
+  </label>
+
+  <div class="take"><b>Last take</b><br>box_techniques<br>C major, 110 BPM<br>2 bars, ready</div>
+
+  <div class="path" aria-label="Recent tabs">
+    <svg viewBox="0 0 720 150"><path class="ink thin boil" d="M10 22 C120 6 170 70 280 48 S470 0 540 40 S680 90 750 60" stroke-dasharray="6 6"/></svg>
+    <a class="wp" tabindex="0" style="left:0;top:30px"><span class="date">13 Nov, ready</span><span class="name">box_techniques</span>
+      <svg class="tabline" width="180" height="40" viewBox="0 0 180 40" aria-hidden="true"><path d="M0 8h180M0 18h180M0 28h180"/><text x="20" y="11">5</text><text x="48" y="11">8</text><text x="76" y="21">8</text><text x="104" y="31">5</text><text x="130" y="31">7</text></svg></a>
+    <a class="wp" tabindex="0" style="left:270px;top:56px"><span class="date">13 Nov, ready</span><span class="name">a_minor_lick</span>
+      <svg class="tabline" width="180" height="40" viewBox="0 0 180 40" aria-hidden="true"><path d="M0 8h180M0 18h180M0 28h180"/><text x="20" y="21">8</text><text x="48" y="21">10</text><text x="80" y="11">8</text><text x="108" y="11">10</text><text x="140" y="21">8</text></svg></a>
+    <a class="wp" tabindex="0" style="left:540px;top:12px"><span class="date">now, analyzing 29%</span><span class="name">fast_run</span>
+      <svg class="tabline" width="180" height="40" viewBox="0 0 180 40" aria-hidden="true"><path d="M0 8h180M0 18h180M0 28h180"/><text x="20" y="31">5</text><text x="40" y="31">7</text><text x="60" y="21">5</text><text x="80" y="21">7</text><text x="100" y="11">5</text></svg></a>
+  </div>
+</div>
+
+<script>
+  // line boil: re-seed the wobble a few times a second, like redrawn animation frames
+  const noise = document.getElementById('boilnoise');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!still) { let s = 1; setInterval(() => { s = (s % 4) + 1; noise.setAttribute('seed', s); }, 160); }
+
+  // night switch: the new theme spreads out of the lamp as a circle
+  const lamp = document.getElementById('lamp');
+  const flip = () => {
+    const r = lamp.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const apply = () => { document.documentElement.classList.toggle('night'); document.getElementById('mode').textContent = document.documentElement.classList.contains('night') ? 'Night mode' : 'Day mode'; };
+    if (!document.startViewTransition || still) return apply();
+    document.startViewTransition(apply).ready.then(() => {
+      document.documentElement.animate({ clipPath: [`circle(0 at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 900, easing: 'cubic-bezier(.77,0,.175,1)', pseudoElement: '::view-transition-new(root)' });
+    });
+  };
+  lamp.addEventListener('click', flip);
+  lamp.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+
+  const drop = document.getElementById('drop');
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "title": "Fast 16ths, triplets and rests (synthetic)",
+  "bpm": 90,
+  "time_signature": "4/4",
+  "tuning": "standard",
+  "notes": [
+    {"string": 1, "fret": 8, "start": 0.0, "dur": 0.25},
+    {"string": 1, "fret": 5, "start": 0.25, "dur": 0.25},
+    {"string": 2, "fret": 8, "start": 0.5, "dur": 0.25},
+    {"string": 2, "fret": 5, "start": 0.75, "dur": 0.25},
+    {"string": 3, "fret": 7, "start": 1.0, "dur": 0.25},
+    {"string": 3, "fret": 5, "start": 1.25, "dur": 0.25},
+    {"string": 4, "fret": 7, "start": 1.5, "dur": 0.25},
+    {"string": 4, "fret": 5, "start": 1.75, "dur": 0.25},
+    {"string": 1, "fret": 8, "start": 2.0, "dur": 0.3333},
+    {"string": 1, "fret": 5, "start": 2.3333, "dur": 0.3333},
+    {"string": 2, "fret": 8, "start": 2.6667, "dur": 0.3333},
+    {"string": 2, "fret": 5, "start": 3.0, "dur": 0.5},
+    {"string": 2, "fret": 5, "start": 3.5, "dur": 0.25},
+    {"string": 2, "fret": 5, "start": 3.75, "dur": 0.25},
+    {"string": 3, "fret": 7, "start": 5.0, "dur": 0.5},
+    {"string": 3, "fret": 5, "start": 5.5, "dur": 0.5},
+    {"string": 4, "fret": 7, "start": 6.0, "dur": 0.5},
+    {"string": 4, "fret": 5, "start": 6.5, "dur": 0.5},
+    {"string": 5, "fret": 7, "start": 7.0, "dur": 1.0}
+  ]
+}

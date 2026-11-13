@@ -1,0 +1,7 @@
+test  current (no scale) {'f1': 0.8576988305437101, 'tdr': 0.6420205159005953}
+detected: best {'scale_snap': 0.311, 'scale_prune_conf': 0.838, 'scale_prune_s': 0.13} train-subset F1 0.8559 (no prior 0.8550)
+test  detected     {'f1': 0.857856284900926, 'tdr': 0.6377572659980285}
+test  annotated    {'f1': 0.8563565578987866, 'tdr': 0.6387996492598866}
+observed7: best {'scale_snap': 0.168, 'scale_prune_conf': 0.882, 'scale_prune_s': 0.123} train-subset F1 0.8559 (no prior 0.8550)
+test  observed7    {'f1': 0.8569559210718126, 'tdr': 0.6358790796673749}
+wrote ml/eval/key_study.json

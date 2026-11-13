@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Taber · Logbook collage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,700;6..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root { --paper: #f1e8d4; --ink: #24201b; --ink-2: #5d554a; --band: #a8d4cb; --amber: #e8a23a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: 'DM Mono', ui-monospace, monospace; font-size: 13px; overflow: hidden; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden;
+    background-image: radial-gradient(rgba(60,45,25,.10) 1px, transparent 1.2px), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='500'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='4' seed='3'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .36  0 0 0 0 .22  0 0 0 .22 0'/></filter><rect width='500' height='500' filter='url(%23p)'/></svg>");
+    background-size: 4px 4px, 500px 500px; }
+  .up { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; line-height: 1.6; }
+  .band { position: absolute; left: 450px; top: 0; width: 460px; height: 900px; background: var(--band); filter: url(#edge); opacity: .92; }
+
+  .menu { position: absolute; left: 44px; top: 40px; display: flex; gap: 12px; align-items: flex-start; }
+  .menu .box { width: 34px; height: 42px; border: 1.2px solid var(--ink); display: grid; place-items: center; font-size: 14px; }
+  .sound { position: absolute; right: 40px; top: 46px; display: flex; align-items: center; gap: 10px; cursor: pointer; background: none; border: 0; font: inherit; color: inherit; }
+  .sound .knob { width: 34px; height: 1px; background: var(--ink); position: relative; }
+  .sound .knob::after { content: '+'; position: absolute; left: 12px; top: -9px; font-size: 13px; transition: left .3s cubic-bezier(.23,1,.32,1); }
+  .sound[aria-pressed='false'] .knob::after { left: 0; }
+  .sound .led { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+  .clock { position: absolute; right: 40px; top: 90px; text-align: right; }
+
+  .intro { position: absolute; left: 92px; top: 172px; }
+  h1 { position: absolute; left: 86px; top: 200px; margin: 0; font-family: 'Bodoni Moda', serif; font-weight: 800; font-size: 214px; line-height: .86; letter-spacing: -.01em; transform: scaleX(.56); transform-origin: left top; filter: url(#distress); white-space: nowrap; }
+  .tag { position: absolute; left: 92px; top: 628px; }
+  .drift { position: absolute; left: 92px; top: 694px; display: flex; gap: 10px; align-items: center; cursor: pointer; }
+  .drift input { position: absolute; inset: -6px; opacity: 0; cursor: pointer; }
+  .drift .bullet { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: bob 1.6s ease-in-out infinite; }
+  .logbook { position: absolute; left: 48px; top: 780px; }
+  .logbook b { font-weight: 500; }
+
+  .stage { position: absolute; left: 440px; top: 70px; width: 480px; height: 760px; }
+  .stage svg { width: 100%; height: 100%; overflow: visible; }
+  .eng { stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+  .eng.thin { stroke-width: .8; }
+  .eng:not([fill]) { fill: none; }
+  g.eng[fill] > * { fill: inherit; }
+  .string { stroke: var(--ink); stroke-width: .9; transform-box: fill-box; transform-origin: center; }
+  .string.ring { animation: ring .7s linear; }
+  @keyframes ring { 10% { transform: translateX(1.6px); } 20% { transform: translateX(-1.4px); } 30% { transform: translateX(1.1px); } 40% { transform: translateX(-.9px); } 55% { transform: translateX(.6px); } 70% { transform: translateX(-.3px); } }
+  .callout { position: absolute; }
+  .callout::before { content: '+'; position: absolute; left: -16px; top: -2px; font-size: 14px; }
+
+  /* floating records */
+  .rec { position: absolute; will-change: transform; }
+  .rec .shadow { position: absolute; left: 12%; right: 12%; height: 18%; border-radius: 50%; background: rgba(40,30,20,.28); filter: blur(14px); }
+  .rec svg { display: block; width: 100%; height: 100%; animation: spin 14s linear infinite; }
+  .rec.fast svg { animation-duration: 1.6s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+
+  .map { position: absolute; right: 52px; top: 240px; width: 160px; }
+  .map .frame { border: 1.2px solid var(--ink); height: 92px; position: relative; margin: 6px 0 8px; background: repeating-linear-gradient(0deg, transparent 0 14px, rgba(36,32,27,.35) 14px 15px); }
+  .map .frame i { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+  .readouts { position: absolute; left: 960px; top: 650px; width: 230px; }
+  .readouts div { border-bottom: 1px solid rgba(36,32,27,.3); padding: 8px 0; }
+  .readouts b { display: block; font-weight: 500; font-size: 22px; letter-spacing: .02em; }
+  .vu { display: inline-flex; gap: 2px; margin-left: 10px; vertical-align: 2px; }
+  .vu i { width: 4px; height: 12px; background: rgba(36,32,27,.2); transition: background-color 80ms linear; }
+  .vu i.on { background: var(--ink); }
+
+  .pick { position: absolute; left: 650px; top: 780px; transform: translateX(-50%); text-align: center; cursor: pointer; background: none; border: 0; font: inherit; color: inherit; }
+  .pick svg { display: block; margin: 0 auto 8px; filter: drop-shadow(0 0 10px rgba(232,162,58,.8)); animation: glow 2.2s ease-in-out infinite; }
+  .pick:focus-visible { outline: 1.5px dashed var(--ink); outline-offset: 6px; }
+  .pick:active svg { transform: scale(.92); }
+  @keyframes glow { 50% { filter: drop-shadow(0 0 22px rgba(232,162,58,1)); } }
+  .sparks { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+  .recent { position: absolute; left: 960px; top: 432px; width: 230px; }
+  .recent a { display: block; color: inherit; text-decoration: none; padding: 6px 0; border-top: 1px solid rgba(36,32,27,.3); }
+  .recent a:hover b { text-decoration: underline; }
+  .recent b { font-weight: 500; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="edge"><feTurbulence type="fractalNoise" baseFrequency=".03" numOctaves="3" seed="2"/><feDisplacementMap in="SourceGraphic" scale="10"/></filter>
+  <filter id="distress"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="2" seed="11" result="n"/><feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 2.15" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter>
+  <pattern id="engrave" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)"><line x1="0" y1="0" x2="0" y2="4" stroke="#24201b" stroke-width=".9"/></pattern>
+  <pattern id="engrave2" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(60)"><line x1="0" y1="0" x2="0" y2="3" stroke="#24201b" stroke-width=".7"/></pattern>
+  <symbol id="vinyl" viewBox="0 0 200 200"><circle cx="100" cy="100" r="98" fill="#1d1a16"/><g fill="none" stroke="rgba(255,255,255,.08)"><circle cx="100" cy="100" r="88"/><circle cx="100" cy="100" r="80"/><circle cx="100" cy="100" r="72"/><circle cx="100" cy="100" r="64"/><circle cx="100" cy="100" r="56"/><circle cx="100" cy="100" r="48"/></g><path d="M40 40 A85 85 0 0 1 120 18" stroke="rgba(255,255,255,.18)" stroke-width="6" fill="none"/><circle cx="100" cy="100" r="34" fill="#e8a23a"/><circle cx="100" cy="100" r="34" fill="url(#engrave2)" opacity=".25"/><text x="100" y="96" text-anchor="middle" font-family="DM Mono" font-size="11" fill="#24201b">SIDE A</text><text x="100" y="112" text-anchor="middle" font-family="DM Mono" font-size="9" fill="#24201b">110 BPM</text><circle cx="100" cy="100" r="3" fill="#f1e8d4"/></symbol>
+</svg>
+
+<div class="page" id="page">
+  <div class="band" aria-hidden="true"></div>
+
+  <div class="menu up"><span class="box" aria-hidden="true">≡</span><span>Menu<br>00</span></div>
+  <button class="sound up" id="sound" aria-pressed="true">Sound <span class="knob" aria-hidden="true"></span> <span id="snd">On</span> <span class="led" aria-hidden="true"></span></button>
+  <div class="clock up">Time<br><span id="time">14:27:08</span><br>ICT</div>
+
+  <p class="intro up">Explore your recordings</p>
+  <h1>Behind<br>the Solo</h1>
+  <p class="tag up">A solo remembered by ear.<br>A tab still written on paper.</p>
+  <label class="drift up"><span>Drop a recording to begin</span><span class="bullet" aria-hidden="true"></span><input type="file" accept="audio/*,video/*" aria-label="Guitar recording" /></label>
+  <div class="logbook up">Logbook<br><b>Tab_003</b><br>fast_run, listening 29%</div>
+
+  <!-- floating records: depth via parallax -->
+  <div class="rec" data-depth="26" style="left:300px;top:14px;width:180px;height:180px"><div class="shadow" style="top:118%"></div><svg viewBox="0 0 200 200"><use href="#vinyl"/></svg></div>
+  <div class="rec" data-depth="12" style="left:960px;top:120px;width:140px;height:140px"><div class="shadow" style="top:125%"></div><svg viewBox="0 0 200 200" style="animation-duration:20s"><use href="#vinyl"/></svg></div>
+  <div class="rec" data-depth="40" style="left:1210px;top:560px;width:460px;height:460px"><div class="shadow" style="top:-14%;left:-10%;right:40%"></div><svg viewBox="0 0 200 200" style="animation-duration:26s"><use href="#vinyl"/></svg></div>
+
+  <div class="stage">
+    <svg viewBox="0 0 480 760" role="img" aria-label="Engraved electric guitar standing in water-colored light">
+      <g transform="translate(70 30) scale(1.05)">
+        <path class="eng" d="M138 104 L138 40 C138 20 152 8 172 10 C190 12 196 26 188 40 L176 64 L176 104 Z" fill="url(#engrave)"/>
+        <g class="eng thin"><circle cx="186" cy="26" r="4" fill="#f1e8d4"/><circle cx="182" cy="42" r="4" fill="#f1e8d4"/><circle cx="178" cy="58" r="4" fill="#f1e8d4"/><circle cx="176" cy="74" r="4" fill="#f1e8d4"/><circle cx="176" cy="88" r="4" fill="#f1e8d4"/><circle cx="176" cy="100" r="3.5" fill="#f1e8d4"/></g>
+        <rect class="eng" x="138" y="104" width="38" height="336" fill="#c9a476"/>
+        <rect x="138" y="104" width="14" height="336" fill="url(#engrave)" opacity=".7"/>
+        <path class="eng thin" d="M138 136h38 M138 166h38 M138 194h38 M138 220h38 M138 244h38 M138 266h38 M138 287h38 M138 306h38 M138 324h38 M138 341h38 M138 357h38 M138 372h38 M138 386h38 M138 399h38"/>
+        <path class="eng" d="M94 460 C72 444 62 418 74 405 C88 394 106 406 118 424 C128 436 146 442 157 442 C175 442 191 434 201 418 C211 402 227 390 243 396 C261 404 255 434 235 460 C267 492 291 548 287 610 C283 698 233 768 157 770 C81 768 29 706 27 634 C27 564 57 500 94 460 Z" fill="#e9dcc2"/>
+        <path d="M27 634 C29 706 81 768 157 770 C110 750 60 700 52 620 C48 560 70 506 94 470 C57 500 27 564 27 634 Z" fill="url(#engrave)"/>
+        <path d="M200 700 C240 680 280 640 287 610 C285 680 250 740 190 760 Z" fill="url(#engrave2)" opacity=".8"/>
+        <path class="eng thin" d="M108 470 C102 520 96 556 112 596 C132 636 178 646 206 624 C232 602 238 556 224 516 C216 496 202 476 188 468" fill="#f6efe0"/>
+        <g class="eng thin" fill="#d9cdb4"><rect x="136" y="500" width="42" height="12" rx="5"/><rect x="136" y="540" width="42" height="12" rx="5"/><rect x="134" y="584" width="46" height="12" rx="5" transform="rotate(-8 157 590)"/><rect x="130" y="632" width="54" height="14" rx="2"/></g>
+        <g class="eng thin" fill="#f6efe0"><circle cx="222" cy="600" r="8"/><circle cx="230" cy="630" r="8"/><circle cx="222" cy="660" r="7"/></g>
+        <g id="strings"><line class="string" x1="142" y1="104" x2="142" y2="640"/><line class="string" x1="148" y1="104" x2="148" y2="640"/><line class="string" x1="154" y1="104" x2="154" y2="640"/><line class="string" x1="160" y1="104" x2="160" y2="640"/><line class="string" x1="166" y1="104" x2="166" y2="640"/><line class="string" x1="172" y1="104" x2="172" y2="640"/></g>
+      </g>
+      <path d="M20 740 C120 728 360 728 460 740" stroke="#24201b" stroke-width="1" fill="none" opacity=".4"/>
+    </svg>
+  </div>
+  <div class="callout up" style="left:600px;top:300px">Fret_05<br>S1 F5 · 0:01.2</div>
+  <div class="callout up" style="left:770px;top:600px">Pickup_03<br>neck, string 2 F8</div>
+
+  <div class="map up">Fretboard_map_07
+    <div class="frame"><i style="left:30%;top:6px"></i><i style="left:46%;top:21px"></i><i style="left:46%;top:6px"></i><i style="left:30%;top:36px"></i><i style="left:39%;top:36px"></i></div>
+    S1 F5 → S3 F7<br>5 notes, 2 bars
+  </div>
+  <div class="recent up" aria-label="Recent tabs">Recent entries
+    <a href="#"><b>box_techniques</b><br>ready, 110 BPM</a>
+    <a href="#"><b>a_minor_lick</b><br>ready, 100 BPM</a>
+    <a href="#"><b>fast_run</b><br>listening 29%</a>
+  </div>
+  <div class="readouts up">
+    <div>Tempo<b>110 BPM <span class="vu" id="vu"><i></i><i></i><i></i><i></i><i></i><i></i></span></b></div>
+    <div>Key<b>C major</b></div>
+    <div>Tuning<b>E standard</b></div>
+  </div>
+
+  <button class="pick up" id="pick" aria-label="Strike the strings">
+    <svg width="34" height="40" viewBox="0 0 34 40" aria-hidden="true"><path d="M17 38 C8 28 2 18 2 10 C2 4 9 2 17 2 C25 2 32 4 32 10 C32 18 26 28 17 38 Z" fill="#e8a23a" stroke="#24201b" stroke-width="1.4"/></svg>
+    Find the pick<br>click to strike
+  </button>
+  <canvas class="sparks" id="sparks" width="1440" height="900" aria-hidden="true"></canvas>
+</div>
+
+<script>
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // live clock
+  const tick = () => { document.getElementById('time').textContent = new Date().toLocaleTimeString('en-GB'); };
+  tick(); setInterval(tick, 1000);
+
+  // parallax: records float at different depths and follow the pointer with weight
+  const recs = [...document.querySelectorAll('.rec')].map((el) => ({ el, d: +el.dataset.depth, x: 0, y: 0 }));
+  let tx = 0, ty = 0, t0 = performance.now();
+  addEventListener('pointermove', (e) => { tx = e.clientX / innerWidth - .5; ty = e.clientY / innerHeight - .5; });
+  (function loop(now) {
+    const bob = still ? 0 : Math.sin((now - t0) / 1400);
+    for (const r of recs) {
+      r.x += (tx * r.d - r.x) * .06; r.y += (ty * r.d - r.y) * .06;
+      r.el.style.transform = `translate(${(-r.x).toFixed(2)}px, ${(-r.y + bob * r.d * .25).toFixed(2)}px)`;
+    }
+    requestAnimationFrame(loop);
+  })(t0);
+
+  // the pick: a real plucked E minor arpeggio (Karplus-Strong), strings ring, sparks fly, the VU jumps
+  let ctx = null, soundOn = true;
+  const sound = document.getElementById('sound');
+  sound.addEventListener('click', () => { soundOn = !soundOn; sound.setAttribute('aria-pressed', soundOn); document.getElementById('snd').textContent = soundOn ? 'On' : 'Off'; });
+  function pluck(freq, when) {
+    const sr = ctx.sampleRate, n = Math.round(sr / freq), len = sr * 2.2;
+    const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0), ring = new Float32Array(n);
+    for (let i = 0; i < n; i++) ring[i] = Math.random() * 2 - 1;
+    for (let i = 0, j = 0; i < len; i++, j = (j + 1) % n) { const next = ring[(j + 1) % n]; d[i] = ring[j]; ring[j] = .996 * .5 * (ring[j] + next); }
+    const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = .35;
+    src.buffer = buf; src.connect(g).connect(ctx.destination); src.start(when);
+  }
+  const notes = [82.41, 123.47, 164.81, 196.0, 246.94, 329.63];
+  const strings = [...document.querySelectorAll('#strings .string')].reverse();
+  const vu = [...document.querySelectorAll('#vu i')];
+  const sc = document.getElementById('sparks').getContext('2d');
+  let sparks = [];
+  document.getElementById('pick').addEventListener('click', (e) => {
+    if (soundOn) { ctx ??= new AudioContext(); notes.forEach((f, i) => pluck(f, ctx.currentTime + i * .06)); }
+    strings.forEach((s, i) => setTimeout(() => { s.classList.remove('ring'); void s.getBBox(); s.classList.add('ring'); }, i * 60));
+    let k = 0; const meter = setInterval(() => { const lvl = Math.max(0, 6 - Math.floor(k / 4)) - (k % 2); vu.forEach((v, i) => v.classList.toggle('on', i < lvl)); if (++k > 26) clearInterval(meter); }, 60);
+    document.querySelectorAll('.rec').forEach((r) => { r.classList.add('fast'); setTimeout(() => r.classList.remove('fast'), 900); });
+    if (!still) { const r = e.currentTarget.getBoundingClientRect(), pr = document.getElementById('page').getBoundingClientRect();
+      for (let i = 0; i < 40; i++) sparks.push({ x: r.left - pr.left + r.width / 2, y: r.top - pr.top + 14, vx: (Math.random() - .5) * 5, vy: -Math.random() * 5 - 1, life: 1 }); }
+  });
+  (function sp() {
+    sc.clearRect(0, 0, 1440, 900);
+    sparks = sparks.filter((p) => (p.life -= .02) > 0);
+    for (const p of sparks) { p.x += p.vx; p.y += p.vy; p.vy += .12; sc.fillStyle = `rgba(232,162,58,${p.life})`; sc.fillRect(p.x, p.y, 2.2, 2.2); }
+    requestAnimationFrame(sp);
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+HBA Guitar Taber — Proprietary License
+
+Copyright (c) 2026 Ha Van Thien Bao. All rights reserved.
+
+This repository is NOT open source. The source code, documentation, designs and
+other material in it (the "Software") are made visible for reference only.
+
+1. Permission required. No one may use, copy, modify, merge, publish, distribute,
+   sublicense, sell, host as a service, or use the Software (in whole or in part)
+   to train or evaluate machine-learning models, without the prior written
+   permission of the copyright holder. Permission is requested by opening an
+   issue on the GitHub repository or by contacting the copyright holder through
+   their GitHub profile.
+
+2. Attribution. Any use that the copyright holder permits must keep this
+   copyright notice and this license in every copy or substantial portion of the
+   Software, and must visibly credit "Ha Van Thien Bao" as the original author in
+   the product, its documentation, or its about / credits screen, unless the
+   written permission says otherwise.
+
+3. Viewing and forking on GitHub. Viewing the Software on GitHub, and forking it
+   within GitHub as allowed by the GitHub Terms of Service, does not grant any
+   right beyond what those Terms require. A fork is covered by this license.
+
+4. Third-party components. Libraries, fonts, sound fonts and other components
+   made by others keep their own licenses (see THIRD_PARTY_LICENSES.md and the
+   license files next to those components). This license does not apply to them.
+
+5. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+   EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+6. Termination. Any use outside a written permission ends that permission
+   automatically.

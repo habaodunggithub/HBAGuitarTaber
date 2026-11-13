@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#efe7d6" />
+    <script>
+      // pick day or night before the first paint (no flash); src/lib/theme.ts takes over after load
+      try { var t = localStorage.getItem('taber-theme'); if (t !== 'day' && t !== 'night') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
+        if (t === 'night') { document.documentElement.classList.add('night'); document.documentElement.style.colorScheme = 'dark'; } } catch (e) {}
+    </script>
+    <title>Taber</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23efe7d6'/%3E%3Cpath d='M16 29C9 22 5 15 5 9.5 5 5 10 3 16 3s11 2 11 6.5C27 15 23 22 16 29Z' fill='%232457c5' stroke='%231d1b18' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

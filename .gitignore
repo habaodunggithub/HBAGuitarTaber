@@ -1,0 +1,22 @@
+data/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+.env
+*.egg-info/
+ml/eval/results.csv
+kaggle/**/output/
+ml/eval/synthetic/*.wav
+kaggle/_build/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/openapi.json
+.claude/
+
+# local helper scripts with machine-specific paths
+design-demos/shot.mjs
+.shot*.mjs
