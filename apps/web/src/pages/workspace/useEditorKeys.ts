@@ -6,6 +6,9 @@ interface Actions {
   togglePlay: () => void;
   cycle: (dir: 1 | -1) => void;
   toggleLock: () => void;
+  shiftPitch: (semitones: number) => void;
+  addNote: () => void;
+  deleteNote: () => void;
   tap: () => void;
 }
 
@@ -31,8 +34,10 @@ export function useEditorKeys(actions: Actions) {
       if (mod || e.altKey) return;
       switch (e.key) {
         case ' ': e.preventDefault(); act.togglePlay(); break;
-        case 'ArrowUp': e.preventDefault(); act.cycle(1); break;
-        case 'ArrowDown': e.preventDefault(); act.cycle(-1); break;
+        case 'ArrowUp': e.preventDefault(); if (e.shiftKey) act.shiftPitch(1); else act.cycle(1); break;
+        case 'ArrowDown': e.preventDefault(); if (e.shiftKey) act.shiftPitch(-1); else act.cycle(-1); break;
+        case 'n': case 'N': act.addNote(); break;
+        case 'Delete': case 'Backspace': e.preventDefault(); act.deleteNote(); break;
         case 'ArrowRight': e.preventDefault(); if (st.score) st.select(stepLoc(st.score, st.selection, 1)); break;
         case 'ArrowLeft': e.preventDefault(); if (st.score) st.select(stepLoc(st.score, st.selection, -1)); break;
         case 'l': case 'L': act.toggleLock(); break;

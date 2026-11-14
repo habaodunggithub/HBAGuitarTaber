@@ -13,6 +13,7 @@ from taber_ir.export import FORMATS, export, score_to_alphatex
 from taber_ir.models import AnalysisOptions, AssemblyParams, Score, VideoCalibration
 
 from .. import service as svc
+from .. import truth
 from ..config import Settings
 from ..db import Project, Revision, Transcription, iso
 from ..deps import get_bus, get_db, get_settings_dep, get_storage
@@ -162,6 +163,26 @@ def restore_revision(tid: str, number: int, db: Session = Depends(get_db)):
     svc.add_revision(db, t, Score.model_validate(r.score), "user")
     db.commit()
     return svc.transcription_view(db, t)
+
+
+@router.get("/transcriptions/{tid}/truth")
+def get_truth(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """Whether this take is in your test set (null if not)."""
+    svc.get_transcription(db, tid)
+    return truth.info(storage, tid)
+
+
+@router.put("/transcriptions/{tid}/truth")
+def save_truth(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """Keep the current revision as ground truth: you have checked every note."""
+    return truth.save(db, storage, svc.get_transcription(db, tid))
+
+
+@router.delete("/transcriptions/{tid}/truth", status_code=204)
+def delete_truth(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    svc.get_transcription(db, tid)
+    truth.delete(storage, tid)
+    return Response(status_code=204)
 
 
 @router.post("/alphatex")

@@ -22,14 +22,17 @@ original take, and export it to Guitar Pro, MusicXML, MIDI or ASCII.
 
 ## Features
 
-- **Audio to tab**: pitch tracking, note segmentation, string/fret assignment (Viterbi over playable
-  fingerings) and rhythm quantization, tuned on real guitar recordings (GuitarSet).
+- **Audio to tab**: pitch tracking (PESTO), learned note onsets (Basic Pitch), a string classifier that
+  hears which string a note was played on, string/fret assignment (Viterbi over playable fingerings) and
+  rhythm quantization (Beat This!), measured on real acoustic (GuitarSet) and electric (IDMT) guitar.
 - **Backing track removal**: when the take has a band behind the guitar, the guitar stem is separated with
   Demucs before note detection.
 - **Video assist**: calibrate four points on the neck in one video frame, and the fretting hand
   (MediaPipe) helps decide the string and fret of each note.
-- **Browser editor**: a play-along lane and a full score (alphaTab) that follow the audio, note-by-note
-  editing with locks, undo/redo, autosave and version history.
+- **Browser editor**: a play-along lane and a full score (alphaTab) that follow the audio; move a note to
+  another string, change its pitch, delete it or add a missed one; locks, undo/redo, autosave, versions.
+- **Your own test set**: mark a tab you have checked, and `just truth-eval` re-transcribes every checked
+  take and shows where the app still goes wrong (missed notes, extra notes, wrong pitch, wrong string).
 - **Instant re-assembly**: change capo, tuning, tempo or fingering preferences, or tap the beat yourself,
   without re-running the models; locked notes stay put.
 - **Exports**: Guitar Pro (`.gp5`), MusicXML, MIDI, ASCII tab and alphaTex.
@@ -108,13 +111,15 @@ just test-py     # or one part at a time
 just test-web
 just test-e2e
 just eval        # accuracy metrics on the synthetic licks (or: just eval path/to/your/takes)
+just truth-eval  # accuracy on the tabs you checked in the editor (data/truth)
 ```
 
 ## Known limits
 
-- **String/fret choice from audio alone is ambiguous.** On held-out GuitarSet players, 64% of detected notes
-  get the exact string and fret the player used. Adding a video lets the fretting hand decide; this is tested
-  on synthetic video only so far.
+- **Electric guitar is still the hard case.** On unseen electric licks (IDMT-SMT-Guitar), 39% of the
+  played notes come out fully right (pitch, string and fret; it was 22% before pipeline 0.2), with 26%
+  of notes missed, mostly notes that ring over the next one. On an acoustic held-out player (GuitarSet)
+  it is 77%. Adding a video lets the fretting hand decide; this is tested on synthetic video only so far.
 - **Hammer-ons and pull-offs** are not detected from audio by default: a threshold cannot separate them from
   picked notes reliably, and a classifier trained on real takes is still needed.
 - **Backing track separation** raised note F1 from 0.62 to 0.85 (band at the guitar's level) on GuitarSet

@@ -102,7 +102,7 @@ const [wetA, diA] = await Promise.all([
 setBusy('Creating the tab…');
 const body: CreateTranscription = {
   inputs: [{ asset_id: wetA.asset_id, role: 'wet' }, ...(diA ? [{ asset_id: diA.asset_id, role: 'di' as const }] : [])],
-  analysis_options: { tone, mode: 'monophonic', segmenter: 'auto', separate_source: separate, detect_techniques: true, use_video: false },
+  analysis_options: { tone, mode: 'monophonic', segmenter: 'auto', string_model: 'auto', separate_source: separate, detect_techniques: true, use_video: false },
   assembly_params: {
     tuning: { name: tuning, open_pitches: TUNING_PRESETS[tuning] ?? [64, 59, 55, 50, 45, 40], capo },
     max_fret: 22,

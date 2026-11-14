@@ -1,0 +1,16 @@
+tuning on 60 GuitarSet takes (players 00-03)
+best train F1 0.885: {"bp_repick": 0.683, "bp_repick_gap_s": 0.086, "bp_onset_snap": 0.318, "bp_keep_short": 0.746, "bp_min_note_s": 0.076, "bp_keep_conf": 0.83, "bp_drop": 0.34, "bp_add": 0.835, "bp_flat_semitones": 0.466}
+GuitarSet 04-05 (seen by Basic Pitch): 60 takes, 4763 notes
+  f0_first             F1 0.858  TDR 0.640 | missed  14.2%  wrong pitch  1.6% (octave 3)  extra 11.0%  all right 56.0%
+  f0_first (latency +9 ms removed) F1 0.856  TDR 0.639 | missed  14.4%  wrong pitch  1.6% (octave 3)  extra 11.2%  all right 55.8%
+  f0 + basic_pitch     F1 0.874  TDR 0.665 | missed  12.0%  wrong pitch  2.2% (octave 4)  extra  8.9%  all right 58.5%
+  f0 + basic_pitch (latency -7 ms removed) F1 0.870  TDR 0.664 | missed  12.3%  wrong pitch  2.4% (octave 4)  extra  9.2%  all right 58.1%
+  + basic_pitch tuned  F1 0.901  TDR 0.640 | missed   9.1%  wrong pitch  2.0% (octave 4)  extra  6.6%  all right 57.7%
+  + basic_pitch tuned (latency -7 ms removed) F1 0.897  TDR 0.638 | missed   9.5%  wrong pitch  2.1% (octave 4)  extra  6.9%  all right 57.3%
+IDMT licks (electric, unseen): 189 takes, 3393 notes
+  f0_first             F1 0.651  TDR 0.342 | missed  40.1%  wrong pitch  4.5% (octave 14)  extra 22.0%  all right 21.5%
+  f0_first (latency +42 ms removed) F1 0.756  TDR 0.350 | missed  32.3%  wrong pitch  3.4% (octave 11)  extra 14.2%  all right 25.2%
+  f0 + basic_pitch     F1 0.796  TDR 0.378 | missed  26.9%  wrong pitch  2.4% (octave 13)  extra 19.0%  all right 29.1%
+  f0 + basic_pitch (latency +26 ms removed) F1 0.809  TDR 0.374 | missed  25.1%  wrong pitch  2.5% (octave 19)  extra 17.2%  all right 29.7%
+  + basic_pitch tuned  F1 0.810  TDR 0.371 | missed  25.7%  wrong pitch  2.0% (octave 8)  extra 16.6%  all right 28.3%
+  + basic_pitch tuned (latency +25 ms removed) F1 0.824  TDR 0.370 | missed  24.3%  wrong pitch  1.7% (octave 12)  extra 15.2%  all right 29.0%

@@ -13,6 +13,14 @@ export type AnalysisOptions = components['schemas']['AnalysisOptions'];
 export type CreateTranscription = components['schemas']['CreateTranscription'];
 export type ReassembleIn = components['schemas']['ReassembleIn'];
 
+/** A take kept in your test set (data/truth): checked note by note. */
+export interface TruthInfo {
+  revision: number;
+  created_at: string;
+  notes: number;
+  added_notes: number;
+}
+
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
 
 export interface JobSnapshot {

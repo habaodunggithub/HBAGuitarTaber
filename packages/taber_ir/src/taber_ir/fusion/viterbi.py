@@ -32,7 +32,7 @@ FINGER_COST = {1: 0.0, 2: 0.04, 3: 0.10, 4: 0.20}  # preference for the stronger
 
 @dataclass
 class FingeringWeights:
-    w_audio: float = 1.0  # -log P_audio(string)
+    w_audio: float = 0.3  # -log P(string) from the string classifier; picked on GuitarSet player 04 (ml/eval/string_study.py)
     w_video: float = 2.0  # -strength * log P_video(string, fret): fingertips seen on the fretboard
     open_cost: float = 1.0  # open strings are rarer in electric lead playing
     low_fret: float = 0.01  # per fret below 5 (1..4): lead lines mostly live at 5-15

@@ -521,3 +521,64 @@ def test_listing_uses_a_fixed_number_of_queries(app, client, project_id):
         create_t(client, project_id, a["asset_id"])
     many, rows = count_list_queries()
     assert len(rows) == 7 and many == few
+
+
+def _struck(score: Score):
+    return [n for m in score.measures for sl in m.slots for n in sl.notes if not n.tie_from_prev]
+
+
+def test_note_edits_survive_reassemble(client, ready):
+    """Deleted, re-pitched and added notes are kept when the score is re-assembled."""
+    score = Score.model_validate(client.get(f"/api/v1/transcriptions/{ready}").json()["score"])
+    notes = _struck(score)
+    gone, repitched = notes[0], notes[1]
+    for m in score.measures:
+        for sl in m.slots:
+            sl.notes = [n for n in sl.notes if n.note_id != gone.note_id]
+    score.deleted_note_ids = [gone.note_id]
+    repitched.fret += 1
+    repitched.pitch_midi += 1
+    repitched.locked = True
+    rest = next(sl for m in score.measures for sl in m.slots if not sl.notes and sl.start_s > 0)
+    from taber_ir.models import ScoreNote
+
+    rest.notes = [ScoreNote(note_id="u1", pitch_midi=67, string=1, fret=3, locked=True)]
+    assert client.put(f"/api/v1/transcriptions/{ready}", json=score.model_dump(mode="json")).status_code == 200
+
+    r = client.post(f"/api/v1/transcriptions/{ready}/reassemble",
+                    json={"assembly_params": {"timing": "grid_from_hint", "tempo_hint_bpm": 100}})
+    got = Score.model_validate(r.json()["score"])
+    ids = {n.note_id: n for n in _struck(got)}
+    assert gone.note_id not in ids and got.deleted_note_ids == [gone.note_id]
+    assert ids[repitched.note_id].pitch_midi == repitched.pitch_midi
+    assert (ids["u1"].pitch_midi, ids["u1"].string, ids["u1"].fret, ids["u1"].locked) == (67, 1, 3, True)
+
+
+def test_truth_snapshot_roundtrip(client, ready, settings):
+    from taber_ir.truth import TruthTake
+
+    assert client.get(f"/api/v1/transcriptions/{ready}/truth").json() is None
+    r = client.put(f"/api/v1/transcriptions/{ready}/truth")
+    assert r.status_code == 200, r.text
+    assert r.json()["notes"] == 4 and r.json()["revision"] == 1
+    folder = settings.data_dir / "truth" / ready
+    take = TruthTake.model_validate_json((folder / "truth.json").read_text())
+    assert take.inputs == {"wet": "wet.wav"} and (folder / "wet.wav").exists() and (folder / "analysis.json.gz").exists()
+    assert [n.timing for n in take.notes] == ["detected"] * 4
+    assert client.get(f"/api/v1/transcriptions/{ready}/truth").json()["notes"] == 4
+    assert client.delete(f"/api/v1/transcriptions/{ready}/truth").status_code == 204
+    assert not folder.exists() and client.get(f"/api/v1/transcriptions/{ready}/truth").json() is None
+
+
+def test_truth_needs_a_score(client, project_id, asset):
+    c = create_t(client, project_id, asset["asset_id"])
+    assert client.put(f"/api/v1/transcriptions/{c['transcription_id']}/truth").status_code == 409
+
+
+def test_truth_folder_feeds_truth_eval(client, ready, settings, capsys):
+    """The data loop end to end: mark a checked tab, then `taber truth-eval --stored` scores it."""
+    taber_cli = pytest.importorskip("taber_ml.cli")
+    assert client.put(f"/api/v1/transcriptions/{ready}/truth").status_code == 200
+    assert taber_cli.main(["truth-eval", str(settings.data_dir / "truth"), "--stored"]) == 0
+    out = capsys.readouterr().out
+    assert "1 take(s), 4 reference notes" in out and "right pitch+string+fret 100.0%" in out

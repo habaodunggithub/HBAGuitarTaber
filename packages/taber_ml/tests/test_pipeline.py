@@ -227,14 +227,30 @@ def test_long_audio_does_not_degrade_with_time(tmp_path):
     assert note_f1(late_ref, late_est).f1 >= 0.95  # the last third used to fall below 0.9
 
 
-def test_repeated_and_fast_notes(tmp_path):
+@pytest.mark.parametrize("segmenter", ["f0_first", "basic_pitch"])
+def test_repeated_and_fast_notes(tmp_path, segmenter):
     """Same-pitch repeats and 16ths must be separated by the re-pick logic, not by silence gaps."""
     tab = [TabNote(2, 5, i * 0.25, 0.25) for i in range(6)] + [TabNote(1, 8, 1.5 + i * 0.25, 0.25) for i in range(4)]
     ref = analysis_from_tab(tab, bpm=120)
     path = tmp_path / "rep.wav"
     sf.write(path, render(ref.notes, tone="distortion_light"), SR)
-    an, _ = analyze(path)
+    an, _ = analyze(path, segmenter=segmenter)
+    assert an.meta["segmenter"] == ("f0_first+basic_pitch" if segmenter == "basic_pitch" else "f0_first")
     assert note_f1(ref.notes, an.notes).f1 >= 0.9
+
+
+def test_string_classifier_fills_string_probs(tmp_path):
+    from taber_ml import strings
+
+    if not strings.available():
+        pytest.skip("string classifier weights or torch missing")
+    tab, bpm = pent_lick()
+    path, _ref = write_audio(tmp_path, tab, bpm)
+    an, _ = analyze(path)
+    assert an.meta["string_model"].startswith("string_cnn@")
+    assert all(n.string_probs and len(n.string_probs) == 6 and abs(sum(n.string_probs) - 1) < 0.01 for n in an.notes)
+    off, _ = analyze(path, string_model="off")
+    assert off.meta["string_model"] is None and all(n.string_probs is None for n in off.notes)
 
 
 def test_batch_two_workers_resume_and_error_isolation(tmp_path):
@@ -273,3 +289,44 @@ def test_reports_detected_key(tmp_path):
     assert k is not None and k["mode"] in ("major", "minor")
     assert k["tonic"] in (7, 9, 0, 2)  # a pitch class the lick actually plays
     assert k["scale_prior"] is False  # second pass is off unless SegmentParams enables it
+
+
+def test_truth_report_buckets_every_error():
+    from taber_ir import assemble
+    from taber_ir.models import Analysis, NoteEvent
+    from taber_ir.truth import TruthNote
+    from taber_ml.eval import truth_report
+
+    def tn(t, p, s, f, timing="detected"):
+        return TruthNote(onset_s=t, offset_s=t + 0.2, pitch_midi=p, string=s, fret=f, beat=t * 2, timing=timing)
+
+    truth = [tn(0.5, 64, 1, 0), tn(1.0, 69, 1, 5), tn(1.5, 72, 2, 13), tn(2.0, 60, 2, 1), tn(2.5, 67, 1, 3, "grid")]
+    est = [
+        NoteEvent(id="a", onset_s=0.51, offset_s=0.7, pitch_midi=64),  # right
+        NoteEvent(id="b", onset_s=1.02, offset_s=1.2, pitch_midi=69),  # right pitch (position decided by Viterbi)
+        NoteEvent(id="c", onset_s=1.49, offset_s=1.7, pitch_midi=60),  # octave error
+        # 2.0 missed
+        NoteEvent(id="d", onset_s=2.59, offset_s=2.8, pitch_midi=67),  # grid-timed truth: 90 ms is still a match
+        NoteEvent(id="e", onset_s=3.0, offset_s=3.2, pitch_midi=50),  # extra
+    ]
+    score = assemble(Analysis(notes=est))
+    r = truth_report(truth, est, score)
+    assert (r["n_ref"], r["n_est"]) == (5, 5)
+    assert r["correct"] + r["wrong_position"] == 3
+    assert (r["wrong_pitch"], r["octave"], r["missed"], r["extra"]) == (1, 1, 1, 1)
+    assert abs(r["recall"] - 0.6) < 1e-9 and abs(r["precision"] - 0.6) < 1e-9
+
+
+def test_truth_notes_time_detected_and_added_notes():
+    from taber_ir import assemble
+    from taber_ir.models import ScoreNote
+    from taber_ir.testing import TabNote, analysis_from_tab
+    from taber_ir.truth import truth_notes
+
+    an = analysis_from_tab([TabNote(2, 5, 0, 1), TabNote(2, 7, 2, 1)], bpm=120, n_beats=8)
+    score = assemble(an)
+    rest = next(sl for m in score.measures for sl in m.slots if not sl.notes and sl.start_s > an.notes[0].onset_s)
+    rest.notes = [ScoreNote(note_id="u1", pitch_midi=60, string=2, fret=1)]
+    got = truth_notes(score, an)
+    assert [n.timing for n in got] == ["detected", "grid", "detected"]
+    assert got[0].onset_s == an.notes[0].onset_s and got[1].onset_s == rest.start_s and got[1].note_id == "u1"

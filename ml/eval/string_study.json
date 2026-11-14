@@ -1,0 +1,34 @@
+{
+ "weights": "packages/taber_ml/src/taber_ml/weights/string_cnn.pt",
+ "version": "20261114",
+ "GuitarSet 04 (validation)": {
+  "notes": 2584,
+  "classifier_acc": 0.7945046439628483,
+  "viterbi_w0": 0.6096135559132603,
+  "viterbi_w0.25": 0.8742370511383977,
+  "viterbi_w0.3": 0.8757317127945604,
+  "viterbi_w0.5": 0.8609997014512919,
+  "viterbi_w1": 0.8327184228549321,
+  "viterbi_w2": 0.8179181409298406
+ },
+ "GuitarSet 05 (test)": {
+  "notes": 2179,
+  "classifier_acc": 0.7296925195043598,
+  "viterbi_w0": 0.6775249116616754,
+  "viterbi_w0.25": 0.8372720521786586,
+  "viterbi_w0.3": 0.8296805606986587,
+  "viterbi_w0.5": 0.7971627938185688,
+  "viterbi_w1": 0.7604123180770607,
+  "viterbi_w2": 0.7493028633440816
+ },
+ "IDMT licks (electric, test)": {
+  "notes": 3393,
+  "classifier_acc": 0.47244326554671384,
+  "viterbi_w0": 0.39924015524449247,
+  "viterbi_w0.25": 0.5301512830111367,
+  "viterbi_w0.3": 0.5289851665992444,
+  "viterbi_w0.5": 0.5179821994243999,
+  "viterbi_w1": 0.5112433155052353,
+  "viterbi_w2": 0.49963700499151226
+ }
+}

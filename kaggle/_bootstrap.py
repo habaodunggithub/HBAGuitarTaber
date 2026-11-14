@@ -1,8 +1,10 @@
 """Shared by the Kaggle scripts: install the project from the `taber-wheels` dataset.
 
-The wheels hold only our two packages (taber-ir, taber-ml). Everything else (pesto-pitch,
-torchcrepe, demucs...) comes from PyPI, so the notebook needs Internet ON. PESTO and CREPE ship their
-weights inside the pip packages; Demucs downloads htdemucs_6s (~80 MB) on first use.
+The wheels hold only our two packages (taber-ir, taber-ml), with the Basic Pitch onset model and the
+string classifier inside taber-ml. Everything else (pesto-pitch, torchcrepe, demucs, beat-this,
+onnxruntime...) comes from PyPI, so the notebook needs Internet ON. PESTO and CREPE ship their weights
+inside the pip packages; Demucs downloads htdemucs_6s (~80 MB) and Beat This! its final0 checkpoint
+(~78 MB) on first use.
 """
 import glob
 import os
@@ -18,7 +20,7 @@ def install() -> None:
         sys.exit(f"no wheels in {WHEELS}: attach the 'taber-wheels' dataset to this notebook")
     # do not touch Kaggle's torch/numpy: they satisfy our unpinned requirements
     cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--find-links", WHEELS,
-           "taber-ir", "taber-ml", "pesto-pitch", "torchcrepe", "demucs", "mediapipe", "opencv-python-headless"]
+           "taber-ir", "taber-ml", "pesto-pitch", "torchcrepe", "demucs", "beat-this", "mediapipe", "opencv-python-headless"]
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True)
 

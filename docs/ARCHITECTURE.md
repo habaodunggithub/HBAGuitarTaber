@@ -1566,3 +1566,53 @@ distortion), nên chỉ là mức trần, **chưa phải độ chính xác trên
   tối đa ~0.5%. Lỗi chính là **bỏ sót nốt (2 059)** và **nốt thừa (1 037, 83% trong số đó nằm trong gam)**, gam không phân biệt được.
 - Quyết định: **giữ mặc định tắt** (`scale_snap = scale_prune_conf = 0`). Tone vẫn được dò và báo trong `QualityReport.key`, hiện ở đầu bản tab. Có thể dùng
   cho khoá nhạc (key signature) khi xuất, hoặc bật lại prior nếu bản thu của bạn bám gam chặt hơn GuitarSet (vd. rock pentatonic) — đo bằng `key_study.py`.
+
+### Lộ trình cải thiện độ chính xác (rev 7, pipeline 0.2)
+
+Cách đo: mọi tham số được tune hoặc train trên GuitarSet người chơi 00–03. Người chơi 04 dùng để chọn checkpoint và trọng số. Số liệu dưới đây lấy trên các bộ **không dùng để chọn gì cả**: GuitarSet người chơi 05 (guitar thùng) và **IDMT-SMT-Guitar** dataset2, gồm 189 lick, 3 393 nốt, chơi trên Strat, Les Paul và Aristides. IDMT chỉ dùng để đo, vì giấy phép CC BY-NC-ND không cho tạo sản phẩm phái sinh. Chỉ số chính là **"đúng hết"**: tỉ lệ nốt thật có cả cao độ, dây và phím đúng, trong đó nốt bị sót tính là sai (`ml/eval/roadmap_study.py`).
+
+| | GuitarSet 05: Note F1 / đúng hết | IDMT guitar điện: Note F1 / đúng hết |
+|---|---|---|
+| Trước (0.1): cắt nốt theo f0, chọn dây chỉ bằng luật | 0.895 / 59.1% | 0.652 / 21.5% |
+| + onset học được (Basic Pitch) | 0.933 / 66.3% | 0.814 / 28.6% |
+| + bộ phân loại dây (0.2) | 0.933 / **76.6%** | 0.814 / **39.3%** |
+
+Trên IDMT, bản 0.2 vẫn còn **25.7% nốt bị sót và 16% nốt thừa**. 34.5% nốt trong các lick ngân chồng lên nốt trước (let ring, double stop), mà pipeline đơn âm bắt không đủ. Nhãn của IDMT đặt onset sớm hơn quy ước của GuitarSet khoảng 30 ms. Trừ đi độ trễ cố định của từng phương pháp thì F1 trên IDMT là 0.757 → 0.828.
+
+**1. Bộ test của chính bạn và vòng dữ liệu.**
+- Editor có thêm ba thao tác: **xoá nốt** (Delete), **đổi cao độ** (Shift+↑/↓, ±quãng tám) và **thêm nốt bị sót tại đầu phát** (N). Khi thêm nốt, slot dưới đầu phát được tách đôi cho đến khi có một slot bắt đầu cách đó dưới 40 ms.
+- Các sửa đổi này **được giữ khi lắp ráp lại** (`taber_ir/edits.py`):
+  - `Score.deleted_note_ids` ghi các nốt đã xoá;
+  - nốt có `note_id` của Analysis nhưng khác cao độ là nốt đã đổi cao độ;
+  - nốt thêm tay mang id bắt đầu bằng `u`.
+- Nút **Test set** lưu bản đang mở vào `data/truth/<id>/`, gồm `truth.json`, bản sao audio và Analysis của máy (`taber_ir/truth.py`). Nốt máy đã bắt giữ thời điểm đo được; nốt thêm tay lấy thời điểm theo lưới phách, nên được so với ngưỡng rộng hơn (120 ms thay vì 50 ms).
+- `just truth-eval` chạy lại pipeline trên từng bài và **xếp mỗi nốt vào đúng một loại lỗi**: đúng hết, sai vị trí, sai cao độ (quãng tám), sót, thừa (`taber_ml/eval.py: truth_report`). `--stored` chấm Analysis đã lưu mà không chạy model.
+- Thư mục này tự chứa đủ dữ liệu, nên nén lại là thành Kaggle Dataset được ngay.
+
+**2. Onset học được (Stage 3b).**
+- Chỉ dùng file `basic_pitch_nmp.onnx` (Apache-2.0, 230 kB) qua onnxruntime trên CPU. Gói `basic-pitch` bắt buộc TensorFlow 2.15, vốn không chạy được với numpy 2. Phần chia cửa sổ được viết lại, thời điểm tính theo vị trí mẫu thật của từng cửa sổ. Tốc độ khoảng 0.1 s cho 25 s audio.
+- Model **không thay** PESTO. Nó quyết định chỗ tách nốt lặp cùng cao độ, cứu lại nốt ngắn hoặc nốt yếu, và thêm nốt mà f0 bỏ qua (`bp_add`).
+- Model cũng phát onset khi cao độ trượt, nên chỉ tin onset của nó khi **cao độ phẳng ở cả hai phía** và **có tiếng gảy** (click dải cao hoặc năng lượng tăng). Độ kích hoạt được tính **dọc theo cao độ đang kêu**, nên bend và vibrato không bị loại nhầm.
+- Các ngưỡng `bp_*` được tune bằng Optuna trên GuitarSet 00–03 (`ml/eval/onset_study.py`). Không có onnxruntime thì segmenter lùi về chế độ cũ với tham số cũ.
+- **Lưu ý:** Basic Pitch đã train trên khoảng 80% GuitarSet chọn ngẫu nhiên, nên số đo trên GuitarSet có lợi cho nó. IDMT mới là phép thử công bằng.
+
+**3. Bộ phân loại dây (`taber_ml/strings.py`).**
+- Model là CNN khoảng 58k tham số. Đầu vào là patch CQT dài khoảng 280 ms từ onset, **căn theo cao độ** (tần số cơ bản luôn nằm ở cùng một hàng, nên chỉ còn âm sắc), cộng thêm cao độ của nốt.
+- Train trên GuitarSet 00–03 (CC BY 4.0), mỗi bài có thêm ba biến thể "amp": tanh drive, low-pass kiểu loa cabinet, EQ (`ml/train/string_classifier.py`).
+- Kết quả gán vào `NoteEvent.string_probs`, và Viterbi cộng `−w_audio·log p` với `w_audio = 0.3`. Giá trị này chọn trên người chơi 04, trong vùng phẳng 0.2–0.35.
+- Đo trên nốt chuẩn (`ml/eval/string_study.py`), đúng dây+phím:
+  - GuitarSet 05: 67.8% → **83.0%**;
+  - IDMT: 39.9% → **52.9%**.
+- Riêng bộ phân loại chỉ đạt 47% trên guitar điện, so với 73% trên guitar thùng, nên vẫn còn khoảng cách miền.
+- Bản train thêm các bài comp phân loại guitar điện tốt hơn (55%), nhưng thua trên validation (86.1% so với 87.4%), nên không chọn.
+
+**4. Nhịp (Beat This!).**
+- Dùng `beat-this` 1.1 (MIT), checkpoint `final0` tải ở lần chạy đầu. Model được nạp một lần qua `ModelRegistry`, và số phách mỗi ô nhịp lấy từ downbeat.
+- Nó hay bỏ trống phách khi guitar nghỉ, nên `fill_gaps()` chèn lại các phách đó. Nếu không, bước lắp ráp hiểu một phách bị bỏ thành một phách dài gấp đôi. Ngưỡng ổn định là CV < 0.20.
+- Trên solo GuitarSet (chỉ có guitar): beat F tăng 0.449 → 0.510, tempo đúng 70% → 84%, có lưới ở 78% số bài. Số này có lợi cho Beat This!, vì nó train cả trên GuitarSet.
+- Trên các lick tổng hợp có backing: F tăng 0.942 → 0.981 (`ml/eval/beat_study.py`).
+
+**Tiếp theo.**
+- Thu 10–20 bài guitar điện của bạn và đưa vào Test set. `just truth-eval` sẽ cho biết loại lỗi nào còn nhiều nhất trên đúng tiếng đàn của bạn.
+- Khi bộ test đủ lớn: fine-tune bộ phân loại dây trên dữ liệu đó, đây là cách thu hẹp khoảng cách miền tốt nhất, và tune lại các ngưỡng `bp_*`.
+- Nốt chồng (let ring) cần chế độ đa âm.

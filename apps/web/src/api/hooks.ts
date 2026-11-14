@@ -8,6 +8,7 @@ export const keys = {
   list: ['transcriptions'] as const,
   workers: ['workers'] as const,
   revisions: (id: string) => ['revisions', id] as const,
+  truth: (id: string) => ['truth', id] as const,
 };
 
 export const useTranscription = (id: string) =>
@@ -25,6 +26,16 @@ export const useWorkers = () =>
 
 export const useRevisions = (id: string, enabled = true) =>
   useQuery({ queryKey: keys.revisions(id), enabled, queryFn: ({ signal }) => api.revisions(id, signal) });
+
+/** Whether this take is in your test set, and the actions to add, refresh or remove it. */
+export function useTruth(id: string) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: keys.truth(id), queryFn: ({ signal }) => api.truth(id, signal) });
+  const set = (v: Awaited<ReturnType<typeof api.truth>>) => qc.setQueryData(keys.truth(id), v);
+  const save = useMutation({ mutationFn: () => api.saveTruth(id), onSuccess: set });
+  const remove = useMutation({ mutationFn: () => api.deleteTruth(id), onSuccess: () => set(null) });
+  return { info: q.data ?? null, save, remove };
+}
 
 /** Replaces the cached transcription with the server's answer and refreshes revision history. */
 function useApply(id: string) {

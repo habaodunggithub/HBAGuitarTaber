@@ -1,0 +1,11 @@
+GuitarSet 05 (acoustic): 30 takes, 2179 notes
+  before (0.1)         F1 0.895  TDR 0.656 | missed  11.2%  wrong pitch  0.8% (octave 0)  extra  7.7%  all right 59.1%
+  + onsets             F1 0.933  TDR 0.710 | missed   6.4%  wrong pitch  0.5% (octave 0)  extra  5.6%  all right 66.3%
+  + onsets + strings (0.2) F1 0.933  TDR 0.816 | missed   6.4%  wrong pitch  0.5% (octave 0)  extra  5.6%  all right 76.6%
+IDMT licks (electric, unseen): 189 takes, 3393 notes
+  before (0.1)         F1 0.652  TDR 0.342 | missed  40.1%  wrong pitch  4.5% (octave 14)  extra 22.0%  all right 21.5%
+  before (0.1) [latency +42 ms removed] F1 0.757  TDR 0.350 | missed  32.3%  wrong pitch  3.4% (octave 11)  extra 14.1%  all right 25.2%
+  + onsets             F1 0.814  TDR 0.374 | missed  25.7%  wrong pitch  2.0% (octave 8)  extra 16.0%  all right 28.6%
+  + onsets [latency +25 ms removed] F1 0.828  TDR 0.373 | missed  24.3%  wrong pitch  1.7% (octave 12)  extra 14.6%  all right 29.3%
+  + onsets + strings (0.2) F1 0.814  TDR 0.552 | missed  25.7%  wrong pitch  2.0% (octave 8)  extra 16.0%  all right 39.3%
+  + onsets + strings (0.2) [latency +25 ms removed] F1 0.828  TDR 0.552 | missed  24.3%  wrong pitch  1.7% (octave 12)  extra 14.6%  all right 40.0%

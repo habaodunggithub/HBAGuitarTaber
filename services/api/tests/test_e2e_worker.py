@@ -179,3 +179,11 @@ def test_idle_exit(server, tmp_path):
     t0 = time.time()
     w.run_forever()  # no jobs: must return by itself (saves Kaggle quota)
     assert 0.4 < time.time() - t0 < 5
+
+
+def test_api_cache_key_version_follows_the_pipeline():
+    """The API keys its analysis cache on pipeline_version: it must move with the worker's pipeline."""
+    from app.config import Settings
+    from taber_ml.pipeline import PIPELINE_VERSION
+
+    assert Settings().pipeline_version == PIPELINE_VERSION

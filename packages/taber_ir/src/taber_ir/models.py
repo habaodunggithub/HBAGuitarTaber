@@ -57,6 +57,7 @@ class VideoCalibration(BaseModel):
 class AnalysisOptions(BaseModel):  # changing these requires re-running analysis
     mode: Literal["monophonic", "allow_double_stops"] = "monophonic"
     segmenter: Literal["auto", "basic_pitch", "f0_first"] = "auto"
+    string_model: Literal["auto", "on", "off"] = "auto"  # timbre classifier -> NoteEvent.string_probs
     separate_source: Literal["auto", "on", "off"] = "auto"
     tone: Literal["clean", "distortion_light", "high_gain"] = "distortion_light"
     detect_techniques: bool = True
@@ -165,3 +166,4 @@ class Score(BaseModel):
     assembly_params: AssemblyParams = Field(default_factory=AssemblyParams)
     measures: list[Measure] = Field(default_factory=list)
     sync_points: list[SyncPoint] = Field(default_factory=list)
+    deleted_note_ids: list[str] = Field(default_factory=list)  # analysis notes the user removed (kept on re-assembly)

@@ -1,0 +1,26 @@
+{
+ "librosa / GuitarSet solos (seen by Beat This!)": {
+  "takes": 180,
+  "grid": 1.0,
+  "F": 0.4487223573718104,
+  "tempo": 0.7
+ },
+ "librosa / synthetic licks (unseen)": {
+  "takes": 6,
+  "grid": 1.0,
+  "F": 0.9422084623323014,
+  "tempo": 1.0
+ },
+ "beat_this / GuitarSet solos (seen by Beat This!)": {
+  "takes": 180,
+  "grid": 0.7777777777777778,
+  "F": 0.5097580367314316,
+  "tempo": 0.8388888888888889
+ },
+ "beat_this / synthetic licks (unseen)": {
+  "takes": 6,
+  "grid": 1.0,
+  "F": 0.9814241486068113,
+  "tempo": 1.0
+ }
+}

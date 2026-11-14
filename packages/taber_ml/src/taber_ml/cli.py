@@ -199,18 +199,75 @@ def cmd_eval(a: argparse.Namespace) -> int:
     if not rows:
         print("no *.tab.json found (with matching .wav)", file=sys.stderr)
         return 1
+    _print_table(rows)
+    mean = lambda k: sum(r[k] for r in rows) / len(rows)  # noqa: E731
+    print(f"\nmean note_f1={mean('note_f1'):.3f}  tab_acc={mean('tab_acc'):.3f}  rhythm_acc={mean('rhythm_acc'):.3f}")
+    _write_csv(rows, a.csv)
+    return 0
+
+
+def _print_table(rows: list[dict]) -> None:
     cols = list(rows[0])
     widths = {c: max(len(c), *(len(str(r[c])) for r in rows)) for c in cols}
     print("  ".join(c.ljust(widths[c]) for c in cols))
     for r in rows:
         print("  ".join(str(r[c]).ljust(widths[c]) for c in cols))
-    mean = lambda k: sum(r[k] for r in rows) / len(rows)  # noqa: E731
-    print(f"\nmean note_f1={mean('note_f1'):.3f}  tab_acc={mean('tab_acc'):.3f}  rhythm_acc={mean('rhythm_acc'):.3f}")
-    if a.csv:
-        with open(a.csv, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=cols)
+
+
+def _write_csv(rows: list[dict], path: str | None) -> None:
+    if path:
+        with open(path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0]))
             w.writeheader()
             w.writerows(rows)
+
+
+def cmd_truth_eval(a: argparse.Namespace) -> int:
+    """Measure the pipeline on takes you checked in the editor (data/truth/<id>/truth.json)."""
+    from taber_ir.truth import TruthTake
+
+    from .eval import truth_report
+
+    root = Path(a.dir)
+    folders = sorted(p.parent for p in root.glob("*/truth.json"))
+    if not folders:
+        print(f"no */truth.json under {root} (mark a checked tab in the editor first)", file=sys.stderr)
+        return 1
+    models = None if a.stored else ModelRegistry()
+    rows, totals = [], {}
+    for d in folders:
+        take = TruthTake.model_validate_json((d / "truth.json").read_text(encoding="utf-8"))
+        if a.stored:
+            an = load_analysis(d / "analysis.json.gz")
+        else:
+            inputs = {r: str(d / f) for r, f in take.inputs.items() if r in ("wet", "di")}
+            o = dict(take.analysis_options)
+            if a.segmenter:
+                o["segmenter"] = a.segmenter
+            if a.strings:
+                o["string_model"] = a.strings
+            if "video" in take.inputs and o.get("use_video") and not a.no_video:
+                inputs["video"] = str(d / take.inputs["video"])
+            else:
+                o["use_video"], o["video_calibration"] = False, None
+            opts = AnalysisOptions(**o)
+            an = run_analysis(JobSpec(options=opts, inputs=inputs, tracker=a.tracker), LocalDirIO(inputs), models)
+        use_tempo = a.use_tempo and take.tempo_bpm
+        params = AssemblyParams(tuning=take.tuning, timing="grid_from_hint" if use_tempo else "auto",
+                                tempo_hint_bpm=take.tempo_bpm if use_tempo else None)
+        score = assemble(an, params)
+        rep = truth_report(take.notes, an.notes, score)
+        for k in ("n_ref", "n_est", "correct", "wrong_position", "wrong_pitch", "octave", "missed", "extra"):
+            totals[k] = totals.get(k, 0) + rep[k]
+        rows.append({"take": (take.title or d.name)[:28], **{
+            k: (round(v, 3) if isinstance(v, float) else v) for k, v in rep.items()}})
+    _print_table(rows)
+    t = totals
+    print(f"\n{len(rows)} take(s), {t['n_ref']} reference notes:")
+    print(f"  right pitch+string+fret {t['correct'] / t['n_ref']:.1%}   right pitch, wrong place {t['wrong_position'] / t['n_ref']:.1%}")
+    print(f"  wrong pitch {t['wrong_pitch'] / t['n_ref']:.1%} (octave {t['octave']})   missed {t['missed'] / t['n_ref']:.1%}"
+          f"   extra notes {t['extra']} ({t['extra'] / t['n_ref']:.1%} of the reference count)")
+    _write_csv(rows, a.csv)
     return 0
 
 
@@ -329,6 +386,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timing", choices=["auto", "grid_from_hint", "user_tapped", "free"], default="auto")
     p.add_argument("--use-tempo", action="store_true", help="give the true tempo as a hint")
     p.set_defaults(fn=cmd_eval)
+
+    p = sub.add_parser("truth-eval", help="evaluate on your checked takes (data/truth): where are the errors?")
+    p.add_argument("dir", nargs="?", default="data/truth")
+    p.add_argument("--stored", action="store_true", help="score the analysis saved with each take (no re-run)")
+    p.add_argument("--segmenter", choices=["auto", "f0_first", "basic_pitch"], default=None)
+    p.add_argument("--strings", choices=["auto", "on", "off"], default=None, help="string classifier")
+    p.add_argument("--tracker", choices=["auto", "pyin", "pesto", "crepe"], default="auto")
+    p.add_argument("--no-video", action="store_true")
+    p.add_argument("--use-tempo", action="store_true", help="give the tempo of the checked tab as a hint")
+    p.add_argument("--csv", default=None)
+    p.set_defaults(fn=cmd_truth_eval)
     return ap
 
 

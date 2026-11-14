@@ -22,7 +22,7 @@ from .audio.segment import F0FirstSegmenter, Segmentation
 from .audio.separation import separate_file
 from .models import ModelRegistry
 
-PIPELINE_VERSION = "0.1.0"
+PIPELINE_VERSION = "0.2.0"  # 0.2: Basic Pitch onsets + string classifier
 STAGES = ["ingest", "separation", "beats", "f0", "segment", "video", "quality"]
 
 
@@ -109,7 +109,10 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
 
     # ── 2. beats ──
     t0 = stage("beats", 2, "Detecting the beat")
-    grid = get_beat_tracker(spec.beat_tracker).track(beat_audio, spec.tempo_hint_bpm)
+    beat_tracker = models.get(f"beats:{spec.beat_tracker}", lambda: get_beat_tracker(spec.beat_tracker))
+    grid = beat_tracker.track(beat_audio, spec.tempo_hint_bpm)
+    if models.small_gpu:
+        models.release(f"beats:{spec.beat_tracker}")
     if not grid.beats_s:
         warnings.append("No steady beat found; enter a tempo or tap the beat.")
     timings["beats"] = time.perf_counter() - t0
@@ -120,20 +123,38 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     f0 = tracker.track(seg_audio.y, seg_audio.sr)
     timings["f0"] = time.perf_counter() - t0
 
-    # ── 3b/4. segmentation + techniques ──
+    # ── 3b/4. segmentation + techniques: the onset model (Basic Pitch) decides where notes start ──
     t0 = stage("segment", 4, "Finding notes and techniques")
-    if opts.segmenter == "basic_pitch":
-        warnings.append("basic_pitch is not installed; using f0_first.")
-    segmenter = F0FirstSegmenter()
-    seg: Segmentation = segmenter.segment(seg_audio, f0, detect_techniques=opts.detect_techniques)
+    posteriors = None
+    if opts.segmenter != "f0_first":
+        try:
+            posteriors = models.get_onset_model().run(seg_audio.y, seg_audio.sr)
+        except ImportError:
+            if opts.segmenter == "basic_pitch":
+                warnings.append("onnxruntime is not installed, so the onset model was not used. Run just setup to install it.")
+    segmenter = F0FirstSegmenter(onset_model=posteriors is not None)
+    seg: Segmentation = segmenter.segment(seg_audio, f0, detect_techniques=opts.detect_techniques, posteriors=posteriors)
     # key from the first pass; a second pass with the scale prior runs only if SegmentParams enables it
     key = detect_key(seg.notes)
     key_report: dict | None = None
     if key is not None:
         prior = segmenter.p.scale_snap > 0 or segmenter.p.scale_prune_conf > 0
         if prior:
-            seg = segmenter.segment(seg_audio, f0, detect_techniques=opts.detect_techniques, scale=key.scale)
+            seg = segmenter.segment(seg_audio, f0, detect_techniques=opts.detect_techniques, scale=key.scale, posteriors=posteriors)
         key_report = {"name": key.name, "tonic": key.tonic, "mode": key.mode, "margin": round(key.margin, 3), "scale_prior": prior}
+    # which string: a timbre classifier gives P(string) per note, the assembly's Viterbi weighs it in
+    string_model: str | None = None
+    if opts.string_model != "off" and seg.notes:
+        from . import strings
+
+        if strings.available():
+            clf = models.get_string_classifier()
+            probs = clf.predict(seg_audio.y, seg_audio.sr, [n.onset_s for n in seg.notes], [n.pitch_midi for n in seg.notes])
+            for n, pr in zip(seg.notes, probs):
+                n.string_probs = [round(float(x), 4) for x in pr]
+            string_model = f"{clf.name}@{clf.version}"
+        elif opts.string_model == "on":
+            warnings.append("The string classifier needs torch (just setup); strings were chosen from hand movement only.")
     timings["segment"] = time.perf_counter() - t0
 
     # ── quality ──
@@ -195,7 +216,9 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
             "pipeline_version": PIPELINE_VERSION,
             "options": opts.model_dump(),
             "pitch_tracker": f0.name,
+            "beat_tracker": beat_tracker.name,
             "segmenter": segmenter.name,
+            "string_model": string_model,
             "device": models.device,
             "duration_s": round(seg_audio.duration_s, 2),
             "inputs": sorted(spec.inputs),

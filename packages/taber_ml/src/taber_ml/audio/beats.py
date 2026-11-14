@@ -1,8 +1,9 @@
 """Stage 2: beat / downbeat / tempo (docs §4.2).
 
-librosa tracker as the always-available baseline; Beat This! if installed. Solo guitar
-without drums gives unreliable beats, so an unstable result returns an empty grid and the
-assembly phase falls back to hint / free timing instead of trusting garbage.
+Beat This! (CPJKU, ISMIR 2024, MIT; the ``final0`` checkpoint is downloaded on first use) when
+installed, librosa otherwise. Solo guitar without drums gives unreliable beats, so an unstable
+result returns an empty grid and the assembly phase falls back to hint / free timing instead of
+trusting garbage. Measured in ml/eval/beat_study.py.
 """
 
 from __future__ import annotations
@@ -15,11 +16,41 @@ from .ingest import Audio
 HOP = 256
 
 
-def _stable(beats: np.ndarray) -> bool:
+def _stable(beats: np.ndarray, max_cv: float = 0.10) -> bool:
     if len(beats) < 8:
         return False
     iv = np.diff(beats)
-    return bool(np.std(iv) / np.mean(iv) < 0.10)
+    return bool(np.std(iv) / np.mean(iv) < max_cv)
+
+
+def fill_gaps(beats: np.ndarray, tol: float = 0.25) -> np.ndarray:
+    """Make a beat list steady: where the tracker skipped beats (guitar resting, a held note) an
+    interval of ~k periods gets k-1 evenly spaced beats; a beat closer than half a period to the
+    previous kept one is dropped. Without this, the assembly reads a skipped beat as one beat twice
+    as long and halves the rhythm of that passage."""
+    beats = np.asarray(beats, dtype=float)
+    if len(beats) < 4:
+        return beats
+    period = float(np.median(np.diff(beats)))
+    out = [beats[0]]
+    for b in beats[1:]:
+        r = (b - out[-1]) / period
+        if r < 0.5:
+            continue
+        k = int(round(r))
+        if k >= 2 and abs(r - k) <= tol * k:
+            out.extend(out[-1] + (b - out[-1]) * np.arange(1, k) / k)
+        out.append(b)
+    return np.array(out)
+
+
+def _beats_per_bar(beats: np.ndarray, downbeats: np.ndarray, default: int = 4) -> int:
+    """Median number of beats between consecutive downbeats (2, 3, 4 or 6), else ``default``."""
+    if len(downbeats) < 3:
+        return default
+    counts = [int(np.sum((beats >= a - 1e-3) & (beats < b - 1e-3))) for a, b in zip(downbeats[:-1], downbeats[1:])]
+    m = int(np.median(counts))
+    return m if m in (2, 3, 4, 6) else default
 
 
 class LibrosaBeatTracker:
@@ -50,25 +81,27 @@ class LibrosaBeatTracker:
 
 class BeatThisTracker:
     name = "beat_this"
+    max_cv = 0.20  # after fill_gaps; on GuitarSet solos: 80% of takes get a grid (beat F 0.65 on those)
 
-    def __init__(self, device: str | None = None):
-        self.device = device
-
-    def track(self, audio: Audio, tempo_hint: float | None = None, beats_per_bar: int = 4) -> BeatGrid:
+    def __init__(self, device: str | None = None, checkpoint: str = "final0"):
         import torch
         from beat_this.inference import Audio2Beats
 
-        dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
-        a2b = Audio2Beats(checkpoint_path="final0", device=dev, dbn=False)
-        beats, downbeats = a2b(audio.y, audio.sr)
-        beats = np.asarray(beats, dtype=float)
-        if not _stable(beats):
-            return BeatGrid()
+        dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.a2b = Audio2Beats(checkpoint_path=checkpoint, device=dev, dbn=False)
+
+    def track(self, audio: Audio, tempo_hint: float | None = None, beats_per_bar: int = 4) -> BeatGrid:
+        beats, downbeats = self.a2b(np.asarray(audio.y, dtype=np.float32), audio.sr)
+        beats, downbeats = fill_gaps(np.asarray(beats, dtype=float)), np.asarray(downbeats, dtype=float)
+        tempo = round(float(60.0 / np.median(np.diff(beats))), 1) if len(beats) > 1 else None
+        if not _stable(beats, self.max_cv):
+            return BeatGrid(tempo_bpm=tempo)
+        bpb = _beats_per_bar(beats, downbeats, beats_per_bar)
         return BeatGrid(
             beats_s=[round(float(b), 4) for b in beats],
             downbeats_s=[round(float(b), 4) for b in downbeats],
-            time_signature="4/4",
-            tempo_bpm=round(float(60.0 / np.median(np.diff(beats))), 1),
+            time_signature=f"{bpb}/4",
+            tempo_bpm=tempo,
         )
 
 

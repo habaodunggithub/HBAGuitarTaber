@@ -112,8 +112,14 @@ def assemble(
     analysis_id: str = "",
 ) -> Score:
     params = params or AssemblyParams()
+    deleted: list[str] = []
+    if previous is not None and (not previous.analysis_id or not analysis_id or previous.analysis_id == analysis_id):
+        from .edits import apply_edits
+
+        analysis = apply_edits(analysis, previous)  # deleted / added / re-pitched notes survive
+        deleted = list(previous.deleted_note_ids)
     notes = sorted(analysis.notes, key=lambda n: (n.onset_s, n.pitch_midi))
-    score = Score(title=title, analysis_id=analysis_id, assembly_params=params)
+    score = Score(title=title, analysis_id=analysis_id, assembly_params=params, deleted_note_ids=deleted)
     if not notes:
         return score
 

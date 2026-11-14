@@ -4,10 +4,13 @@ import {
   altPositions,
   chainHead,
   cyclePosition,
+  deleteNote,
   getNote,
+  insertNoteAt,
   measureRange,
   setLocked,
   setPosition,
+  shiftPitch,
   stepLoc,
   type Score,
 } from './scoreOps';
@@ -136,5 +139,50 @@ describe('timeline', () => {
     expect(bpmFromTaps([0, 0.5, 1.0, 1.5, 2.0])).toBe(120);
     expect(bpmFromTaps([0, 0.5, 1.0, 1.7, 2.2, 2.7])).toBe(120); // one sloppy tap
     expect(bpmFromTaps([0, 1])).toBeNull();
+  });
+});
+
+
+describe('note corrections', () => {
+  it('deletes a note with its tie and remembers the analysis id', () => {
+    const s = deleteNote(makeScore(), { m: 0, s: 1, n: 0 });
+    expect(s.measures[0]!.slots[1]!.notes).toEqual([]);
+    expect(s.measures[1]!.slots[0]!.notes).toEqual([]);
+    expect(s.deleted_note_ids).toEqual(['n']);
+  });
+
+  it('shifts pitch along the tie chain, staying on the string', () => {
+    const s = shiftPitch(makeScore(), { m: 1, s: 0, n: 0 }, 12)!;
+    for (const n of [s.measures[0]!.slots[1]!.notes[0]!, s.measures[1]!.slots[0]!.notes[0]!]) {
+      expect([n.pitch_midi, n.string, n.fret]).toEqual([76, 2, 17]);
+    }
+    expect(s.measures[0]!.slots[1]!.notes[0]!.locked).toBe(true);
+    expect(shiftPitch(makeScore(), { m: 0, s: 1, n: 0 }, 40)).toBeNull();
+  });
+
+  it('adds a missed note inside a rest, on the grid next to the playhead', () => {
+    const r = insertNoteAt(makeScore(), 0.5)!;
+    expect(r.added).toBe(true);
+    const slots = r.score.measures[0]!.slots;
+    expect(slots.map((x) => [x.duration, x.start_s])).toEqual([['1/4', 0], ['1/4', 0.5], ['1/2', 1]]);
+    const n = getNote(r.score, r.loc)!;
+    expect(r.loc).toEqual({ m: 0, s: 1, n: 0 });
+    expect(n.note_id?.startsWith('u')).toBe(true);
+    expect(n.locked).toBe(true);
+  });
+
+  it('adds a re-picked note where a held note was ringing', () => {
+    const r = insertNoteAt(makeScore(), 2.5)!;
+    const slots = r.score.measures[1]!.slots;
+    expect(slots.map((x) => x.start_s)).toEqual([2, 2.5, 3]);
+    expect(slots[0]!.notes[0]!.tie_from_prev).toBe(true);
+    const n = slots[1]!.notes[0]!;
+    expect([n.pitch_midi, n.string, n.fret, n.tie_from_prev]).toEqual([64, 2, 5, false]);
+  });
+
+  it('does not add a second note where one is already struck', () => {
+    const r = insertNoteAt(makeScore(), 1.01)!;
+    expect(r.added).toBe(false);
+    expect(r.loc).toEqual({ m: 0, s: 1, n: 0 });
   });
 });

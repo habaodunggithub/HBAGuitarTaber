@@ -1,0 +1,4 @@
+librosa    GuitarSet solos (seen by Beat This!)    180 takes | grid 100%  F 0.449  tempo 70%
+librosa    synthetic licks (unseen)                  6 takes | grid 100%  F 0.942  tempo 100%
+beat_this  GuitarSet solos (seen by Beat This!)    180 takes | grid 78%  F 0.510  tempo 84%
+beat_this  synthetic licks (unseen)                  6 takes | grid 100%  F 0.981  tempo 100%

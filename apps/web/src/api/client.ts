@@ -1,5 +1,5 @@
 import { ApiError, getJSON, sendJSON } from './http';
-import type { AssetInfo, CreateTranscription, ReassembleIn, RevisionInfo, Score, Transcription, Worker } from './types';
+import type { AssetInfo, CreateTranscription, ReassembleIn, RevisionInfo, Score, Transcription, TruthInfo, Worker } from './types';
 
 /** Every endpoint the SPA calls, in one place: components never build `/api/v1` URLs themselves. */
 const V = '/api/v1';
@@ -27,6 +27,9 @@ export const api = {
   analyseWithVideo: (id: string, calibration: { t_s: number; points: [number, number][]; fret_a: number; fret_b: number }) =>
     sendJSON<{ job_id: string }>('POST', `${V}/transcriptions/${id}/video`, { calibration }),
   cancelJob: (jobId: string) => sendJSON('POST', `${V}/jobs/${jobId}/cancel`),
+  truth: (id: string, signal?: AbortSignal) => getJSON<TruthInfo | null>(`${V}/transcriptions/${id}/truth`, signal),
+  saveTruth: (id: string) => sendJSON<TruthInfo>('PUT', `${V}/transcriptions/${id}/truth`),
+  deleteTruth: (id: string) => sendJSON<void>('DELETE', `${V}/transcriptions/${id}/truth`),
 
   /** alphaTex of a (possibly unsaved) score, for the live score view. */
   alphatex: async (score: Score, signal?: AbortSignal) => {

@@ -23,7 +23,7 @@ async function parse<T>(r: Response): Promise<T> {
 
 export const getJSON = <T>(url: string, signal?: AbortSignal) => fetch(url, { signal }).then((r) => parse<T>(r));
 
-export const sendJSON = <T>(method: 'POST' | 'PUT' | 'PATCH', url: string, body?: unknown) =>
+export const sendJSON = <T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, body?: unknown) =>
   fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },

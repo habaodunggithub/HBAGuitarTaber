@@ -51,6 +51,13 @@ synth-eval:
 eval DIR="ml/eval/synthetic" *ARGS="":
     uv run --no-sync taber eval {{DIR}} --csv ml/eval/results.csv {{ARGS}}
 
+# metrics on YOUR checked takes (Test set button in the editor): where does the app go wrong?
+#   just truth-eval                      re-transcribe every take with the current pipeline
+#   just truth-eval --stored             score the analysis saved with each take (no models)
+#   just truth-eval --strings off        compare: without the string classifier
+truth-eval *ARGS:
+    uv run --no-sync taber truth-eval data/truth {{ARGS}}
+
 test-py:
     uv run --no-sync pytest packages services -q
 

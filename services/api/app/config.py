@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     lease_seconds: int = 120
     reaper_interval_s: float = 30.0
     max_attempts: int = 2  # 1 retry
-    pipeline_version: str = "0.1.0"
+    pipeline_version: str = "0.2.0"  # keep equal to taber_ml.pipeline.PIPELINE_VERSION: part of the analysis cache key
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @property

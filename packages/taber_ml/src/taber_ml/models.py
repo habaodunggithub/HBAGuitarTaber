@@ -66,5 +66,17 @@ class ModelRegistry:
 
         return self.get("hands", MediaPipeHands)
 
+    def get_onset_model(self):
+        import onnxruntime  # noqa: F401  - ImportError here means "not installed"
+
+        from .audio.onsets import BasicPitchOnsets
+
+        return self.get("onsets", BasicPitchOnsets)
+
+    def get_string_classifier(self):
+        from .strings import StringClassifier
+
+        return self.get("strings", StringClassifier)
+
     def get_tracker(self, name: str = "auto"):
         return self.get(f"tracker:{name}", lambda: get_tracker(name))

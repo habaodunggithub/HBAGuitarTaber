@@ -1,0 +1,44 @@
+features: train 48392 patches, val 5168 (85s)
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+epoch  1  loss 1.086  val string acc 0.448
+epoch  2  loss 0.812  val string acc 0.581
+epoch  3  loss 0.642  val string acc 0.593
+epoch  4  loss 0.545  val string acc 0.670
+epoch  5  loss 0.478  val string acc 0.450
+epoch  6  loss 0.459  val string acc 0.704
+epoch  7  loss 0.405  val string acc 0.762
+epoch  8  loss 0.360  val string acc 0.651
+epoch  9  loss 0.351  val string acc 0.719
+epoch 10  loss 0.321  val string acc 0.708
+epoch 11  loss 0.309  val string acc 0.713
+epoch 12  loss 0.263  val string acc 0.703
+epoch 13  loss 0.238  val string acc 0.721
+epoch 14  loss 0.217  val string acc 0.694
+epoch 15  loss 0.205  val string acc 0.664
+epoch 16  loss 0.227  val string acc 0.608
+epoch 17  loss 0.222  val string acc 0.754
+epoch 18  loss 0.165  val string acc 0.676
+epoch 19  loss 0.149  val string acc 0.780
+epoch 20  loss 0.164  val string acc 0.722
+epoch 21  loss 0.128  val string acc 0.741
+epoch 22  loss 0.111  val string acc 0.763
+epoch 23  loss 0.101  val string acc 0.762
+epoch 24  loss 0.096  val string acc 0.707
+epoch 25  loss 0.113  val string acc 0.743
+epoch 26  loss 0.102  val string acc 0.767
+epoch 27  loss 0.073  val string acc 0.768
+epoch 28  loss 0.064  val string acc 0.727
+epoch 29  loss 0.056  val string acc 0.786
+epoch 30  loss 0.049  val string acc 0.773
+epoch 31  loss 0.046  val string acc 0.763
+epoch 32  loss 0.040  val string acc 0.780
+epoch 33  loss 0.037  val string acc 0.773
+epoch 34  loss 0.036  val string acc 0.775
+epoch 35  loss 0.036  val string acc 0.774
+epoch 36  loss 0.030  val string acc 0.779
+epoch 37  loss 0.027  val string acc 0.776
+epoch 38  loss 0.026  val string acc 0.773
+epoch 39  loss 0.030  val string acc 0.776
+epoch 40  loss 0.025  val string acc 0.773
+saved string_cnn_solo.pt: best val string accuracy 0.786
+{"version": "20261114", "train_players": ["00", "01", "02", "03"], "val_players": ["04"], "val_string_acc": 0.7858, "variants": ["clean", "drive", "drive_hard", "eq"], "comp": false, "data": "GuitarSet (CC BY 4.0)"}

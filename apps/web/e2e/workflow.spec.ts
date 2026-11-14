@@ -346,3 +346,72 @@ test.describe('video', () => {
     await expect(dialog).toBeHidden();
   });
 });
+
+test.describe('correcting notes and the test set', () => {
+  type Sc = { measures: { slots: { start_s: number; notes: { note_id: string | null; pitch_midi: number; tie_from_prev: boolean }[] }[] }[]; deleted_note_ids: string[] };
+  const server = async (page: import('@playwright/test').Page): Promise<Sc> => {
+    const id = page.url().split('/t/')[1];
+    return (await (await page.request.get(`/api/v1/transcriptions/${id}`)).json()).score as Sc;
+  };
+  const struck = (s: Sc) => s.measures.flatMap((m) => m.slots.flatMap((sl) => sl.notes.filter((n) => !n.tie_from_prev)));
+
+  test('change a pitch, delete a note, add a missed one; re-assembly keeps all three', async ({ page }) => {
+    await createTab(page);
+    const before = await server(page);
+    const heading = page.getByRole('region', { name: 'Note details' }).getByRole('heading', { level: 2 });
+
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight'); // second note
+    const name = await heading.textContent();
+    await page.keyboard.press('Shift+ArrowUp');
+    await expect(heading).not.toHaveText(name!);
+    const raised = await heading.textContent();
+
+    await page.keyboard.press('ArrowLeft'); // first note: not a real note, delete it
+    await page.getByTestId('delete-note').click();
+
+    // a rest on the grid: the playhead goes there and N adds a note
+    // after the raised note: a rest, or else the middle of a long held note (a missed re-pick)
+    const slots = before.measures.flatMap((m) => m.slots);
+    const second = slots.indexOf(slots.filter((sl) => sl.notes.some((n) => !n.tie_from_prev))[1]!);
+    let at = -1;
+    for (let j = second + 1; j + 1 < slots.length && at < 0; j++) {
+      const len = slots[j + 1]!.start_s - slots[j]!.start_s;
+      if (!slots[j]!.notes.length) at = slots[j]!.start_s + 0.01;
+      else if (len >= 0.25) at = slots[j]!.start_s + 0.5 * len;
+    }
+    expect(at).toBeGreaterThan(0);
+    await page.evaluate((t) => { document.querySelector('audio')!.currentTime = t; }, at);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('n');
+    await expect(page.getByTestId('position')).toBeVisible();
+    await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 10_000 });
+
+    const saved = await server(page);
+    expect(struck(saved).length).toBe(struck(before).length); // -1 deleted, +1 added
+    expect(saved.deleted_note_ids).toHaveLength(1);
+    expect(struck(saved).some((n) => n.note_id?.startsWith('u'))).toBe(true);
+
+    await page.getByText('Settings').click();
+    await page.getByRole('spinbutton', { name: 'Capo' }).fill('1');
+    await page.getByRole('button', { name: 'Apply' }).click();
+    await expect.poll(async () => (await server(page)).deleted_note_ids.length).toBe(1);
+    const after = await server(page);
+    expect(struck(after).length).toBe(struck(saved).length);
+    expect(struck(after).some((n) => n.note_id?.startsWith('u'))).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ArrowRight'); // first remaining note = the raised one
+    await expect(heading).toHaveText(raised!);
+  });
+
+  test('a checked tab goes into the test set and can be removed', async ({ page }) => {
+    await createTab(page);
+    await page.getByTestId('truth-tool').click();
+    await page.getByTestId('truth-save').click();
+    await expect(page.getByTestId('truth-state')).toContainText(/Version \d+ is in your test set: \d+ notes/);
+    await expect(page.getByTestId('truth-tool')).toContainText('In test set');
+    await page.getByRole('button', { name: 'Remove' }).click();
+    await expect(page.getByTestId('truth-tool')).toContainText('Test set');
+    await expect(page.getByTestId('truth-save')).toHaveText(/Add to my test set/);
+  });
+});

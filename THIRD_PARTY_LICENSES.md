@@ -14,6 +14,17 @@ service public (the app only imports these as unmodified libraries); `no` = must
 | torchcrepe 0.0.24 | MIT | yes | CREPE pitch tracker; weights in package |
 | demucs 4.1.0 (htdemucs_6s weights) | MIT | yes | guitar / backing separation; weights downloaded on first use |
 | torch 2.15.0 | BSD/Apache-style (see package) | yes | |
+| Basic Pitch model `nmp.onnx` (Spotify, basic-pitch 0.4.0) | Apache-2.0 | yes | note-onset model, vendored at `packages/taber_ml/src/taber_ml/weights/basic_pitch_nmp.onnx` with its LICENSE and NOTICE; only the model file is used, the windowing code is re-written |
+| onnxruntime 1.32.0 | MIT | yes | runs the Basic Pitch model |
+| beat-this 1.1.0 (+ `final0` checkpoint, downloaded on first use) | MIT | yes | beat tracker; its authors note some of its training data has restrictive licenses, to assess before going public |
+| String classifier weights `string_cnn.pt` (this project) | trained on GuitarSet, CC BY 4.0 | yes, with attribution | GuitarSet: Q. Xi, R. Bittner, J. Pauwels, X. Ye, J. P. Bello, "GuitarSet: A Dataset for Guitar Transcription", ISMIR 2018 |
+
+## Evaluation data (not shipped)
+
+| Dataset | License | Use |
+|---|---|---|
+| GuitarSet | CC BY 4.0 | evaluation, tuning, and training of the string classifier |
+| IDMT-SMT-Guitar V2 | CC BY-NC-ND 4.0 | **evaluation only** (no training, no tuning): the no-derivatives term rules out shipping anything learned from it |
 | librosa 1.0.0 | ISC | yes | |
 | mido 1.3.3, mir_eval 0.8.2, pyloudnorm 0.2.0 | MIT | yes | |
 | numpy, scipy, scikit-learn, soundfile, httpx | BSD-3-Clause | yes | |

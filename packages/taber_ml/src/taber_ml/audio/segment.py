@@ -53,6 +53,17 @@ class SegmentParams:
     scale_snap: float = 0.0  # semitones of extra distance charged to an out-of-scale pitch when rounding
     scale_prune_conf: float = 0.0  # out-of-scale notes below this confidence...
     scale_prune_s: float = 0.0  # ...and shorter than this are dropped
+    # learned onsets (Basic Pitch posteriors; used only when segment() gets them). Tuned with Optuna on
+    # GuitarSet players 00-03 (ml/eval/onset_study.py); tested on players 04-05 and IDMT-SMT-Guitar.
+    bp_repick: float = 0.68  # onset activation at the run's pitch that splits a same-pitch run
+    bp_repick_gap_s: float = 0.086
+    bp_onset_snap: float = 0.32  # onset activation above which the note starts at the model's peak
+    bp_keep_short: float = 0.75  # a note shorter than min_note_s survives if its onset is this sure...
+    bp_min_note_s: float = 0.076  # ...and it is at least this long
+    bp_keep_conf: float = 0.83  # a low-confidence pitch run survives if the note activation is this high
+    bp_drop: float = 0.34  # notes whose mean note activation stays below this are dropped (0 = off)
+    bp_add: float = 0.835  # model onsets above this with no detected note nearby become notes (> 1 = off)
+    bp_flat_semitones: float = 0.47  # the model fires on bends/slides too: trust its onsets only where the pitch is flat
 
 
 @dataclass
@@ -241,13 +252,21 @@ def _contour_stats(c: np.ndarray, hop: float, p: SegmentParams) -> dict:
 
 # ───────────────────────────── segmenter ─────────────────────────────
 class F0FirstSegmenter:
-    name = "f0_first"
+    """Notes from the PESTO pitch track. With ``posteriors`` (Basic Pitch onset/note activations,
+    audio/onsets.py), the model decides where notes start: re-picks of the same pitch, short or
+    quiet notes the pitch track alone would drop, and (if ``bp_add``) notes the pitch track missed."""
 
-    def __init__(self, params: SegmentParams | None = None):
+    def __init__(self, params: SegmentParams | None = None, onset_model: bool = False):
         self.p = params or SegmentParams()
+        self.onset_model = onset_model
+
+    @property
+    def name(self) -> str:
+        return "f0_first+basic_pitch" if self.onset_model else "f0_first"
 
     def segment(
-        self, audio: Audio, f0: F0Result, detect_techniques: bool = True, scale: frozenset[int] | None = None
+        self, audio: Audio, f0: F0Result, detect_techniques: bool = True, scale: frozenset[int] | None = None,
+        posteriors=None,
     ) -> Segmentation:
         p, hop = self.p, f0.hop_s
         t = f0.times
@@ -278,11 +297,52 @@ class F0FirstSegmenter:
             tuning_off = 0.0
         shift = tuning_off / 100.0
 
+        bpp = posteriors if self.onset_model else None
+
+        def attack_at(k: int) -> bool:
+            """A pick attack at frame k: the high-band click, or a jump in level (a bend has neither)."""
+            if _click_rise(hf_t, hf_db, float(t[k])) >= p.legato_attack_db:
+                return True
+            pre = rms_db[max(k - int(p.attack_pre_s[0] / hop), 0) : max(k - int(p.attack_pre_s[1] / hop), 1)]
+            post = rms_db[k : k + max(int(p.attack_post_s / hop), 2)]
+            return len(pre) > 0 and len(post) > 0 and float(np.max(post) - np.median(pre)) >= p.strong_attack_db
+
+        def flat_around(k: int) -> bool:
+            """A re-pick keeps the pitch on both sides of the onset; a bend, slide or whammy moves it."""
+            seg_k = m[max(k - int(0.06 / hop), 0) : k + max(int(0.02 / hop), 1) + 1]
+            seg_k = seg_k[~np.isnan(seg_k)]
+            return len(seg_k) > 0 and float(np.ptp(seg_k)) < p.bp_flat_semitones
+
+        if bpp is not None:
+            # note activation along the pitch actually sounding (follows bends, vibrato and slides)
+            fi = np.clip(np.searchsorted(bpp.times, t), 0, len(bpp.times) - 1)
+            keys = np.clip(np.round(np.nan_to_num(m - shift, nan=0.0)).astype(int) - 21, 0, 87)
+            nt_follow = np.where(np.isnan(m), np.nan, bpp.note[fi, keys])
+
+        def bp_at(pitch: float) -> tuple[np.ndarray, np.ndarray]:
+            """Model onset / note activation at this pitch, on the f0 time grid."""
+            on, nt = bpp.around(pitch, 0)
+            return np.interp(t, bpp.times, on, left=0, right=0), np.interp(t, bpp.times, nt, left=0, right=0)
+
         # 3) split runs at strong re-picks, build candidate notes
         cands: list[dict] = []
         for ri, r in enumerate(runs):
             a, b = r.a, r.b
             splits = [a]
+            if bpp is not None:
+                vr = m[a:b][~np.isnan(m[a:b])]
+                on_r = bp_at(float(np.median(vr)) - shift)[0] if len(vr) else np.zeros(len(t))
+                lo, hi = a + int(p.bp_repick_gap_s / hop), b - int(p.repick_tail_s / hop)
+                peaks = []
+                if hi > lo:
+                    pk, _ = find_peaks(on_r[lo:hi], height=p.bp_repick, distance=max(int(p.bp_repick_gap_s / hop), 1))
+                    peaks = [k for k in pk if flat_around(lo + int(k)) and attack_at(lo + int(k))]
+                for pk in peaks:
+                    splits.append(max(lo + int(pk), splits[-1] + 1))
+                splits.append(b)
+                for s0, s1 in zip(splits[:-1], splits[1:]):
+                    cands.append({"a": s0, "b": s1, "run": ri, "first_of_run": s0 == a})
+                continue
             lo = a + int(p.repick_min_gap_s / hop)
             hi = b - int(p.repick_tail_s / hop)
             if hi > lo:
@@ -341,9 +401,35 @@ class F0FirstSegmenter:
             c["cents"] = float((pitch_f - c["pitch"]) * 100)
             c["conf"] = float(np.nanmean(conf[a:b]) * (len(vseg) / max(b - a, 1)))
             c["rms"] = float(np.nanmax(rms_db[a:b]))
+            c["bp_on"] = c["bp_note"] = 0.0
+            if bpp is not None:
+                on_c, nt_c = bp_at(c["pitch"])
+                w0, w1 = max(a - int(0.05 / hop), 0), min(a + int(0.04 / hop) + 1, len(t))
+                k = w0 + int(np.argmax(on_c[w0:w1]))
+                c["bp_on"] = float(on_c[k])
+                follow = nt_follow[a:b]
+                c["bp_note"] = float(np.nanmean(follow)) if np.any(~np.isnan(follow)) else float(np.mean(nt_c[a:b]))
+                if c["bp_on"] >= p.bp_onset_snap:
+                    c["onset"] = max(float(t[k]), 0.0)
             notes.append(c)
 
-        real = [c for c in notes if not c["tiny"] and c["conf"] >= p.min_conf]
+        if bpp is None:
+            real = [c for c in notes if not c["tiny"] and c["conf"] >= p.min_conf]
+        else:
+            # the model may rescue a short or low-confidence note, but only one that was picked (an attack),
+            # with a flat pitch: otherwise it is the middle of a bend, slide or whammy
+            def rescued(c: dict) -> bool:
+                seg_c = m[c["a"] : c["b"]]
+                seg_c = seg_c[~np.isnan(seg_c)]
+                flat = len(seg_c) > 0 and float(np.ptp(seg_c)) < 2 * p.bp_flat_semitones
+                return flat and c["picked"]
+
+            real = [
+                c for c in notes
+                if (not c["tiny"] or ((c["b"] - c["a"]) * hop >= p.bp_min_note_s and c["bp_on"] >= p.bp_keep_short and rescued(c)))
+                and (c["conf"] >= p.min_conf or (c["bp_note"] >= p.bp_keep_conf and rescued(c)))
+                and c["bp_note"] >= p.bp_drop
+            ]
         if scale is not None and p.scale_prune_conf > 0:
             real = [
                 c for c in real
@@ -364,14 +450,43 @@ class F0FirstSegmenter:
                 same = q["pitch"] == c["pitch"]
                 contiguous = (c["a"] - q["b"]) * hop <= 0.04
                 # fragments of one sustained note: no energy rise AND no pick transient
-                if same and contiguous and not c["picked"] and c["flux"] < p.merge_flux:
+                repick = bpp is not None and c["bp_on"] >= p.bp_repick and flat_around(c["a"]) and attack_at(c["a"])
+                if same and contiguous and not c["picked"] and c["flux"] < p.merge_flux and not repick:
                     q["b"] = c["b"]
                     continue
             cleaned.append(c)
 
+        # 5a) notes the pitch track never followed (masked by a ringing note, too quiet): the model's
+        # strongest onsets with no detected note nearby
+        if bpp is not None and p.bp_add <= 1.0:
+            have = np.array(sorted(c["onset"] for c in cleaned)) if cleaned else np.zeros(0)
+            added = []
+            for k in range(40 - 21, 89 - 21):  # guitar range E2..E6
+                on_k, nt_k = bpp.onset[:, k], bpp.note[:, k]
+                pk, _ = find_peaks(on_k, height=p.bp_add, distance=max(int(0.08 / (bpp.times[1] - bpp.times[0])), 1))
+                for i in pk:
+                    t_on = float(bpp.times[i])
+                    if len(have) and np.min(np.abs(have - t_on)) < 0.05:
+                        continue
+                    j = i
+                    while j + 1 < len(nt_k) and nt_k[j + 1] >= 0.3 and bpp.times[j + 1] - t_on < 2.0:
+                        j += 1
+                    a = int(np.clip(np.searchsorted(t, t_on), 0, len(t) - 1))
+                    b = int(np.clip(np.searchsorted(t, bpp.times[j]) + 1, a + 1, len(t)))
+                    added.append({
+                        "a": a, "b": b, "onset": t_on, "pitch": k + 21, "pitch_f": float(k + 21), "cents": 0.0,
+                        "conf": float(on_k[i]), "strength": 1.0, "picked": True, "flux": 1.0, "level_rise_db": 0.0,
+                        "rms": float(np.nanmax(rms_db[a:b])), "bp_on": float(on_k[i]), "bp_note": float(np.mean(nt_k[i : j + 1])),
+                        "model_only": True,
+                    })
+            if added:
+                cleaned = sorted(cleaned + added, key=lambda c: c["onset"])
+
         # 5b) slide = the transition passes through intermediate pitches (a jump does not)
         for i in range(1, len(cleaned)):
             q, c = cleaned[i - 1], cleaned[i]
+            if q.get("model_only") or c.get("model_only"):
+                continue
             lo, hi = sorted((q["pitch_f"], c["pitch_f"]))
             if hi - lo < p.glide_min_semitones:
                 continue
@@ -394,7 +509,7 @@ class F0FirstSegmenter:
                 trim = int((nxt_c.get("glide", 0.0) + 0.05) / hop)
             contour = (m[a:b] - shift - c["pitch_f"])
             contour = contour[: max(len(contour) - trim, 4)]
-            if detect_techniques:
+            if detect_techniques and not c.get("model_only"):
                 techs = self._techniques(c, prev_c, contour, hop)
             offset = float(t[b - 1] + hop)
             nxt_on = cleaned[i + 1]["onset"] if i + 1 < len(cleaned) else None

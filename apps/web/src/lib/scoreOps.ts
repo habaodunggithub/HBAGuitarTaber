@@ -148,3 +148,157 @@ export function measureRange(score: Score, m: number): [number, number] {
   const bpm = m0?.tempo_bpm ?? 120;
   return [start, Math.max(start + 0.5, (last?.start_s ?? start) + 60 / bpm)];
 }
+
+// ───────────── note-level corrections: delete, change pitch, add a missed note ─────────────
+// These make a checked tab possible (your own test set). Re-assembling keeps them: deleted
+// analysis notes are listed in `deleted_note_ids`, added notes carry ids starting with "u".
+
+let seq = 0;
+export const newNoteId = (): string => `u${Date.now().toString(36)}${(seq++).toString(36)}`;
+
+/** Every (string, fret) that sounds `pitch` under the score's tuning. */
+export function positionsFor(score: Score, pitch: number): { string: number; fret: number }[] {
+  const t = score.assembly_params.tuning;
+  const maxFret = score.assembly_params.max_fret - (t.capo ?? 0);
+  const out: { string: number; fret: number }[] = [];
+  for (let s = 1; s <= (t.open_pitches?.length ?? 6); s++) {
+    const f = pitch - openPitch(t, s) - (t.capo ?? 0);
+    if (f >= 0 && f <= maxFret) out.push({ string: s, fret: f });
+  }
+  return out;
+}
+
+/** Same string if the pitch fits there, else the place whose fret is closest. */
+function nearestPosition(score: Score, pitch: number, near: { string: number; fret: number }) {
+  const ps = positionsFor(score, pitch);
+  return ps.find((p) => p.string === near.string)
+    ?? ps.sort((a, b) => Math.abs(a.fret - near.fret) - Math.abs(b.fret - near.fret))[0]
+    ?? null;
+}
+
+/** Remove a note (and its tied continuations). A slot left empty becomes a rest. */
+export function deleteNote(score: Score, l: NoteLoc): Score {
+  const head = chainHead(score, l);
+  const note = getNote(score, head);
+  if (!note) return score;
+  const locs = chain(score, head);
+  const next = structuredClone(score);
+  // remove from the back so the note indices of earlier locs stay valid
+  for (const loc of [...locs].reverse()) next.measures[loc.m]!.slots[loc.s]!.notes.splice(loc.n, 1);
+  if (note.note_id && !note.note_id.startsWith('u')) {
+    next.deleted_note_ids = [...new Set([...(score.deleted_note_ids ?? []), note.note_id])];
+  }
+  return next;
+}
+
+/** Move a note by `semitones` (e.g. ±1, ±12): it stays on its string when it can. Null if unplayable. */
+export function shiftPitch(score: Score, l: NoteLoc, semitones: number): Score | null {
+  const head = chainHead(score, l);
+  const note = getNote(score, head);
+  if (!note) return null;
+  const pitch = note.pitch_midi + semitones;
+  const pos = nearestPosition(score, pitch, note);
+  if (!pos) return null;
+  const next = structuredClone(score);
+  for (const loc of chain(score, head)) {
+    const n = getNote(next, loc)!;
+    Object.assign(n, { pitch_midi: pitch, string: pos.string, fret: pos.fret, finger: null });
+    if (!n.tie_from_prev) n.locked = true;
+  }
+  return next;
+}
+
+function frac(a: number, b: number): string {
+  const g = (x: number, y: number): number => (y ? g(y, x % y) : x);
+  const d = g(a, b);
+  return `${a / d}/${b / d}`;
+}
+
+/** End time of a slot: the next slot's start, or one beat after it at the very end. */
+function slotEnd(score: Score, m: number, s: number): number {
+  const nxt = nextSlot(score, { m, s, n: 0 });
+  if (nxt) return nxt.slot.start_s;
+  return score.measures[m]!.slots[s]!.start_s + 60 / (score.measures[m]!.tempo_bpm || 120);
+}
+
+/** Split a slot in two (in place). Its notes ring on into the second part; a rest stays a rest. */
+function splitSlot(score: Score, m: number, s: number): boolean {
+  const slot = score.measures[m]!.slots[s]!;
+  const [a, b] = slot.duration.split('/').map(Number) as [number, number];
+  if (b * 2 > 64) return false;
+  // a/b -> two a/2b; dotted a/b (= 3a/2b) -> a/b + a/2b
+  const first = slot.dotted ? `${a}/${b}` : frac(a, 2 * b);
+  const second = frac(a, 2 * b);
+  const share = slot.dotted ? 2 / 3 : 1 / 2;
+  const start = slot.start_s;
+  const end = slotEnd(score, m, s);
+  const tail: Slot = {
+    ...structuredClone(slot),
+    duration: second,
+    dotted: false,
+    start_s: Math.round((start + share * (end - start)) * 1e4) / 1e4,
+    notes: slot.notes.map((n) => ({ ...structuredClone(n), tie_from_prev: true, techniques: [] })),
+  };
+  slot.duration = first;
+  slot.dotted = false;
+  score.measures[m]!.slots.splice(s + 1, 0, tail);
+  return true;
+}
+
+const GRID_TOL_S = 0.04;
+
+/**
+ * Add a note the transcription missed, at time `t` (the playhead). The slot under `t` is halved
+ * until a slot starts within 40 ms of `t` (down to 1/64), and the new note goes there with the
+ * pitch and string of the note before it; change its pitch afterwards. If a note is already
+ * struck there, nothing is added and that note is returned.
+ */
+export function insertNoteAt(score: Score, t: number): { score: Score; loc: NoteLoc; added: boolean } | null {
+  const next = structuredClone(score);
+  // a slot starting within 40 ms of t wins; otherwise the slot that contains t
+  let near: [number, number] | null = null;
+  let inside: [number, number] | null = null;
+  let best = GRID_TOL_S;
+  for (let mi = 0; mi < next.measures.length; mi++) {
+    const slots = next.measures[mi]!.slots;
+    for (let si = 0; si < slots.length; si++) {
+      const d = Math.abs(slots[si]!.start_s - t);
+      if (d <= best) { best = d; near = [mi, si]; }
+      if (!inside && slots[si]!.start_s <= t && t < slotEnd(next, mi, si)) inside = [mi, si];
+    }
+  }
+  const at = near ?? inside;
+  if (!at) return null;
+  let [m, s] = at;
+  for (let k = 0; k < 8; k++) {
+    const sl = next.measures[m]!.slots[s]!;
+    if (Math.abs(t - sl.start_s) <= GRID_TOL_S) break;
+    if (!splitSlot(next, m, s)) break;
+    const mid = next.measures[m]!.slots[s + 1]!.start_s;
+    if (Math.abs(t - mid) < Math.abs(t - sl.start_s)) s += 1;
+  }
+  const slot = next.measures[m]!.slots[s]!;
+  const struck = slot.notes.findIndex((n) => !n.tie_from_prev);
+  if (struck >= 0) return { score, loc: { m, s, n: struck }, added: false };
+
+  // the note sounding (or last struck) before this slot gives the pitch and the hand position
+  const before = allLocs(next).filter((l) => l.m < m || (l.m === m && l.s < s)).map((l) => getNote(next, l)!);
+  const prev = before.reverse().find((n) => !n.tie_from_prev) ?? null;
+  const pitch = prev?.pitch_midi ?? 64;
+  const pos = (prev && nearestPosition(next, pitch, prev)) ?? positionsFor(next, pitch)[0];
+  if (!pos) return null;
+  const id = newNoteId();
+  const replaced = slot.notes.map((n) => ({ string: n.string, fret: n.fret }));
+  slot.notes = [{ note_id: id, pitch_midi: pitch, string: pos.string, fret: pos.fret, finger: null, techniques: [], tie_from_prev: false, locked: true }];
+  // the note that was ringing here stops; its remaining tied slots now ring the new note
+  let cur = { m, s, n: 0 };
+  for (;;) {
+    const nx = nextSlot(next, cur);
+    if (!nx) break;
+    const i = nx.slot.notes.findIndex((n) => n.tie_from_prev && replaced.some((r) => r.string === n.string && r.fret === n.fret));
+    if (i < 0) break;
+    nx.slot.notes = [{ ...slot.notes[0]!, tie_from_prev: true, locked: true }];
+    cur = { m: nx.m, s: nx.s, n: 0 };
+  }
+  return { score: next, loc: { m, s, n: 0 }, added: true };
+}

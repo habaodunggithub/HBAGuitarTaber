@@ -1,4 +1,4 @@
-import type { AssemblyParams, RevisionInfo } from '../../api/types';
+import type { AssemblyParams, RevisionInfo, TruthInfo } from '../../api/types';
 import Icon from '../../components/Icon';
 import ParamsPanel from '../../components/ParamsPanel';
 import { useCanRedo, useCanUndo, useEditor } from '../../stores/editor';
@@ -26,6 +26,10 @@ interface Props {
   revisions: RevisionInfo[];
   currentRevision: number;
   onRestore: (n: number) => void;
+  truth: TruthInfo | null;
+  truthBusy: boolean;
+  onSaveTruth: () => void;
+  onRemoveTruth: () => void;
 }
 
 /** The editor's tools in the top rail: save state, undo/redo, settings, export, version history. */
@@ -56,6 +60,32 @@ export default function EditorTools(p: Props) {
             <li key={f}><button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); p.onExport(f, label); }}>{label}</button></li>
           ))}
         </ul>
+      </details>
+      <details className="pop">
+        <summary className="tool" data-testid="truth-tool">
+          <Icon name={p.truth ? 'check' : 'library'} />
+          <span className="tool-label">{p.truth ? 'In test set' : 'Test set'}</span>
+        </summary>
+        <div className="pop-body wide truth-pop">
+          {p.truth ? (
+            <p className="small" data-testid="truth-state">
+              Version {p.truth.revision} is in your test set: {p.truth.notes} notes
+              {p.truth.added_notes ? `, ${p.truth.added_notes} of them added by you` : ''}.
+            </p>
+          ) : (
+            <p className="small">When every note here is right (pitch, string and fret), add this tab to your test set.</p>
+          )}
+          <p className="muted small">
+            The test set lives in data/truth on this computer. Running <code>just truth-eval</code> re-transcribes each take and
+            shows where the app goes wrong: missed notes, extra notes, wrong pitches or wrong strings.
+          </p>
+          <div className="row">
+            <button type="button" className="btn" disabled={p.truthBusy} onClick={p.onSaveTruth} data-testid="truth-save">
+              <Icon name="check" /> {p.truth ? 'Replace with this version' : 'Add to my test set'}
+            </button>
+            {p.truth ? <button type="button" className="btn quiet" disabled={p.truthBusy} onClick={p.onRemoveTruth}>Remove</button> : null}
+          </div>
+        </div>
       </details>
       {p.revisions.length > 1 ? (
         <label className="tool select-tool" title="Version">

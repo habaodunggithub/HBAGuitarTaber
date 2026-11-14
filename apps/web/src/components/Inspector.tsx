@@ -10,6 +10,9 @@ interface Props {
   onPick: (string: number, fret: number) => void;
   onToggleLock: () => void;
   onRefingerMeasure: () => void;
+  onShiftPitch: (semitones: number) => void;
+  onDelete: () => void;
+  onAddNote: () => void;
   busy: boolean;
 }
 
@@ -66,13 +69,16 @@ function Fretboard({ alts, current, strings, onPick }: {
   );
 }
 
-export default function Inspector({ score, selection, onPick, onToggleLock, onRefingerMeasure, busy }: Props) {
+export default function Inspector({ score, selection, onPick, onToggleLock, onRefingerMeasure, onShiftPitch, onDelete, onAddNote, busy }: Props) {
   const note = selection ? getNote(score, selection) : undefined;
   if (!selection || !note) {
     return (
       <section className="inspector" aria-label="Note details">
         <h2 className="pixel-h">Selected note</h2>
         <p className="muted small">Click a note in the lane or the score, or use the arrow keys, to see and change where it is played.</p>
+        <button type="button" className="btn quiet" onClick={onAddNote} data-testid="add-note">
+          <Icon name="plus" /> Add a missed note at the playhead (N)
+        </button>
         <KeyList compact />
       </section>
     );
@@ -101,6 +107,16 @@ export default function Inspector({ score, selection, onPick, onToggleLock, onRe
           )) : 'None'}
         </dd>
       </dl>
+
+      <h3 className="panel-sub">Wrong note?</h3>
+      <div className="row pitch-row" role="group" aria-label="Change the pitch">
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-12)} title="Down an octave">−8va</button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-1)} title="Down a semitone (Shift+↓)" aria-label="Down a semitone"><Icon name="minus" /></button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(1)} title="Up a semitone (Shift+↑)" aria-label="Up a semitone"><Icon name="plus" /></button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(12)} title="Up an octave">+8va</button>
+        <button type="button" className="btn quiet" onClick={onDelete} data-testid="delete-note" title="Not a real note (Delete)"><Icon name="close" /> Delete</button>
+        <button type="button" className="btn quiet" onClick={onAddNote} title="A note was missed at the playhead (N)"><Icon name="plus" /> Add at playhead</button>
+      </div>
 
       <h3 className="panel-sub">Same pitch, other places</h3>
       {alts.length > 1 ? (

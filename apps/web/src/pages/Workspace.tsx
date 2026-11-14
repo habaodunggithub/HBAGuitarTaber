@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { urls } from '../api/client';
 import { ApiError } from '../api/http';
-import { keys, useReassemble, useRestore, useRevisions, useTranscription } from '../api/hooks';
+import { keys, useReassemble, useRestore, useRevisions, useTranscription, useTruth } from '../api/hooks';
 import type { AssemblyParams, ReassembleIn, Transcription } from '../api/types';
 import Icon from '../components/Icon';
 import Inspector from '../components/Inspector';
@@ -15,7 +15,7 @@ import { toast } from '../components/Toaster';
 import Transport from '../components/Transport';
 import VideoCalibrate from '../components/VideoCalibrate';
 import { fmtTime, keyLabel } from '../lib/format';
-import { cyclePosition, getNote, measureRange, setLocked, setPosition } from '../lib/scoreOps';
+import { cyclePosition, deleteNote, getNote, insertNoteAt, measureRange, setLocked, setPosition, shiftPitch, stepLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
 import { useEditor } from '../stores/editor';
 import { backLink, Message } from './workspace/common';
@@ -67,6 +67,7 @@ function Editor({ t }: { t: Transcription }) {
   const reassemble = useReassemble(t.id);
   const restore = useRestore(t.id);
   const revisions = useRevisions(t.id);
+  const truth = useTruth(t.id);
 
   const tabCtl = useRef<TabController | null>(null);
   const [showStaff, setShowStaff] = useState(true);
@@ -125,7 +126,34 @@ function Editor({ t }: { t: Transcription }) {
     if (a) setTaps((prev) => [...prev, a.currentTime]);
   }, [audioRef]);
 
-  useEditorKeys({ togglePlay, cycle, toggleLock, tap });
+  // ── note corrections: what makes a checked tab (your test set) possible ──
+  const shiftSel = useCallback((semitones: number) => {
+    const { score: sc, selection: sel } = useEditor.getState();
+    if (!sc || !sel) return;
+    const next = shiftPitch(sc, sel, semitones);
+    if (next) useEditor.getState().edit(() => next);
+    else setNotice('That pitch is out of range for this tuning and capo.');
+  }, []);
+
+  const deleteSel = useCallback(() => {
+    const { score: sc, selection: sel } = useEditor.getState();
+    if (!sc || !sel || !getNote(sc, sel)) return;
+    const prev = stepLoc(sc, sel, -1);
+    useEditor.getState().edit((s) => deleteNote(s, sel));
+    useEditor.getState().select(prev && !(prev.m === sel.m && prev.s === sel.s && prev.n === sel.n) ? prev : null);
+  }, []);
+
+  const addNote = useCallback(() => {
+    const sc = useEditor.getState().score;
+    if (!sc) return;
+    const r = insertNoteAt(sc, getTime());
+    if (!r) { setNotice('Move the playhead inside the tab to add a note there.'); return; }
+    if (r.added) useEditor.getState().edit(() => r.score);
+    else toast('A note already starts here. Change that one instead.');
+    useEditor.getState().select(r.loc);
+  }, [getTime]);
+
+  useEditorKeys({ togglePlay, cycle, toggleLock, tap, shiftPitch: shiftSel, addNote, deleteNote: deleteSel });
 
   // ── server-side actions: save local edits first, the server recomputes from its copy ──
   const recompute = useCallback(async (body: ReassembleIn, done: () => void) => {
@@ -162,6 +190,12 @@ function Editor({ t }: { t: Transcription }) {
     toast(`Downloading ${label}`, 'download');
   };
 
+  const saveTruth = () => void flushSave().then(() => truth.save.mutate(undefined, {
+    onSuccess: (i) => toast(`Added to your test set (${i.notes} notes)`, 'check'),
+    onError: (e) => setNotice(e.message),
+  }));
+  const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast('Removed from your test set'), onError: (e) => setNotice(e.message) });
+
   const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(`Restored version ${n}`, 'history') }));
 
   if (!score) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">Opening the tab…</p></main></Shell>;
@@ -186,6 +220,10 @@ function Editor({ t }: { t: Transcription }) {
       revisions={revisions.data ?? []}
       currentRevision={t.current_revision}
       onRestore={restoreTo}
+      truth={truth.info}
+      truthBusy={truth.save.isPending || truth.remove.isPending}
+      onSaveTruth={saveTruth}
+      onRemoveTruth={removeTruth}
     />
   );
 
@@ -246,7 +284,7 @@ function Editor({ t }: { t: Transcription }) {
 
           <div className={`pair${videoAsset ? ' with-video' : ''}`}>
             <div className="panel">
-              <Inspector score={score} selection={selection} onPick={pick} onToggleLock={toggleLock} onRefingerMeasure={refingerMeasure} busy={busy} />
+              <Inspector score={score} selection={selection} onPick={pick} onToggleLock={toggleLock} onRefingerMeasure={refingerMeasure} onShiftPitch={shiftSel} onDelete={deleteSel} onAddNote={addNote} busy={busy} />
             </div>
             {videoAsset ? (
               <section className="panel video-panel" aria-label="Video">
