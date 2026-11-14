@@ -12,7 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 KAGGLE = ROOT / "kaggle"
-NOTEBOOKS = ["hello", "batch", "worker"]
+NOTEBOOKS = ["hello", "batch", "worker", "train_strings"]
 
 
 def load_prepare():
@@ -57,16 +57,22 @@ def test_bootstrap_parses_and_dataset_metadata():
 
 def test_prepare_renders_username_and_copies_bootstrap(tmp_path):
     prep = load_prepare()
-    out = ROOT / "kaggle" / "_build"
+    import shutil
+
+    out = ROOT / "kaggle" / f"_test_{tmp_path.name}" / "_build"  # never the real kaggle/_build
     files = prep.render("alice-01", out, wheels=False)
     try:
         for n in NOTEBOOKS:
             meta = json.loads((out / n / "kernel-metadata.json").read_text())
             assert meta["id"].startswith("alice-01/") and "YOUR_KAGGLE_USERNAME" not in json.dumps(meta)
-            assert (out / n / "_bootstrap.py").read_text() == (KAGGLE / "_bootstrap.py").read_text()
-        assert len(files) >= 10
+            # Kaggle uploads only the code file: the bootstrap must be inside it
+            code = (out / n / f"{n}.py").read_text()
+            ast.parse(code)
+            assert "import _bootstrap" not in code and "_bootstrap.install(" in code
+            assert not (out / n / "_bootstrap.py").exists()
+        assert len(files) >= 9
     finally:
-        pass  # kaggle/_build is gitignored
+        shutil.rmtree(out.parent, ignore_errors=True)
 
 
 def test_prepare_refuses_to_write_elsewhere(tmp_path):

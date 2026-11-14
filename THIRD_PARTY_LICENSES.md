@@ -17,7 +17,7 @@ service public (the app only imports these as unmodified libraries); `no` = must
 | Basic Pitch model `nmp.onnx` (Spotify, basic-pitch 0.4.0) | Apache-2.0 | yes | note-onset model, vendored at `packages/taber_ml/src/taber_ml/weights/basic_pitch_nmp.onnx` with its LICENSE and NOTICE; only the model file is used, the windowing code is re-written |
 | onnxruntime 1.32.0 | MIT | yes | runs the Basic Pitch model |
 | beat-this 1.1.0 (+ `final0` checkpoint, downloaded on first use) | MIT | yes | beat tracker; its authors note some of its training data has restrictive licenses, to assess before going public |
-| String classifier weights `string_cnn.pt` (this project) | trained on GuitarSet, CC BY 4.0 | yes, with attribution | GuitarSet: Q. Xi, R. Bittner, J. Pauwels, X. Ye, J. P. Bello, "GuitarSet: A Dataset for Guitar Transcription", ISMIR 2018 |
+| String classifier weights `string_cnn.pt`, `string_cnn_large.pt` (this project) | trained on GuitarSet, CC BY 4.0 | yes, with attribution | GuitarSet: Q. Xi, R. Bittner, J. Pauwels, X. Ye, J. P. Bello, "GuitarSet: A Dataset for Guitar Transcription", ISMIR 2018 |
 
 ## Evaluation data (not shipped)
 

@@ -1,8 +1,7 @@
 # Kaggle (T4 x2)
 
-Nothing here has been run on Kaggle yet: this machine has no Kaggle CLI or credentials. What *was* verified
-offline: metadata consistency, script syntax, that a clean venv can install only the two wheels and run
-`taber batch`, and the batch/worker code paths (see `packages/taber_ml/tests`).
+Verified on Kaggle (2026-11-14): the wheels dataset and the `train_strings` notebook. The batch and pull-worker
+notebooks share the same bootstrap but have not been run there yet.
 
 ## One-time
 
@@ -25,6 +24,40 @@ Re-run `kaggle_prepare.py` and `kaggle datasets version -p kaggle/_build/wheels 
 3. `out/<name>/analysis.json.gz` -> `uv run taber assemble ...` on the laptop (instant, no GPU).
 
 One worker process per GPU; results are written per file and finished files are skipped if you re-run.
+
+## Things learned on the first real run (2026-11-14)
+
+- A script notebook uploads **only its code file**. `kaggle_prepare.py` therefore inlines `_bootstrap.py`
+  into each script; never push the templates in `kaggle/<name>/` directly.
+- Kaggle runs Python 3.13. The training notebook installs only the two wheels (`install(extras=())`).
+- Pushing a **new version** of an existing notebook failed with `409 ... title is already in use` until
+  its numeric id was in the metadata: `kaggle kernels pull USER/NAME -p tmp -m`, copy `id_no` into
+  `kaggle/_build/<name>/kernel-metadata.json`, push again.
+- Dataset metadata needs a license name Kaggle accepts; `unknown` grants nothing (the code stays under
+  the repository's LICENSE).
+
+## Train the large string classifier
+
+Kaggle's two T4s are for training, not for running the app: every model the worker runs at inference
+fits the laptop's 6 GB. `taber-train-strings` trains the **large** string classifier (~0.9M parameters,
+~460 ms of context, vs 58k / ~280 ms for the base one the laptop trained) on GuitarSet's microphone *and*
+pickup recordings, with six amp-style variants of each take, as an ensemble of one network per GPU.
+
+1. `uv run python scripts/kaggle_prepare.py --user YOUR_KAGGLE_USERNAME` and upload or version the
+   `taber-wheels` dataset (above): the notebook runs the code from those wheels.
+2. `kaggle kernels push -p kaggle/_build/train_strings` (uses GPU hours; it downloads ~1.4 GB of GuitarSet
+   from Zenodo, so Internet must be ON). `TABER_SEEDS` (default 2) sets the ensemble size.
+3. `kaggle kernels output YOUR_KAGGLE_USERNAME/taber-train-strings -p kaggle_out/`
+4. Measure it on held-out data **before** installing it:
+   `uv run python ml/eval/string_study.py --weights kaggle_out/string_cnn_large.pt`
+   and compare with the base model (`ml/eval/string_study.json`).
+5. If it is better on GuitarSet player 04 (validation), copy it to
+   `packages/taber_ml/src/taber_ml/weights/string_cnn_large.pt`. Workers then use it automatically
+   (laptop and Kaggle alike); `TABER_STRING_MODEL=base` switches back.
+
+Result of the first run (2026-11-14, 2 seeds x 60 epochs, 103 min): validation 89.2% string+fret after
+Viterbi (base 87.6%), IDMT electric 55.8% (base 52.9%), GuitarSet 05 81.9% (base 83.0%). It is installed as
+the default; details in `docs/ARCHITECTURE.md` and `ml/eval/string_study_large.json`.
 
 ## Pull worker (optional)
 

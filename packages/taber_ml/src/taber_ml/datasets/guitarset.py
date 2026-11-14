@@ -1,7 +1,9 @@
 """GuitarSet (Xi et al., ISMIR 2018, CC BY 4.0): real guitar with per-string note annotations.
 
-Download from https://zenodo.org/records/3371780 and unzip ``annotation.zip`` into <root>/ann and
-``audio_mono-mic.zip`` into <root>/audio. Standard tuning throughout.
+Download from https://zenodo.org/records/3371780 (or call ``download(root)``): ``annotation.zip`` into
+<root>/ann, ``audio_mono-mic.zip`` into <root>/audio, and optionally ``audio_mono-pickup_mix.zip`` into
+<root>/audio_mix (the same takes through the guitar's pickup: closer to an electric guitar, same labels).
+Standard tuning throughout.
 
 The six ``note_midi`` annotations of a JAMS file are in string order low E -> high e, i.e. annotation
 k is our string 6 - k (string 1 = highest).
@@ -57,14 +59,59 @@ class Take:
         return notes, [(s, f) for *_x, s, f in rows]
 
 
-def takes(root: str | Path, kind: str = "solo", players: list[str] | None = None) -> list[Take]:
+def takes(root: str | Path, kind: str = "solo", players: list[str] | None = None, source: str = "mic") -> list[Take]:
+    """``source``: "mic" (the microphone) or "mix" (the pickup mix). Takes without that audio are skipped."""
     root = Path(root).expanduser()
+    folder, suffix = ("audio", "_mic.wav") if source == "mic" else ("audio_mix", "_mix.wav")
+    found = {p.name: p for p in (root / folder).rglob(f"*{suffix}")} if (root / folder).is_dir() else {}
     out = []
     for jp in sorted((root / "ann").glob(f"*_{kind}.jams")):
         m = re.match(r"(\d\d)_([A-Za-z]+)\d?-(\d+)-", jp.name)
         if not m or (players and m.group(1) not in players):
             continue
-        audio = root / "audio" / jp.name.replace(".jams", "_mic.wav")
-        if audio.exists():
+        audio = found.get(jp.name.replace(".jams", suffix))
+        if audio is not None:
             out.append(Take(jp.stem, m.group(1), m.group(2), float(m.group(3)), kind, audio, jp))
     return out
+
+
+ZENODO = "https://zenodo.org/api/records/3371780/files/{name}/content"
+PARTS = {  # zip -> (folder, md5)
+    "annotation.zip": ("ann", "b39b78e63d3446f2e54ddb7a54df9b10"),
+    "audio_mono-mic.zip": ("audio", "275966d6610ac34999b58426beb119c3"),
+    "audio_mono-pickup_mix.zip": ("audio_mix", "aecce79f425a44e2055e46f680e10f6a"),
+}
+
+
+def download(root: str | Path, parts: tuple[str, ...] = tuple(PARTS)) -> Path:
+    """Fetch and unpack GuitarSet parts from Zenodo (md5-checked); parts already unpacked are skipped."""
+    import hashlib
+    import shutil
+    import urllib.request
+    import zipfile
+
+    root = Path(root).expanduser()
+    root.mkdir(parents=True, exist_ok=True)
+    for name in parts:
+        folder, md5 = PARTS[name]
+        dest = root / folder
+        if dest.is_dir() and any(dest.rglob("*.*")):
+            continue
+        zpath = root / name
+        print(f"downloading GuitarSet {name} ...", flush=True)
+        with urllib.request.urlopen(ZENODO.format(name=name)) as r, open(zpath, "wb") as f:
+            shutil.copyfileobj(r, f, length=1 << 22)
+        h = hashlib.md5()
+        with open(zpath, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 22), b""):
+                h.update(chunk)
+        if h.hexdigest() != md5:
+            zpath.unlink()
+            raise ValueError(f"{name}: checksum mismatch, download again")
+        with zipfile.ZipFile(zpath) as z:
+            for member in z.namelist():  # never write outside dest
+                if member.startswith("/") or ".." in Path(member).parts:
+                    raise ValueError(f"{name}: unsafe path {member}")
+            z.extractall(dest)
+        zpath.unlink()
+    return root

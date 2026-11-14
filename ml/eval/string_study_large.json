@@ -1,0 +1,34 @@
+{
+ "weights": "string_cnn_large.pt",
+ "version": "20261114",
+ "GuitarSet 04 (validation)": {
+  "notes": 2584,
+  "classifier_acc": 0.8316563467492261,
+  "viterbi_w0": 0.6096135559132603,
+  "viterbi_w0.25": 0.8923211233585894,
+  "viterbi_w0.3": 0.8916277176948832,
+  "viterbi_w0.5": 0.883710108599475,
+  "viterbi_w1": 0.8703012432713126,
+  "viterbi_w2": 0.8600218268399976
+ },
+ "GuitarSet 05 (test)": {
+  "notes": 2179,
+  "classifier_acc": 0.7572280862781092,
+  "viterbi_w0": 0.6775249116616754,
+  "viterbi_w0.25": 0.8258173931679779,
+  "viterbi_w0.3": 0.819022741763116,
+  "viterbi_w0.5": 0.8123697302593459,
+  "viterbi_w1": 0.7950113909085489,
+  "viterbi_w2": 0.7810975127066017
+ },
+ "IDMT licks (electric, test)": {
+  "notes": 3393,
+  "classifier_acc": 0.5458296492779251,
+  "viterbi_w0": 0.39924015524449247,
+  "viterbi_w0.25": 0.5543293871759128,
+  "viterbi_w0.3": 0.5579058151571028,
+  "viterbi_w0.5": 0.5518399814245571,
+  "viterbi_w1": 0.5549815466369185,
+  "viterbi_w2": 0.5521349649884935
+ }
+}

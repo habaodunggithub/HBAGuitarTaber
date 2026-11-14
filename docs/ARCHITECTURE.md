@@ -1606,6 +1606,22 @@ Trên IDMT, bản 0.2 vẫn còn **25.7% nốt bị sót và 16% nốt thừa**.
 - Riêng bộ phân loại chỉ đạt 47% trên guitar điện, so với 73% trên guitar thùng, nên vẫn còn khoảng cách miền.
 - Bản train thêm các bài comp phân loại guitar điện tốt hơn (55%), nhưng thua trên validation (86.1% so với 87.4%), nên không chọn.
 
+**3b. Bộ phân loại dây bản large (train trên Kaggle, mặc định từ nay).**
+- Model là CNN residual khoảng 0.9M tham số, nhìn khoảng 460 ms ngữ cảnh. Dữ liệu train gồm cả thu micro lẫn pickup (`mix`) của GuitarSet 00–03, mỗi bài có sáu biến thể amp. Kiến trúc nằm trong `strings.py` (`SIZES["large"]`), phần train trong `taber_ml/training.py` (`taber train-strings`).
+- Train trên Kaggle (`kaggle/train_strings`, 2×T4): mỗi GPU chạy một seed, 60 epoch với OneCycle, giữ epoch tốt nhất trên người chơi 04. Hai model được ghép thành ensemble và lấy trung bình xác suất. Một lần chạy mất 103 phút. Log: `ml/eval/logs/string_train_large_kaggle.log`.
+- File `weights/string_cnn_large.pt` (7.5 MB) được dùng tự động nếu có. Đặt `TABER_STRING_MODEL=base` để quay về bản nhỏ.
+- Đúng dây+phím sau Viterbi (w=0.3), xem `ml/eval/string_study_large.json`:
+
+  | | base | large, 1 seed (máy local) | **large ×2 (Kaggle)** |
+  |---|---|---|---|
+  | GuitarSet 04 (validation) | 87.6% | 88.3% | **89.2%** |
+  | GuitarSet 05 (test) | **83.0%** | **84.6%** | 81.9% |
+  | IDMT (guitar điện, test) | 52.9% | 53.2% | **55.8%** |
+
+- Bản Kaggle được chọn vì cao nhất trên validation. Gộp cả hai bộ test, nó cũng cao nhất: 66.0%, so với 65.5% của bản 1 seed và 64.7% của base. Riêng bộ phân loại trên guitar điện tăng từ 47% lên 55%.
+- Tuy vậy, trên GuitarSet 05 nó **kém base 1.1 điểm**. Độ chính xác validation dao động ±2 điểm giữa các epoch, nên việc chọn epoch tốt nhất làm số validation lạc quan hơn thực tế. Mức chênh giữa các bản ở đây nằm gần mức nhiễu đó.
+- Bài học: model to hơn chỉ giúp một chút. Cái thiếu vẫn là dữ liệu guitar điện thật.
+
 **4. Nhịp (Beat This!).**
 - Dùng `beat-this` 1.1 (MIT), checkpoint `final0` tải ở lần chạy đầu. Model được nạp một lần qua `ModelRegistry`, và số phách mỗi ô nhịp lấy từ downbeat.
 - Nó hay bỏ trống phách khi guitar nghỉ, nên `fill_gaps()` chèn lại các phách đó. Nếu không, bước lắp ráp hiểu một phách bị bỏ thành một phách dài gấp đôi. Ngưỡng ổn định là CV < 0.20.

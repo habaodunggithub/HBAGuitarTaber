@@ -11,16 +11,30 @@ import os
 import subprocess
 import sys
 
-WHEELS = "/kaggle/input/taber-wheels"
+INPUT = "/kaggle/input"
 
 
-def install() -> None:
-    wheels = sorted(glob.glob(f"{WHEELS}/*.whl"))
-    if not wheels:
-        sys.exit(f"no wheels in {WHEELS}: attach the 'taber-wheels' dataset to this notebook")
+def find_input(slug: str, pattern: str = "*") -> str:
+    """Where an attached dataset is mounted. Kaggle has used /kaggle/input/<slug> and nested layouts
+    (e.g. /kaggle/input/datasets/<owner>/<slug>), so search instead of assuming one."""
+    for d in [f"{INPUT}/{slug}", *sorted(glob.glob(f"{INPUT}/**/{slug}", recursive=True))]:
+        if os.path.isdir(d) and glob.glob(f"{d}/**/{pattern}", recursive=True):
+            return d
+    return f"{INPUT}/{slug}"
+
+
+MODELS = ("pesto-pitch", "torchcrepe", "demucs", "beat-this", "mediapipe", "opencv-python-headless")
+
+
+def install(extras: tuple[str, ...] = MODELS) -> None:
+    """Our two wheels plus ``extras`` from PyPI (the analysis models; training needs none of them)."""
+    found = sorted(glob.glob(f"{INPUT}/**/taber_ml-*.whl", recursive=True))
+    if not found:
+        print("contents of /kaggle/input:", [p for p in glob.glob(f"{INPUT}/**", recursive=True)][:50], flush=True)
+        sys.exit("no taber wheels under /kaggle/input: attach the 'taber-wheels' dataset to this notebook")
+    wheels_dir = os.path.dirname(found[-1])
     # do not touch Kaggle's torch/numpy: they satisfy our unpinned requirements
-    cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--find-links", WHEELS,
-           "taber-ir", "taber-ml", "pesto-pitch", "torchcrepe", "demucs", "beat-this", "mediapipe", "opencv-python-headless"]
+    cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--find-links", wheels_dir, "taber-ir", "taber-ml", *extras]
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True)
 

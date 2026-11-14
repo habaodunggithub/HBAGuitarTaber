@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -247,7 +248,7 @@ def test_string_classifier_fills_string_probs(tmp_path):
     tab, bpm = pent_lick()
     path, _ref = write_audio(tmp_path, tab, bpm)
     an, _ = analyze(path)
-    assert an.meta["string_model"].startswith("string_cnn@")
+    assert re.match(r"string_cnn(_large)?(x\d+)?@", an.meta["string_model"])
     assert all(n.string_probs and len(n.string_probs) == 6 and abs(sum(n.string_probs) - 1) < 0.01 for n in an.notes)
     off, _ = analyze(path, string_model="off")
     assert off.meta["string_model"] is None and all(n.string_probs is None for n in off.notes)
@@ -330,3 +331,21 @@ def test_truth_notes_time_detected_and_added_notes():
     got = truth_notes(score, an)
     assert [n.timing for n in got] == ["detected", "grid", "detected"]
     assert got[0].onset_s == an.notes[0].onset_s and got[1].onset_s == rest.start_s and got[1].note_id == "u1"
+
+
+def test_large_ensemble_checkpoint_roundtrip(tmp_path, monkeypatch):
+    torch = pytest.importorskip("torch")
+    from taber_ml import strings
+
+    nets = [strings.build_net("large") for _ in range(2)]
+    path = tmp_path / "large.pt"
+    torch.save({"state_dicts": [n.state_dict() for n in nets], "size": "large", "version": "t"}, path)
+    monkeypatch.setenv("TABER_STRING_MODEL", str(path))
+    assert strings.default_weights() == path and strings.available()
+    clf = strings.StringClassifier(device="cpu")
+    assert (clf.name, clf.size.name, len(clf.nets)) == ("string_cnn_largex2", "large", 2)
+    y = np.sin(2 * np.pi * 330 * np.arange(22050) / 22050).astype(np.float32)
+    P = clf.predict(y, 22050, [0.1, 0.5], [64, 64])
+    assert P.shape == (2, 6) and np.allclose(P.sum(1), 1, atol=1e-5)
+    monkeypatch.setenv("TABER_STRING_MODEL", "base")
+    assert strings.default_weights() == strings.WEIGHTS

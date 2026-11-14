@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +18,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "kaggle"
 PLACEHOLDER = "YOUR_KAGGLE_USERNAME"
-NOTEBOOKS = ["hello", "batch", "worker"]
+NOTEBOOKS = ["hello", "batch", "worker", "train_strings"]
+
+
+IMPORT = "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nimport _bootstrap  # noqa: E402\n"
+
+
+def inline_bootstrap(code: str) -> str:
+    """Kaggle uploads only a script notebook's code file, never files next to it: embed _bootstrap.py
+    (one source of truth in kaggle/) as a module built from its text."""
+    if IMPORT not in code:
+        return code
+    src = (SRC / "_bootstrap.py").read_text(encoding="utf-8")
+    embedded = (
+        "import types  # noqa: E402\n"
+        "_bootstrap = types.ModuleType(\"_bootstrap\")  # inlined from kaggle/_bootstrap.py by kaggle_prepare.py\n"
+        f"exec(compile({src!r}, \"_bootstrap.py\", \"exec\"), _bootstrap.__dict__)\n"
+    )
+    return code.replace(IMPORT, embedded)
 
 
 def render(user: str, out: Path, wheels: bool) -> list[Path]:
@@ -32,10 +48,13 @@ def render(user: str, out: Path, wheels: bool) -> list[Path]:
         for f in (SRC / name).iterdir():
             if f.is_file():
                 text = f.read_text(encoding="utf-8").replace(PLACEHOLDER, user)
+                if f.suffix == ".py":
+                    text = inline_bootstrap(text)
                 (dst / f.name).write_text(text, encoding="utf-8")
                 written.append(dst / f.name)
-        shutil.copyfile(SRC / "_bootstrap.py", dst / "_bootstrap.py")  # one source of truth
-        written.append(dst / "_bootstrap.py")
+        stale = dst / "_bootstrap.py"
+        if stale.exists():
+            stale.unlink()
     wdir = out / "wheels"
     wdir.mkdir(parents=True, exist_ok=True)
     meta = (SRC / "wheels" / "dataset-metadata.json").read_text(encoding="utf-8").replace(PLACEHOLDER, user)

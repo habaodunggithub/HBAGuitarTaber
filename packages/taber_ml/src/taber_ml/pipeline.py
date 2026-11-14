@@ -22,7 +22,7 @@ from .audio.segment import F0FirstSegmenter, Segmentation
 from .audio.separation import separate_file
 from .models import ModelRegistry
 
-PIPELINE_VERSION = "0.2.0"  # 0.2: Basic Pitch onsets + string classifier
+PIPELINE_VERSION = "0.2.1"  # 0.2: Basic Pitch onsets + string classifier; 0.2.1: large string classifier
 STAGES = ["ingest", "separation", "beats", "f0", "segment", "video", "quality"]
 
 

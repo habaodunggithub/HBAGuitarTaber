@@ -387,6 +387,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--use-tempo", action="store_true", help="give the true tempo as a hint")
     p.set_defaults(fn=cmd_eval)
 
+    sub.add_parser("train-strings", help="train the string classifier on GuitarSet (see: taber train-strings --help)")
+
     p = sub.add_parser("truth-eval", help="evaluate on your checked takes (data/truth): where are the errors?")
     p.add_argument("dir", nargs="?", default="data/truth")
     p.add_argument("--stored", action="store_true", help="score the analysis saved with each take (no re-run)")
@@ -401,6 +403,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["train-strings"]:  # its own parser (it re-invokes itself once per seed / GPU)
+        from .training import main as train_strings
+
+        return train_strings(argv[1:])
     a = build_parser().parse_args(argv)
     try:
         return a.fn(a)

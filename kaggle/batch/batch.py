@@ -13,7 +13,7 @@ import _bootstrap  # noqa: E402
 
 _bootstrap.install()
 
-SRC = os.environ.get("TABER_TAKES", "/kaggle/input/taber-takes")
+SRC = os.environ.get("TABER_TAKES") or _bootstrap.find_input("taber-takes", "*.wav")
 OUT = "/kaggle/working/out"
 gpus = ",".join(str(g) for g in _bootstrap.gpus()) or "cpu"
 cmd = ["taber", "batch", SRC, "-o", OUT, "--gpus", gpus, "--tone", os.environ.get("TABER_TONE", "distortion_light")]
