@@ -3,12 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { urls } from '../api/client';
 import { ApiError } from '../api/http';
-import { keys, useReassemble, useRestore, useRevisions, useTranscription, useTruth } from '../api/hooks';
+import { keys, useReassemble, useRestore, useRevisions, useTranscription, useTruth, useVideoTrack } from '../api/hooks';
 import type { AssemblyParams, ReassembleIn, Transcription } from '../api/types';
 import Icon from '../components/Icon';
 import Inspector from '../components/Inspector';
 import Lane from '../components/Lane';
 import Metronome from '../components/Metronome';
+import NeckOverlay from '../components/NeckOverlay';
 import Shell from '../components/Shell';
 import type { TabController } from '../components/TabView';
 import { toast } from '../components/Toaster';
@@ -95,6 +96,10 @@ function Editor({ t }: { t: Transcription }) {
   const src = media ? urls.assetContent(media.asset_id) : null;
   const videoAsset = useMemo(() => t.inputs.find((i) => i.kind === 'video') ?? null, [t.inputs]);
   const playsVideo = !!media && media.kind === 'video';
+  // the neck tracking overlay: only for a video that plays in the editor and went through the video stage
+  const [showNeck, setShowNeck] = useState(true);
+  const wantsNeck = playsVideo && (t.quality?.video?.frames ?? 0) > 0;
+  const neckTrack = useVideoTrack(t.id, t.analysis_id, wantsNeck);
   // the separated guitar / backing, when the analysis removed the backing track and uploaded both
   const playback = t.quality?.separation?.playback;
   const hasStems = !!t.analysis_id && !!playback?.includes('guitar') && playback.includes('backing');
@@ -298,7 +303,17 @@ function Editor({ t }: { t: Transcription }) {
               <section className="panel video-panel" aria-label="Video">
                 <h2 className="pixel-h">Video</h2>
                 <div className="video-box" ref={setVideoHost} />
+                {showNeck && neckTrack.data && videoHost && playsVideo ? <NeckOverlay host={videoHost} media={audioRef} track={neckTrack.data} /> : null}
                 <VideoStatus video={t.quality?.video ?? null} />
+                {wantsNeck ? (
+                  <label className="switch">
+                    <input type="checkbox" role="switch" checked={showNeck} onChange={(e) => setShowNeck(e.target.checked)}
+                      disabled={!neckTrack.data} data-testid="show-neck" />
+                    <span className="switch-track" aria-hidden="true" />
+                    Show neck tracking
+                  </label>
+                ) : null}
+                {wantsNeck && neckTrack.data === null ? <p className="muted small">Re-analyze with the video to see the neck tracking.</p> : null}
                 <button type="button" className="btn" onClick={() => setCalibrating(true)} data-testid="use-video">
                   <Icon name="video" /> {t.quality?.video?.used ? 'Recalibrate the neck' : 'Use the video to pick strings and frets'}
                 </button>
@@ -345,7 +360,7 @@ function VideoStatus({ video }: { video: VideoQuality | null }) {
   if (!video.used) return <p className="muted small">The video did not help: {video.reason}</p>;
   return (
     <p className="muted small" data-testid="video-status">
-      Using the video: hand visible in {Math.round((video.hands_ratio ?? 0) * 100)}% of frames, {video.notes_with_evidence} notes confirmed.
+      Using the video: neck tracked in {Math.round((video.tracked_ratio ?? 0) * 100)}% and hand visible in {Math.round((video.hands_ratio ?? 0) * 100)}% of frames, {video.notes_with_evidence} notes confirmed.
     </p>
   );
 }

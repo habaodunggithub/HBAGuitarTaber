@@ -150,6 +150,23 @@ def test_listening_stems_upload_and_playback(client, project_id, asset):
     assert client.get(f"/api/v1/transcriptions/{second['transcription_id']}/stems/guitar").content == b"GTR" * 1000
 
 
+def test_video_track_for_the_overlay(client, project_id, asset):
+    first = create_t(client, project_id, asset["asset_id"])
+    tid = first["transcription_id"]
+    assert client.get(f"/api/v1/transcriptions/{tid}/video-track").status_code == 409  # no analysis yet
+    lease(client)
+    a = fake_analysis()
+    a.video_track = {"time_offset_s": 0.0, "size": [960, 540], "fret_a": 3, "fret_b": 12,
+                     "samples": [[0.1, 1, 0.1, 0.2, 0.1, 0.3, 0.5, 0.3, 0.5, 0.2]], "tips": [[0.1, 0.3, 0.25, 1]]}
+    submit(client, first["job_id"], analysis=a)
+    r = client.get(f"/api/v1/transcriptions/{tid}/video-track")
+    assert r.status_code == 200 and r.json() == a.video_track
+    other = create_t(client, project_id, upload(client, project_id=project_id, seed=7).json()["asset_id"])
+    lease(client)
+    submit(client, other["job_id"])
+    assert client.get(f"/api/v1/transcriptions/{other['transcription_id']}/video-track").status_code == 404
+
+
 def test_different_options_do_not_share_cache(client, project_id, asset):
     a = create_t(client, project_id, asset["asset_id"])
     lease(client)
@@ -517,6 +534,17 @@ def test_video_reanalysis_needs_a_video_and_valid_frets(client, project_id, asse
     tid, _ = video_t
     assert client.post(f"/api/v1/transcriptions/{tid}/video", json={"calibration": {**CAL, "fret_a": 12, "fret_b": 5}}).status_code == 422
     assert client.post(f"/api/v1/transcriptions/{tid}/video", json={"calibration": {**CAL, "points": [[0, 0]]}}).status_code == 422
+    three = {**CAL, "frets": [3, 7, 12], "guitar": "acoustic"}  # 3 wires need 6 points
+    assert client.post(f"/api/v1/transcriptions/{tid}/video", json={"calibration": three}).status_code == 422
+    assert client.post(f"/api/v1/transcriptions/{tid}/video", json={"calibration": {**CAL, "guitar": "banjo"}}).status_code == 422
+
+
+def test_video_calibration_with_more_wires_and_a_body_type(client, video_t):
+    tid, _ = video_t
+    cal = {**CAL, "points": CAL["points"] + [[0.1, 0.66], [0.1, 0.34]], "frets": [3, 9, 12], "guitar": "classical"}
+    assert client.post(f"/api/v1/transcriptions/{tid}/video", json={"calibration": cal}).status_code == 201
+    got = lease(client).json()["analysis_options"]["video_calibration"]
+    assert got["frets"] == [3, 9, 12] and got["guitar"] == "classical" and len(got["points"]) == 6
 
 
 def test_listing_uses_a_fixed_number_of_queries(app, client, project_id):

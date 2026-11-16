@@ -309,17 +309,18 @@ test.describe('what to hear', () => {
   test('guitar / backing play the stem in step with the muted original', async ({ page }) => {
     // the synthetic guitar is not recognised by Demucs, so pretend the analysis published stems,
     // served from the take itself
+    let takeUrl = '';
     await page.route(/\/api\/v1\/transcriptions\/[0-9a-f]{32}$/, async (route) => {
       const res = await route.fetch();
       const t = await res.json();
+      if (t.inputs?.[0]) takeUrl = new URL(`/api/v1/assets/${t.inputs[0].asset_id}/content`, route.request().url()).href;
       if (t.quality) t.quality.separation = { used: true, stem: 'guitar', reason: 'test', playback: ['guitar', 'backing'] };
       await route.fulfill({ response: res, json: t });
     });
     const served: string[] = [];
     await page.route(/\/stems\/(guitar|backing)\?/, async (route) => {
       served.push(route.request().url());
-      const t = await (await page.request.get(page.url().replace('/t/', '/api/v1/transcriptions/'))).json();
-      await route.fulfill({ response: await page.request.get(`/api/v1/assets/${t.inputs[0].asset_id}/content`) });
+      await route.fulfill({ response: await route.fetch({ url: takeUrl }) });
     });
     await createTab(page);
     const state = () => page.evaluate(() => {
@@ -351,6 +352,60 @@ test.describe('what to hear', () => {
   });
 });
 
+test.describe('neck calibration', () => {
+  test('more frets and a body type: a misplaced click is flagged, the fit is sent with both', async ({ page }) => {
+    await createTab(page, 'box_techniques.mp4');
+    await page.getByTestId('use-video').click();
+    const dialog = page.getByRole('dialog', { name: 'Show the app where the neck is' });
+    await dialog.getByTestId('cal-body').selectOption('acoustic');
+    await dialog.getByTestId('cal-count').selectOption('3');
+    await expect(dialog.getByTestId('cal-fret-0')).toHaveValue('3');
+    await expect(dialog.getByTestId('cal-fret-2')).toHaveValue('12');
+    await expect(dialog.getByTestId('cal-fret-2').locator('option').last()).toHaveText('20'); // acoustic: 20 frets
+    await dialog.getByTestId('cal-fret-1').selectOption('9');
+    const step = page.getByTestId('cal-step');
+    await expect(step).toContainText('1/6');
+    await expect(step).toContainText('low E string (6) right on fret 3');
+
+    // clicks that sit on a tapered acoustic neck (same model as the app), seen without perspective
+    const fu = (n: number) => 1 - 2 ** (-n / 12);
+    const at = (fret: number, v: number): [number, number] => {
+      const u = fu(fret);
+      return [0.9 - 1.1 * u, 0.5 - (v - 0.5) * (1 + 0.48 * u) * 0.4];
+    };
+    const order: [number, number][] = [[3, 0], [3, 1], [9, 1], [9, 0], [12, 0], [12, 1]];
+    const stage = page.getByTestId('cal-stage');
+    await expect(stage).toHaveAttribute('data-loaded', 'true');
+    const box = (await stage.boundingBox())!;
+    const click = (x: number, y: number) => page.mouse.click(box.x + box.width * x, box.y + box.height * y);
+    for (const [f, v] of order.slice(0, 5)) await click(...at(f, v));
+    await expect(step).toContainText('high e string (1) right on fret 12');
+    const [lx, ly] = at(12, 1);
+    await click(lx, ly + 0.08); // a sloppy last click
+    await expect(step).toContainText(/Point \d \(red\) is \d+ px off/);
+    await expect(dialog.locator('.cal-point.off')).not.toHaveCount(0);
+
+    await dialog.getByRole('button', { name: 'Undo point' }).click();
+    await expect(step).toContainText('6/6');
+    await click(lx, ly);
+    await expect(step).toContainText(/agree within \d/);
+    await expect(dialog.locator('.cal-point.off')).toHaveCount(0);
+    await expect(dialog.locator('.cal-fret.key')).toHaveCount(3);
+    if (process.env.E2E_SHOTS) await dialog.screenshot({ path: `${process.env.E2E_SHOTS}/calibrate-3-frets.png` });
+
+    const req = page.waitForRequest((r) => r.url().endsWith('/video') && r.method() === 'POST');
+    await dialog.getByRole('button', { name: 'Re-analyze with video' }).click();
+    const cal = (await req).postDataJSON().calibration;
+    expect(cal).toMatchObject({ frets: [3, 9, 12], fret_a: 3, fret_b: 12, guitar: 'acoustic' });
+    expect(cal.points).toHaveLength(6);
+    await expect(page.locator('.at-surface svg').first()).toBeVisible({ timeout: 90_000 });
+
+    // the body type is remembered for the next calibration
+    await page.getByTestId('use-video').click();
+    await expect(page.getByTestId('cal-body')).toHaveValue('acoustic');
+  });
+});
+
 test.describe('video', () => {
   test('a video take plays in the editor and can be calibrated for a video re-analysis', async ({ page }) => {
     await createTab(page, 'box_techniques.mp4');
@@ -379,6 +434,22 @@ test.describe('video', () => {
     // the page follows the re-analysis, then comes back to the editor with the video's verdict
     await expect(page.locator('.at-surface svg').first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByRole('region', { name: 'Video' })).toContainText(/The video did not help|Using the video/, { timeout: 30_000 });
+
+    // the neck tracking is drawn on the video while it plays
+    const toggle = page.getByTestId('show-neck');
+    await expect(toggle).toBeChecked();
+    await expect(toggle).toBeEnabled();
+    const overlay = page.getByTestId('neck-overlay');
+    await page.evaluate(() => { (document.querySelector('video.take-video') as HTMLVideoElement).currentTime = 1.0; });
+    await expect(overlay).toHaveAttribute('data-state', /tracked|lost/);
+    await expect(overlay.locator('path.neck-key')).toHaveAttribute('d', /^M[\d.-]+ [\d.-]+L/);
+    await expect(page.getByTestId('neck-badge')).toHaveText(/Neck tracked|Tracking lost/);
+    if (process.env.E2E_SHOTS) await page.getByRole('region', { name: 'Video' }).screenshot({ path: `${process.env.E2E_SHOTS}/neck-overlay.png` });
+    await page.getByTestId('play').click();
+    await expect(page.getByTestId('time')).not.toHaveText(/^0:0[01]$/, { timeout: 10_000 });
+    await page.getByTestId('play').click();
+    await toggle.click({ force: true });
+    await expect(overlay).toHaveCount(0);
   });
 
   test('calibration needs four valid points and can be redone', async ({ page }) => {

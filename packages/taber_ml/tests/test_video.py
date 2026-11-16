@@ -15,7 +15,14 @@ from taber_ir import AssemblyParams, assemble, iter_score_notes  # noqa: E402
 from taber_ir.fusion.video import fret_u, string_v, u_to_fret, video_scores  # noqa: E402
 from taber_ir.models import Analysis, AnalysisOptions, NoteEvent, VideoCalibration  # noqa: E402
 from taber_ir.testing import TabNote, analysis_from_tab  # noqa: E402
-from taber_ml.video.geometry import calibration_homography, fingertips_on_board, to_board  # noqa: E402
+from taber_ml.video.geometry import (  # noqa: E402
+    TAPER,
+    board_to_image,
+    calibration_board_points,
+    calibration_homography,
+    fingertips_on_board,
+    to_board,
+)
 from taber_ml.video.stage import analyze_video  # noqa: E402
 
 W, H, FPS = 960, 540, 30
@@ -87,9 +94,11 @@ class RedDotHand:
         return [lm]
 
 
-def calibration(fa=3, fb=12) -> VideoCalibration:
-    pts = [board_to_img(fret_u(fa), 0), board_to_img(fret_u(fa), 1), board_to_img(fret_u(fb), 1), board_to_img(fret_u(fb), 0)]
-    return VideoCalibration(t_s=0.0, points=[(x / W, y / H) for x, y in pts], fret_a=fa, fret_b=fb)
+def calibration(fa=3, fb=12, frets: list[int] | None = None) -> VideoCalibration:
+    wires = frets or [fa, fb]
+    pts = [board_to_img(u, v) for u, v in calibration_board_points(wires)]  # A6 A1 B1 B6 ...
+    return VideoCalibration(t_s=0.0, points=[(x / W, y / H) for x, y in pts], fret_a=wires[0], fret_b=wires[-1],
+                            frets=frets)
 
 
 # a lick high on the neck: prior-only fingering prefers lower positions on thinner strings
@@ -111,7 +120,7 @@ def test_fret_law_roundtrip():
 def test_calibration_homography_maps_clicked_corners():
     cal = calibration(5, 12)
     pts = np.float32([[x * W, y * H] for x, y in cal.points])
-    Hm = calibration_homography(pts, 5, 12)
+    Hm = calibration_homography(pts, [5, 12])
     uv = to_board(Hm, pts)
     assert np.allclose(uv, [[fret_u(5), 0], [fret_u(5), 1], [fret_u(12), 1], [fret_u(12), 0]], atol=1e-4)
     # a point between the clicked frets maps to the right fret / string
@@ -119,12 +128,74 @@ def test_calibration_homography_maps_clicked_corners():
     u, v = to_board(Hm, np.float32([[x, y]]))[0]
     assert 8.5 < u_to_fret(u) < 9.0 and abs(v - string_v(3)) < 0.02
     with pytest.raises(ValueError):
-        calibration_homography(pts, 7, 5)
+        calibration_homography(pts, [7, 5])
+
+
+
+# a tapered neck seen in perspective: physical plane (x = u, y = (v - 1/2)(1 + taper u)) -> image
+def tapered_camera(taper: float) -> np.ndarray:
+    phys = np.float32([[0, -0.5], [0, 0.5], [0.75, 0.5 * (1 + taper * 0.75)], [0.75, -0.5 * (1 + taper * 0.75)]])
+    img = np.float32([[880, 330], [880, 250], [90, 200], [90, 380]])  # nut on the right, perspective
+    return cv2.getPerspectiveTransform(img, phys).astype(np.float64)  # image -> physical
+
+
+def clicks(Hc: np.ndarray, frets: list[int], taper: float, noise_px: float = 0.0, seed: int = 0) -> np.ndarray:
+    px = board_to_image(Hc, calibration_board_points(frets), taper)
+    return px + np.random.default_rng(seed).normal(0, noise_px, px.shape)
+
+
+def fret_error(H: np.ndarray, Hc: np.ndarray, taper_model: float, taper_true: float, frets=range(0, 20)) -> float:
+    """Worst error (in frets / string spacings) over the whole neck, from the true geometry."""
+    worst = 0.0
+    for f in frets:
+        for s in range(1, 7):
+            u = fret_u(f + 1) - 0.3 * (fret_u(f + 1) - fret_u(f))
+            px = board_to_image(Hc, np.array([[u, string_v(s)]]), taper_true)
+            got_u, got_v = to_board(H, px, taper_model)[0]
+            worst = max(worst, abs(u_to_fret(got_u) - u_to_fret(u)), abs(got_v - string_v(s)) * 5)
+    return worst
+
+
+def test_the_taper_model_keeps_frets_right_beyond_the_clicked_ones():
+    taper = TAPER["electric"]
+    Hc = tapered_camera(taper)
+    with_taper = calibration_homography(clicks(Hc, [5, 12], taper), [5, 12], taper)
+    parallel = calibration_homography(clicks(Hc, [5, 12], taper), [5, 12], 0.0)
+    assert fret_error(with_taper, Hc, taper, taper) < 1e-3  # exact for the right body type
+    assert fret_error(parallel, Hc, 0.0, taper) > 0.25  # ignoring the taper drifts by a quarter fret or more
+
+
+def test_more_wires_average_out_sloppy_clicks():
+    taper = TAPER["acoustic"]
+    Hc = tapered_camera(taper)
+    two, five = [], []
+    for seed in range(40):
+        two.append(fret_error(calibration_homography(clicks(Hc, [5, 12], taper, 3.0, seed), [5, 12], taper), Hc, taper, taper))
+        wires = [3, 5, 7, 9, 12]
+        five.append(fret_error(calibration_homography(clicks(Hc, wires, taper, 3.0, seed), wires, taper), Hc, taper, taper))
+    assert np.mean(five) < 0.65 * np.mean(two)  # about half the error, over the whole neck (3 px of click noise)
+
+
+def test_calibration_validation():
+    pts4 = [(0.8, 0.6), (0.8, 0.4), (0.2, 0.35), (0.2, 0.65)]
+    old = VideoCalibration(t_s=0, points=pts4, fret_a=5, fret_b=12)  # stored before frets/guitar existed
+    assert old.wires == [5, 12] and old.guitar == "parallel"
+    three = VideoCalibration(t_s=0, points=pts4 + [(0.1, 0.65), (0.1, 0.35)], fret_a=3, fret_b=12, frets=[3, 7, 12], guitar="classical")
+    assert three.wires == [3, 7, 12]
+    bad = [
+        dict(points=pts4, fret_a=3, fret_b=12, frets=[3, 7, 12]),  # 3 wires need 6 points
+        dict(points=pts4 + pts4[:2], fret_a=3, fret_b=12, frets=[3, 12, 7]),  # not going up
+        dict(points=pts4 + pts4[:2], fret_a=5, fret_b=12, frets=[3, 7, 12]),  # fret_a is not the first
+        dict(points=pts4, fret_a=12, fret_b=5),
+    ]
+    for kw in bad:
+        with pytest.raises(ValueError):
+            VideoCalibration(t_s=0, **kw)
 
 
 def test_fingertips_outside_the_board_are_ignored():
     cal = calibration()
-    Hm = calibration_homography(np.float32([[x * W, y * H] for x, y in cal.points]), cal.fret_a, cal.fret_b)
+    Hm = calibration_homography(np.float32([[x * W, y * H] for x, y in cal.points]), cal.wires)
     lm = np.full((21, 2), -5000.0, np.float32)
     lm[8] = board_to_img(fret_u(7) - 0.005, string_v(2))
     lm[12] = (5, 5)  # top-left corner of the image: nowhere near the neck
@@ -189,6 +260,49 @@ def test_analyze_video_end_to_end(tmp_path):
     got = [(n.string, n.fret) for _, _, n in iter_score_notes(score) if not n.tie_from_prev]
     assert got == [(t.string, t.fret) for t in truth]
     assert all(n.finger == "1" for _, _, n in iter_score_notes(score) if not n.tie_from_prev)  # the dot is finger 1
+
+
+
+def test_neck_track_follows_the_shake_for_the_overlay(tmp_path):
+    """The overlay data: the calibration corners as seen in each frame move with the guitar."""
+    from taber_ml.video.stage import TRACK_FPS
+
+    an, truth = lick()
+    path = tmp_path / "take.mp4"
+    make_video(path, an.notes, [(t.string, t.fret) for t in truth], seconds=an.notes[-1].offset_s + 0.5)
+    cal = calibration()
+    rep = analyze_video(str(path), an.notes, cal, RedDotHand())
+    tr = rep.track
+    assert tr["size"] == [W, H] and (tr["fret_a"], tr["fret_b"]) == (3, 12) and tr["time_offset_s"] == 0.0
+    ts = [s[0] for s in tr["samples"]]
+    assert ts == sorted(ts) and max(np.diff(ts)) <= 1.0 / TRACK_FPS + 1.0 / FPS + 1e-6  # no gap in the overlay
+    assert len(ts) >= (ts[-1] - ts[0]) * TRACK_FPS
+    shake = lambda t: np.array([3 * np.sin(t * 2.1), 3 * np.cos(t * 1.7)])  # noqa: E731 - as in make_video
+    ref = np.array(cal.points) * [W, H]
+    errs = []
+    for t, ok, *quad in tr["samples"]:
+        if ok:
+            want = ref + (shake(t) - shake(cal.t_s))
+            errs.append(np.abs(np.array(quad).reshape(4, 2) * [W, H] - want).max())
+    assert len(errs) > 0.8 * len(ts) and np.median(errs) < 1.5 and max(errs) < 4  # px
+    # the fingertips that counted are where the red dot was drawn
+    assert tr["tips"] and all(f == 1 for *_, f in tr["tips"])
+    for t, x, y, _f in tr["tips"]:
+        i = next(i for i, n in enumerate(an.notes) if n.onset_s - 0.01 <= t < n.offset_s)
+        s_, f_ = truth[i].string, truth[i].fret
+        u = fret_u(f_) - 0.3 * (fret_u(f_) - fret_u(f_ - 1))
+        want = np.array(board_to_img(u, string_v(s_))) + shake(t)
+        assert np.abs(np.array([x * W, y * H]) - want).max() < 4
+
+
+def test_several_wires_end_to_end(tmp_path):
+    an, truth = lick()
+    path = tmp_path / "take.mp4"
+    make_video(path, an.notes, [(t.string, t.fret) for t in truth], seconds=an.notes[-1].offset_s + 0.5)
+    rep = analyze_video(str(path), an.notes, calibration(frets=[3, 5, 9, 12]), RedDotHand())
+    assert rep.used and rep.notes_with_evidence == len(an.notes) and rep.track["taper"] == 0.0
+    score = assemble(an, AssemblyParams(timing="grid_from_hint", tempo_hint_bpm=100))
+    assert [(n.string, n.fret) for _, _, n in iter_score_notes(score) if not n.tie_from_prev] == [(t.string, t.fret) for t in truth]
 
 
 def test_wrong_calibration_degrades_gracefully(tmp_path):

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api, urls } from './client';
+import { ApiError } from './http';
 import type { JobSnapshot, ReassembleIn } from './types';
 
 export const keys = {
@@ -24,7 +25,21 @@ export const useTranscriptions = () =>
 export const useWorkers = () =>
   useQuery({ queryKey: keys.workers, queryFn: ({ signal }) => api.workers(signal), refetchInterval: 5000 });
 
-export const useRevisions = (id: string, enabled = true) =>
+/** The video stage's neck tracking (null: this analysis has none, e.g. made before the overlay existed). */
+export const useVideoTrack = (id: string, analysisId: string | null, enabled: boolean) =>
+  useQuery({
+    queryKey: ['video-track', id, analysisId] as const,
+    enabled: enabled && !!analysisId,
+    staleTime: Infinity, // an analysis never changes
+    retry: false,
+    queryFn: ({ signal }) =>
+      api.videoTrack(id, analysisId!, signal).catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }),
+  });
+
+export const useRevisions =(id: string, enabled = true) =>
   useQuery({ queryKey: keys.revisions(id), enabled, queryFn: ({ signal }) => api.revisions(id, signal) });
 
 /** Whether this take is in your test set, and the actions to add, refresh or remove it. */

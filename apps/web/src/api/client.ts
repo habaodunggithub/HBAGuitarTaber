@@ -1,4 +1,5 @@
 import { ApiError, getJSON, sendJSON } from './http';
+import type { VideoTrack } from '../lib/neckTrack';
 import type { AssetInfo, CreateTranscription, ReassembleIn, RevisionInfo, Score, Transcription, TruthInfo, Worker } from './types';
 
 /** Every endpoint the SPA calls, in one place: components never build `/api/v1` URLs themselves. */
@@ -19,13 +20,19 @@ export const api = {
   transcriptions: (signal?: AbortSignal) => getJSON<Transcription[]>(`${V}/transcriptions`, signal),
   revisions: (id: string, signal?: AbortSignal) => getJSON<RevisionInfo[]>(`${V}/transcriptions/${id}/revisions`, signal),
   workers: (signal?: AbortSignal) => getJSON<Worker[]>(`${V}/workers`, signal),
+  /** where the video stage saw the neck; `analysisId` keys the browser cache to this analysis */
+  videoTrack: (id: string, analysisId: string, signal?: AbortSignal) =>
+    getJSON<VideoTrack>(`${V}/transcriptions/${id}/video-track?a=${analysisId}`, signal),
 
   create: (projectId: string, body: CreateTranscription) =>
     sendJSON<{ transcription_id: string; job_id: string | null; cached: boolean }>('POST', `${V}/projects/${projectId}/transcriptions`, body),
   save: (id: string, score: Score) => sendJSON<Transcription>('PUT', `${V}/transcriptions/${id}`, score),
   reassemble: (id: string, body: ReassembleIn) => sendJSON<Transcription>('POST', `${V}/transcriptions/${id}/reassemble`, body),
   restore: (id: string, n: number) => sendJSON<Transcription>('POST', `${V}/transcriptions/${id}/revisions/${n}/restore`),
-  analyseWithVideo: (id: string, calibration: { t_s: number; points: [number, number][]; fret_a: number; fret_b: number }) =>
+  analyseWithVideo: (id: string, calibration: {
+    t_s: number; points: [number, number][]; fret_a: number; fret_b: number;
+    frets?: number[]; guitar?: 'electric' | 'acoustic' | 'classical' | 'parallel';
+  }) =>
     sendJSON<{ job_id: string }>('POST', `${V}/transcriptions/${id}/video`, { calibration }),
   cancelJob: (jobId: string) => sendJSON('POST', `${V}/jobs/${jobId}/cancel`),
   truth: (id: string, signal?: AbortSignal) => getJSON<TruthInfo | null>(`${V}/transcriptions/${id}/truth`, signal),

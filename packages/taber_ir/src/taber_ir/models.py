@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = "1.0"
 
@@ -41,17 +41,44 @@ class Technique(BaseModel):
 
 
 # ───────────── Analysis phase: immutable, produced by the worker ─────────────
+GuitarBody = Literal["parallel", "electric", "acoustic", "classical"]
+
+
 class VideoCalibration(BaseModel):
     """Where the fretboard is, clicked once by the user on one frame.
 
-    points (normalised 0..1 image coords, order): (fret_a, string 6), (fret_a, string 1),
-    (fret_b, string 1), (fret_b, string 6). Frets are absolute fret wires (ignoring any capo).
+    The user clicks both outer strings on each fret wire of ``frets`` (2 to 5 wires, ascending; absolute
+    wires, ignoring any capo), snaking: wire 1 string 6 -> string 1, wire 2 string 1 -> string 6, ...
+    So with two wires A < B, points are (A, 6), (A, 1), (B, 1), (B, 6). Points are normalised 0..1 image
+    coords. More wires = a least-squares fit, so one sloppy click weighs less.
+
+    ``guitar`` sets how the neck tapers (the outer strings spread from the nut to the bridge);
+    "parallel" ignores the taper (calibrations made before this existed).
     """
 
     t_s: float = Field(ge=0)
-    points: list[tuple[float, float]] = Field(min_length=4, max_length=4)
-    fret_a: int = Field(ge=0, le=23)
+    points: list[tuple[float, float]] = Field(min_length=4, max_length=10)
+    fret_a: int = Field(ge=0, le=23)  # first and last clicked wire
     fret_b: int = Field(ge=1, le=24)
+    frets: list[int] | None = None  # every clicked wire, ascending; None = [fret_a, fret_b]
+    guitar: GuitarBody = "parallel"
+
+    @model_validator(mode="after")
+    def _check_wires(self) -> VideoCalibration:
+        w = self.wires
+        if not 2 <= len(w) <= 5:
+            raise ValueError("click 2 to 5 fret wires")
+        if any(b <= a for a, b in zip(w, w[1:])) or not 0 <= w[0] or w[-1] > 24:
+            raise ValueError("the fret wires must go up, between 0 and 24")
+        if (w[0], w[-1]) != (self.fret_a, self.fret_b):
+            raise ValueError("fret_a and fret_b must be the first and the last of frets")
+        if len(self.points) != 2 * len(w):
+            raise ValueError(f"{len(w)} fret wires need {2 * len(w)} points (both outer strings on each)")
+        return self
+
+    @property
+    def wires(self) -> list[int]:
+        return list(self.frets) if self.frets else [self.fret_a, self.fret_b]
 
 
 class AnalysisOptions(BaseModel):  # changing these requires re-running analysis
@@ -116,6 +143,11 @@ class Analysis(BaseModel):
     f0_preview: F0Track = Field(default_factory=F0Track)
     quality: QualityReport = Field(default_factory=QualityReport)
     meta: dict = Field(default_factory=dict)  # pipeline_version, model_versions, device, options, stage timings
+    # where the video stage saw the neck over time, for the editor's overlay (None: no video stage).
+    # Keys: time_offset_s, size [w, h], fret_a, fret_b, taper (neck spread, see VideoCalibration.guitar),
+    #   samples [[t, tracked 0|1, x1, y1, .. x4, y4]] (calibration corners in this frame, normalised),
+    #   tips [[t, x, y, finger]] (fingertips that counted as evidence, normalised)
+    video_track: dict | None = None
 
 
 # ───────────── Assembly phase: produced by assemble(), edited by the user ─────────────

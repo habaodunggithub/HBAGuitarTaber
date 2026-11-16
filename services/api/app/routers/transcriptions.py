@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -114,6 +115,16 @@ def get_transcription(tid: str, db: Session = Depends(get_db)):
 @router.get("/transcriptions/{tid}/analysis")
 def get_analysis(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
     return svc.load_analysis_for(db, storage, svc.get_transcription(db, tid)).model_dump(mode="json")
+
+
+@router.get("/transcriptions/{tid}/video-track")
+def get_video_track(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """Where the video stage saw the neck (and the fingertips) over time, for the editor's overlay."""
+    track = svc.load_analysis_for(db, storage, svc.get_transcription(db, tid)).video_track
+    if not track:
+        raise ServiceError(404, "No neck tracking for this tab (analyse it with the video first)")
+    return Response(json.dumps(track, separators=(",", ":")), media_type="application/json",
+                    headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/transcriptions/{tid}/stems/{role}")

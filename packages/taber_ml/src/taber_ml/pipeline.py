@@ -185,6 +185,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     # ── 5. video: fingertips on the fretboard around each onset (only with a calibration) ──
     t0 = stage("video", 5, "Reading the fretting hand from video")
     video_report: dict | None = None
+    video_track: dict | None = None
     if opts.use_video:
         vpath = io.fetch_input(spec.inputs["video"]) if "video" in spec.inputs else wet_path
         if opts.video_calibration is None:
@@ -197,6 +198,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
 
                 rep_ = analyze_video(str(vpath), seg.notes, opts.video_calibration, models.get_hand_tracker())
                 video_report = asdict(rep_)
+                video_track = video_report.pop("track")  # stored on its own, not in the quality summary
                 if not rep_.used:
                     warnings.append("The video did not help: " + rep_.reason + ". Check the 4 calibration points.")
                 elif rep_.tracked_ratio < 0.5:
@@ -236,6 +238,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
         beat_grid=grid,
         f0_preview=_f0_preview(f0),
         quality=quality,
+        video_track=video_track,
         meta={
             "pipeline_version": PIPELINE_VERSION,
             "options": opts.model_dump(),

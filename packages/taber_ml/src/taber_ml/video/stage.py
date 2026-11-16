@@ -8,17 +8,19 @@ against the calibration frame updates the homography (falls back to the calibrat
 from __future__ import annotations
 
 from bisect import bisect_left
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
+from taber_ir.fusion.video import fret_u
 from taber_ir.models import NoteEvent, VideoCalibration
 
-from .geometry import calibration_homography, fingertips_on_board
+from .geometry import TAPER, board_to_image, calibration_homography, fingertips_on_board
 from .hands import HandTracker
 
 MAX_SIDE = 960  # frames are downscaled to this before any processing
 SAMPLE_OFFSETS = (0.02, 0.07)  # seconds after the onset: the fretting finger is down by then
 MIN_INLIERS = 12
+TRACK_FPS = 10.0  # neck-tracking samples per second kept for the editor's overlay
 
 
 @dataclass
@@ -29,6 +31,20 @@ class VideoReport:
     notes_with_evidence: int
     tracked_ratio: float
     reason: str = ""
+    # where the neck was seen over time (Analysis.video_track); popped before the report goes into quality
+    track: dict | None = field(default=None, repr=False)
+
+
+def _quad(pts: np.ndarray, M: np.ndarray | None, w: int, h: int) -> list[float]:
+    """The calibration corners as seen in this frame (normalised x, y), M maps this frame -> calibration."""
+    if M is not None:
+        import cv2
+
+        try:
+            pts = cv2.perspectiveTransform(pts.reshape(-1, 1, 2).astype(np.float64), np.linalg.inv(M)).reshape(-1, 2)
+        except np.linalg.LinAlgError:
+            pass
+    return [round(float(v), 4) for x, y in pts for v in (x / w, y / h)]
 
 
 def _open(path: str):
@@ -112,8 +128,13 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
     cal_frame = read_frame_at(path, cal.t_s)
     h, w = cal_frame.shape[:2]
     pts = np.float32([[x * w, y * h] for x, y in cal.points])
-    H_cal = calibration_homography(pts, cal.fret_a, cal.fret_b)
+    taper = TAPER[cal.guitar]
+    H_cal = calibration_homography(pts, cal.wires, taper)
     neck = NeckTracker(cal_frame, pts)
+    # the overlay's reference: the fitted outer strings on the first and last clicked wires, as seen in the
+    # calibration frame (with more than two wires these are not exactly the clicked points)
+    ua, ub = fret_u(cal.fret_a), fret_u(cal.fret_b)
+    corners = board_to_image(H_cal, np.array([[ua, 0.0], [ua, 1.0], [ub, 1.0], [ub, 0.0]]), taper)
 
     # which notes want which video times
     wants: list[tuple[float, int]] = sorted(
@@ -128,7 +149,11 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
     cap.set(cv2.CAP_PROP_POS_MSEC, first * 1000)
     k, processed, with_hand, tracked = 0, 0, 0, 0
     last = times[-1] + half
-    while k < len(times):
+    # the overlay: every frame we look at (TRACK_FPS, plus the onset frames) -> [t, tracked, quad...]
+    samples: list[list[float]] = []
+    tip_samples: list[list[float]] = []  # [t, x, y, finger] of the fingertips that counted, at onsets
+    next_track = first
+    while True:
         if not cap.grab():
             break
         t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
@@ -136,14 +161,21 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
             break
         while k < len(times) and times[k] < t - half:
             k += 1  # frames missing (VFR / end): give up on that sample
-        if k >= len(times) or abs(times[k] - t) > half:
+        for_note = k < len(times) and abs(times[k] - t) <= half
+        for_track = t >= next_track
+        if not (for_note or for_track):
             continue
         ok, frame = cap.retrieve()
         if not ok:
             continue
         frame = _scale(frame)
-        processed += 1
         M = neck.to_calibration(frame)
+        samples.append([round(t, 3), int(M is not None), *_quad(corners, M, w, h)])
+        if for_track:
+            next_track = t + 1.0 / TRACK_FPS - half
+        if not for_note:
+            continue
+        processed += 1
         if M is not None:
             tracked += 1
         H = H_cal @ M if M is not None else H_cal
@@ -152,17 +184,27 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
         # the fretting hand is the one with the most fingertips on the fretboard
         best: list = []
         for lm in hands:
-            tips = fingertips_on_board(H, lm)
+            tips = fingertips_on_board(H, lm, taper)
             if len(tips) > len(best):
                 best = tips
         if best:
             with_hand += 1
+        tip_samples.extend([round(t, 3), round(f.x / w, 4), round(f.y / h, 4), f.finger] for f in best)
         j = bisect_left(times, t - half)
         while j < len(times) and times[j] <= t + half:
             frames_per_note.setdefault(wants[j][1], []).append([[round(f.u, 4), round(f.v, 4), f.finger] for f in best])
             j += 1
         k = j
     cap.release()
+    track = {
+        "time_offset_s": time_offset_s,  # sample times are video times
+        "size": [w, h],
+        "fret_a": cal.fret_a,
+        "fret_b": cal.fret_b,
+        "taper": taper,
+        "samples": samples,
+        "tips": tip_samples,
+    }
 
     n_ev = 0
     for i, n in enumerate(notes):
@@ -177,4 +219,5 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
         notes_with_evidence=n_ev,
         tracked_ratio=round(tracked / processed, 3) if processed else 0.0,
         reason="" if n_ev else "no fingertips seen on the fretboard around the notes",
+        track=track,
     )
