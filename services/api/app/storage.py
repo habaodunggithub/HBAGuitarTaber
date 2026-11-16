@@ -15,6 +15,7 @@ from taber_ir.models import Analysis
 class Storage(Protocol):
     def asset_path(self, asset_id: str, filename: str) -> tuple[str, Path]: ...
     def resolve(self, storage_key: str) -> Path: ...
+    def stem_path(self, cache_key: str, role: str) -> Path: ...
     def save_analysis(self, analysis_id: str, analysis: Analysis) -> str: ...
     def load_analysis(self, storage_key: str) -> Analysis: ...
     def delete(self, storage_key: str) -> None: ...
@@ -40,8 +41,12 @@ class LocalStorage:
             raise ValueError("storage key escapes the data directory")
         return p
 
+    def stem_path(self, cache_key: str, role: str) -> Path:
+        """Listening stem (guitar / backing) of an analysis, shared by every tab that reuses it."""
+        return self.resolve(f"stems/{cache_key}/{role}.m4a")
+
     def save_analysis(self, analysis_id: str, analysis: Analysis) -> str:
-        key = f"analyses/{analysis_id}.json.gz"
+        key =f"analyses/{analysis_id}.json.gz"
         path = self.resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from taber_ir.models import AnalysisOptions, AssemblyParams, Score, VideoCalibra
 from .. import service as svc
 from .. import truth
 from ..config import Settings
+from ..db import Analysis as AnalysisRow
 from ..db import Project, Revision, Transcription, iso
 from ..deps import get_bus, get_db, get_settings_dep, get_storage
 from ..events import EventBus
@@ -113,6 +114,17 @@ def get_transcription(tid: str, db: Session = Depends(get_db)):
 @router.get("/transcriptions/{tid}/analysis")
 def get_analysis(tid: str, db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
     return svc.load_analysis_for(db, storage, svc.get_transcription(db, tid)).model_dump(mode="json")
+
+
+@router.get("/transcriptions/{tid}/stems/{role}")
+def get_stem(tid: str, role: Literal["guitar", "backing"], db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """The separated guitar or backing of the tab's analysis (AAC, seekable), for listening."""
+    t = svc.get_transcription(db, tid)
+    row = db.get(AnalysisRow, t.analysis_id) if t.analysis_id else None
+    path = storage.stem_path(row.cache_key, role) if row else None
+    if path is None or not path.exists():
+        raise ServiceError(404, "No separated audio for this tab (the backing track was not removed)")
+    return FileResponse(path, media_type="audio/mp4", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.post("/transcriptions/{tid}/reassemble")

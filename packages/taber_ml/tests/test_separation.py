@@ -167,3 +167,66 @@ def test_cache_is_keyed_by_the_decision_rule_version(take, monkeypatch):
     monkeypatch.setattr(S, "DECISION_VERSION", S.DECISION_VERSION + 1)
     _audio, info = S.separate_file(p, sep)
     assert sep.calls == 2 and not info.cached
+
+
+# ───────────────────────────── listening stems ─────────────────────────────
+def decode_stereo(path) -> np.ndarray:
+    """(n, 2) float32 at 44.1 kHz, via ffmpeg (libsndfile does not read AAC)."""
+    import subprocess
+
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-f", "f32le", "-ac", "2", "-ar", str(SR), "-"],
+                         capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).reshape(-1, 2)
+
+
+def test_listening_stems_are_encoded_once_and_cached(take):
+    p, _ref, g = take
+    sep = FakeSeparator(g, 6.0)
+    S.separate_file(p, sep)
+    files = S.playback_files(S.stem_key(p))
+    assert set(files) == {"guitar", "backing"}
+    guitar, backing = decode_stereo(files["guitar"]), decode_stereo(files["backing"])  # real, decodable audio
+    for y in (guitar, backing):
+        assert abs(len(y) / SR - g.shape[1] / SR) < 0.1
+    assert np.sqrt(np.mean(backing**2)) > np.sqrt(np.mean(guitar**2))  # the band is 6 dB louder here
+    S.separate_file(p, sep)
+    assert sep.calls == 1  # second time: decision and stems from the cache
+
+
+def test_cache_from_before_the_listening_stems_separates_again(take):
+    p, _ref, g = take
+    sep = FakeSeparator(g, 6.0)
+    S.separate_file(p, sep)
+    for path in S.playback_files(S.stem_key(p)).values():
+        path.unlink()
+    _audio, info = S.separate_file(p, sep)
+    assert sep.calls == 2 and not info.cached and S.playback_files(S.stem_key(p))
+
+
+class StemIO(LocalDirIO):
+    def __init__(self, inputs, fail: bool = False):
+        super().__init__(inputs)
+        self.stems: dict[str, bytes] = {}
+        self.fail = fail
+
+    def submit_stem(self, role, path):
+        if self.fail:
+            raise OSError("network down")
+        self.stems[role] = path.read_bytes()
+
+
+def test_pipeline_publishes_the_stems_it_listened_through(take, monkeypatch):
+    from taber_ml.models import ModelRegistry
+
+    p, _ref, g = take
+    monkeypatch.setattr(ModelRegistry, "get_separator", lambda self: FakeSeparator(g, 6))
+    spec = JobSpec(inputs={"wet": str(p)}, tracker="pyin")
+    io = StemIO(spec.inputs)
+    an = run_analysis(spec, io)
+    assert set(io.stems) == {"guitar", "backing"} and all(io.stems.values())
+    assert an.quality.separation["playback"] == ["guitar", "backing"]
+    # an upload failure costs only the stems, never the analysis
+    an2 = run_analysis(spec, StemIO(spec.inputs, fail=True))
+    assert an2.quality.separation["used"] and an2.quality.separation["playback"] == [] and an2.notes
+    # an IO without submit_stem (CLI, batch) is fine too
+    assert run_analysis(spec, LocalDirIO(spec.inputs)).quality.separation["playback"] == []

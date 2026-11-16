@@ -64,6 +64,18 @@ class HttpPullIO:
     def is_canceled(self) -> bool:
         return self._canceled.is_set()
 
+    def submit_stem(self, role: str, path: Path) -> None:
+        """Upload a listening stem (guitar / backing) before the analysis, so it is there when the job ends."""
+        with open(path, "rb") as f:
+            r = self.client.post(
+                f"/api/v1/worker/jobs/{self.job_id}/stems/{role}",
+                params={"worker_id": self.worker_id},
+                content=f.read(),
+                headers={"Content-Type": "audio/mp4"},
+                timeout=300,
+            )
+        r.raise_for_status()
+
     def submit(self, analysis: Analysis) -> None:
         body = gzip.compress(analysis.model_dump_json().encode())
         r = self.client.post(

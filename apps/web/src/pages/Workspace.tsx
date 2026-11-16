@@ -95,6 +95,13 @@ function Editor({ t }: { t: Transcription }) {
   const src = media ? urls.assetContent(media.asset_id) : null;
   const videoAsset = useMemo(() => t.inputs.find((i) => i.kind === 'video') ?? null, [t.inputs]);
   const playsVideo = !!media && media.kind === 'video';
+  // the separated guitar / backing, when the analysis removed the backing track and uploaded both
+  const playback = t.quality?.separation?.playback;
+  const hasStems = !!t.analysis_id && !!playback?.includes('guitar') && playback.includes('backing');
+  const stems = useMemo(
+    () => (hasStems && t.analysis_id ? { guitar: urls.stem(t.id, 'guitar', t.analysis_id), backing: urls.stem(t.id, 'backing', t.analysis_id) } : null),
+    [hasStems, t.id, t.analysis_id],
+  );
 
   // ── editing actions ──
   const pick = useCallback((string: number, fret: number) => {
@@ -256,6 +263,7 @@ function Editor({ t }: { t: Transcription }) {
               loopLabel={loopLabel}
               onSkip={skip}
               onPlayingChange={onPlaying}
+              stems={stems}
             />
           ) : src ? null : <p className="muted small">No original audio to play.</p>}
         </section>

@@ -20,18 +20,32 @@ interface Props {
   onSkip: (dir: 1 | -1) => void;
   onPlayingChange?: (playing: boolean) => void;
   onRateChange?: (rate: number) => void;
+  /** The separated guitar and backing (null when the backing track was not removed). */
+  stems?: Record<StemRole, string> | null;
 }
 
-const RATES = [0.5, 0.75, 1];
+export type StemRole = 'guitar' | 'backing';
+type Listen = 'original' | StemRole;
 
-export default function Transport({ src, audioRef, videoHost, poster, onTap, tapCount, loopOn, onLoopChange, loopLabel, onSkip, onPlayingChange, onRateChange }: Props) {
+const RATES = [0.5, 0.75, 1];
+const LISTEN: { id: Listen; label: string; title: string }[] = [
+  { id: 'original', label: 'Original', title: 'The recording as uploaded' },
+  { id: 'guitar', label: 'Guitar', title: 'The guitar alone, separated from the backing track' },
+  { id: 'backing', label: 'Backing', title: 'The backing track without the guitar, to play along' },
+];
+const DRIFT_S = 0.12; // re-align the stem when it drifts this far from the clock
+
+export default function Transport({ src, audioRef, videoHost, poster, onTap, tapCount, loopOn, onLoopChange, loopLabel, onSkip, onPlayingChange, onRateChange, stems }: Props) {
   const waveRef = useRef<HTMLDivElement>(null);
   const audioEl = useRef<HTMLAudioElement | null>(null);
+  const stemEl = useRef<HTMLAudioElement | null>(null);
   const timeRef = useRef<HTMLSpanElement>(null); // updated imperatively: no re-render per frame
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [rate, setRate] = useState(1);
+  const [listen, setListen] = useState<Listen>('original');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [stemError, setStemError] = useState<string | null>(null);
   const cbs = useRef({ onPlayingChange });
   cbs.current = { onPlayingChange };
 
@@ -109,6 +123,62 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
     };
   }, []);
 
+  /**
+   * Listening to a stem: the original element stays the clock (video, waveform, loop, metronome, cursor
+   * all follow it) but is muted, and a hidden <audio> plays the stem in step with it.
+   */
+  useEffect(() => {
+    const a = audioEl.current;
+    const f = stemEl.current;
+    if (!a) return;
+    const url = listen === 'original' ? null : stems?.[listen];
+    if (!f || !url) {
+      a.muted = false;
+      return;
+    }
+    if (f.dataset.src !== url) {
+      f.src = url;
+      f.dataset.src = url;
+    }
+    a.muted = true;
+    const align = () => { if (!f.seeking && Math.abs(f.currentTime - a.currentTime) > 0.04) f.currentTime = a.currentTime; };
+    const start = () => { align(); void f.play().catch(() => {}); };
+    const stop = () => f.pause();
+    const rateSync = () => { f.playbackRate = a.playbackRate; f.preservesPitch = true; };
+    const onSeek = () => { f.currentTime = a.currentTime; };
+    const onError = () => {
+      setStemError('Could not load the separated audio; playing the original.');
+      setListen('original');
+    };
+    rateSync();
+    align();
+    if (!a.paused) start();
+    a.addEventListener('play', start);
+    a.addEventListener('playing', start);
+    a.addEventListener('pause', stop);
+    a.addEventListener('ended', stop);
+    a.addEventListener('waiting', stop); // the clock is buffering: hold the stem too
+    a.addEventListener('seeking', onSeek);
+    a.addEventListener('ratechange', rateSync);
+    f.addEventListener('error', onError);
+    const timer = window.setInterval(() => {
+      if (!a.paused && !f.seeking && Math.abs(f.currentTime - a.currentTime) > DRIFT_S) f.currentTime = a.currentTime;
+    }, 250);
+    return () => {
+      window.clearInterval(timer);
+      a.removeEventListener('play', start);
+      a.removeEventListener('playing', start);
+      a.removeEventListener('pause', stop);
+      a.removeEventListener('ended', stop);
+      a.removeEventListener('waiting', stop);
+      a.removeEventListener('seeking', onSeek);
+      a.removeEventListener('ratechange', rateSync);
+      f.removeEventListener('error', onError);
+      f.pause();
+      a.muted = false;
+    };
+  }, [listen, stems]);
+
   const toggle = () => {
     const a = audioEl.current;
     if (!a) return;
@@ -126,11 +196,14 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
   };
 
   const ri = RATES.indexOf(rate);
+  const heard: Listen = stems ? listen : 'original';
+  const li = LISTEN.findIndex((l) => l.id === heard);
   return (
     <div className="transport">
       {videoHost
         ? createPortal(<video ref={setRefs as unknown as Ref<HTMLVideoElement>} preload="auto" playsInline poster={poster} className="take-video" aria-label="Recording video" />, videoHost)
         : <audio ref={setRefs} preload="auto" />}
+      <audio ref={stemEl} preload="auto" data-testid="stem-audio" />
 
       <div className="scrub">
         <span className="time" ref={timeRef} data-testid="time">0:00</span>
@@ -167,6 +240,20 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
           </button>
         ))}
       </div>
+      <div className="speed listen" role="group" aria-label="What to hear">
+        <span className="speed-pill" aria-hidden="true" style={{ transform: `translateX(${Math.max(li, 0) * 100}%)` }} />
+        {LISTEN.map((l) => {
+          const off = l.id !== 'original' && !stems;
+          return (
+            <button key={l.id} type="button" className={heard === l.id ? 'on' : ''} aria-pressed={heard === l.id} disabled={off}
+              title={off ? 'Available when the backing track was removed during analysis' : l.title}
+              onClick={() => { setStemError(null); setListen(l.id); }} data-testid={`listen-${l.id}`}>
+              {l.label}
+            </button>
+          );
+        })}
+      </div>
+      {stemError ? <p className="muted small" role="status">{stemError}</p> : null}
       {loadError ? <p className="muted small">Could not draw the waveform: {loadError}</p> : null}
     </div>
   );

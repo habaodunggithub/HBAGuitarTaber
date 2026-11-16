@@ -193,6 +193,11 @@ def get_job(db: Session, job_id: str) -> Job:
     return job
 
 
+def owned_job(db: Session, job_id: str, worker_id: str) -> Job:
+    """The job, if this worker still holds its lease (else 409)."""
+    return _owned(db, job_id, worker_id)
+
+
 def _owned(db: Session, job_id: str, worker_id: str) -> Job:
     job = get_job(db, job_id)
     if job.status == "canceled":

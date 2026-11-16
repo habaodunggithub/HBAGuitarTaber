@@ -298,6 +298,59 @@ test.describe('backing track separation', () => {
   });
 });
 
+test.describe('what to hear', () => {
+  test('without separated stems only the original can be played', async ({ page }) => {
+    await createTab(page);
+    await expect(page.getByTestId('listen-original')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('listen-guitar')).toBeDisabled();
+    await expect(page.getByTestId('listen-backing')).toBeDisabled();
+  });
+
+  test('guitar / backing play the stem in step with the muted original', async ({ page }) => {
+    // the synthetic guitar is not recognised by Demucs, so pretend the analysis published stems,
+    // served from the take itself
+    await page.route(/\/api\/v1\/transcriptions\/[0-9a-f]{32}$/, async (route) => {
+      const res = await route.fetch();
+      const t = await res.json();
+      if (t.quality) t.quality.separation = { used: true, stem: 'guitar', reason: 'test', playback: ['guitar', 'backing'] };
+      await route.fulfill({ response: res, json: t });
+    });
+    const served: string[] = [];
+    await page.route(/\/stems\/(guitar|backing)\?/, async (route) => {
+      served.push(route.request().url());
+      const t = await (await page.request.get(page.url().replace('/t/', '/api/v1/transcriptions/'))).json();
+      await route.fulfill({ response: await page.request.get(`/api/v1/assets/${t.inputs[0].asset_id}/content`) });
+    });
+    await createTab(page);
+    const state = () => page.evaluate(() => {
+      const [a, f] = [...document.querySelectorAll('audio')] as HTMLAudioElement[];
+      return { muted: a!.muted, stemPaused: f!.paused, drift: Math.abs(f!.currentTime - a!.currentTime), rate: f!.playbackRate };
+    });
+
+    await page.getByTestId('listen-guitar').click();
+    await expect(page.getByTestId('listen-guitar')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: '75%' }).click();
+    await page.getByTestId('play').click();
+    await expect(page.getByTestId('time')).not.toHaveText('0:00', { timeout: 10_000 });
+    let s = await state();
+    expect(s).toMatchObject({ muted: true, stemPaused: false, rate: 0.75 });
+    expect(s.drift).toBeLessThan(0.25);
+    expect(served.some((u) => u.includes('/stems/guitar?'))).toBe(true);
+
+    await page.getByTestId('listen-backing').click(); // switch while playing
+    await expect.poll(() => served.some((u) => u.includes('/stems/backing?'))).toBe(true);
+    await expect.poll(async () => (await state()).stemPaused).toBe(false);
+
+    await page.getByTestId('listen-original').click();
+    s = await state();
+    expect(s).toMatchObject({ muted: false, stemPaused: true });
+
+    await page.getByTestId('play').click(); // pause
+    await page.getByTestId('listen-guitar').click();
+    expect((await state()).stemPaused).toBe(true); // choosing a stem while paused does not start it
+  });
+});
+
 test.describe('video', () => {
   test('a video take plays in the editor and can be calibrated for a video re-analysis', async ({ page }) => {
     await createTab(page, 'box_techniques.mp4');

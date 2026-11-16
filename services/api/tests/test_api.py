@@ -127,6 +127,29 @@ def test_identical_input_is_served_from_cache_without_a_job(client, project_id, 
     assert lease(client).status_code == 204
 
 
+def test_listening_stems_upload_and_playback(client, project_id, asset):
+    first = create_t(client, project_id, asset["asset_id"])
+    jid, tid = first["job_id"], first["transcription_id"]
+    lease(client)
+    url = f"/api/v1/worker/jobs/{jid}/stems/guitar"
+    assert client.post(url, params={"worker_id": "w1"}, content=b"x").status_code == 401  # worker token required
+    assert client.post(url, headers=AUTH, params={"worker_id": "intruder"}, content=b"x").status_code == 409
+    assert client.post(f"/api/v1/worker/jobs/{jid}/stems/drums", headers=AUTH, params={"worker_id": "w1"}, content=b"x").status_code == 422
+    assert client.post(url, headers=AUTH, params={"worker_id": "w1"}, content=b"").status_code == 422
+    assert client.get(f"/api/v1/transcriptions/{tid}/stems/guitar").status_code == 404  # no analysis yet
+    for role, body in (("guitar", b"GTR" * 1000), ("backing", b"BND" * 1000)):
+        r = client.post(f"/api/v1/worker/jobs/{jid}/stems/{role}", headers=AUTH, params={"worker_id": "w1"}, content=body)
+        assert r.status_code == 204, r.text
+    submit(client, jid)
+    r = client.get(f"/api/v1/transcriptions/{tid}/stems/backing")
+    assert r.status_code == 200 and r.content == b"BND" * 1000 and r.headers["content-type"] == "audio/mp4"
+    part = client.get(f"/api/v1/transcriptions/{tid}/stems/guitar", headers={"Range": "bytes=0-2"})
+    assert part.status_code == 206 and part.content == b"GTR"  # seekable in the browser
+    # a tab that reuses the analysis (same input + options) hears the same stems
+    second = create_t(client, project_id, asset["asset_id"], assembly_params={"tuning": {"capo": 2}})
+    assert client.get(f"/api/v1/transcriptions/{second['transcription_id']}/stems/guitar").content == b"GTR" * 1000
+
+
 def test_different_options_do_not_share_cache(client, project_id, asset):
     a = create_t(client, project_id, asset["asset_id"])
     lease(client)

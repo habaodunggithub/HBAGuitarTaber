@@ -454,6 +454,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .speed-pill { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); background: var(--ink); transition: transform 280ms var(--ease-out); }
 .speed button { position: relative; min-height: 32px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font-size: 12px; letter-spacing: 0.06em; transition: color 200ms ease; }
 .speed button.on { color: var(--paper); }
+.speed button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* the work column */
 .work { display: grid; gap: 22px; align-content: start; min-width: 0; }

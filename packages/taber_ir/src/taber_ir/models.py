@@ -98,7 +98,8 @@ class QualityReport(BaseModel):
     clipping: bool = False
     polyphony_detected: bool = False
     warnings: list[str] = Field(default_factory=list)
-    # what the source-separation stage did (None: not attempted). Keys: used, stem, reason, backing_db, stems_db
+    # what the source-separation stage did (None: not attempted). Keys: used, stem, reason, backing_db, stems_db,
+    # playback (stems uploaded for listening: "guitar", "backing")
     separation: dict | None = None
     # what the video stage did (None: not run). Keys: used, frames, hands_ratio, notes_with_evidence, tracked_ratio
     video: dict | None = None

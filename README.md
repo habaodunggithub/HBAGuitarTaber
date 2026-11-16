@@ -26,7 +26,8 @@ original take, and export it to Guitar Pro, MusicXML, MIDI or ASCII.
   hears which string a note was played on, string/fret assignment (Viterbi over playable fingerings) and
   rhythm quantization (Beat This!), measured on real acoustic (GuitarSet) and electric (IDMT) guitar.
 - **Backing track removal**: when the take has a band behind the guitar, the guitar stem is separated with
-  Demucs before note detection.
+  Demucs before note detection. The editor's player can then switch between the original, the guitar
+  alone and the backing alone (to play along).
 - **Video assist**: calibrate four points on the neck in one video frame, and the fretting hand
   (MediaPipe) helps decide the string and fret of each note.
 - **Browser editor**: a play-along lane and a full score (alphaTab) that follow the audio; move a note to

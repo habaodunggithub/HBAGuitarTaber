@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gzip
 import json
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse
@@ -76,6 +77,32 @@ def asset_content(asset_id: str, db: Session = Depends(get_db), storage: Storage
     if a is None:
         raise svc.ServiceError(404, "Asset not found")
     return FileResponse(storage.resolve(a.storage_key), media_type="application/octet-stream", filename=a.filename)
+
+
+@router.post("/jobs/{job_id}/stems/{role}", status_code=204)
+async def submit_stem(
+    job_id: str, role: Literal["guitar", "backing"], request: Request, worker_id: str,
+    db: Session = Depends(get_db), storage: Storage = Depends(get_storage),
+):
+    """A listening stem (AAC in .m4a) of the job's separation; the editor plays it instead of the original."""
+    job = svc.owned_job(db, job_id, worker_id)
+    path = storage.stem_path(job.cache_key, role)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".part")
+    size = 0
+    try:
+        with open(tmp, "wb") as f:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > MAX_ANALYSIS_BYTES:
+                    raise HTTPException(413, "Stem too large")
+                f.write(chunk)
+        if size == 0:
+            raise HTTPException(422, "Empty stem")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return Response(status_code=204)
 
 
 @router.post("/jobs/{job_id}/analysis")

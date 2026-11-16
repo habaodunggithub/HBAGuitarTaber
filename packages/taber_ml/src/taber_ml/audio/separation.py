@@ -11,13 +11,19 @@ The original audio is kept instead when
 - the guitar stem is (almost) empty: Demucs did not find a guitar, analysing silence would lose every note.
 
 Results are cached on disk by content hash, so re-analysing the same take does not separate it again.
+
+For listening, two stereo AAC files are kept next to the decision: the guitar stem and the backing
+(every other stem summed). The worker uploads them so the editor can play the guitar alone or the band
+alone (``playback_files``).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
+import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -25,11 +31,14 @@ import numpy as np
 
 from .ingest import ANALYSIS_SR, Audio, IngestError, _ffmpeg_decode
 
+log = logging.getLogger("taber.separation")
+
 MODEL = "htdemucs_6s"
 MODEL_SR = 44100
 DECISION_VERSION = 3  # bump when choose_stem() changes: cached decisions are keyed by it
 SOLO_BACKING_DB = -14.0  # backing this far below the mix => treat the take as solo, keep the original
 EMPTY_GUITAR_DB = -30.0  # guitar stem this far below the mix => Demucs found no guitar
+PLAYBACK_ROLES = ("guitar", "backing")  # the stems the editor can play instead of the original
 
 
 @dataclass
@@ -167,18 +176,60 @@ class DemucsSeparator:
             pass
 
 
-def separate_file(path: Path, separator: DemucsSeparator, force: bool = False) -> tuple[Audio | None, SeparationInfo]:
+def stem_key(path: Path) -> str:
+    """Cache key of a take's separation (content hash + model + decision version)."""
+    return f"{_file_hash(path)}_{MODEL}_v{DECISION_VERSION}"
+
+
+def _playback_path(key: str, role: str) -> Path:
+    return cache_dir() / f"{key}.{role}.m4a"
+
+
+def playback_files(key: str) -> dict[str, Path]:
+    """The listening stems cached for ``key`` (role -> .m4a), empty when there are none."""
+    files = {r: _playback_path(key, r) for r in PLAYBACK_ROLES}
+    return files if all(p.exists() for p in files.values()) else {}
+
+
+def encode_m4a(y: np.ndarray, dest: Path, sr: int = MODEL_SR) -> None:
+    """(2, n) float audio -> stereo AAC in an .m4a (plays in every browser, ~1.2 MB per minute)."""
+    peak = float(np.max(np.abs(y))) if y.size else 0.0
+    if peak > 0.99:  # stems can overshoot the mix a little: avoid clipping in the encoder
+        y = y * (0.99 / peak)
+    tmp = dest.with_name(dest.name + ".part")
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ar", str(sr), "-ac", "2", "-i", "-",
+         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-f", "mp4", str(tmp)],
+        input=np.ascontiguousarray(y.T, dtype=np.float32).tobytes(), capture_output=True, check=True, timeout=900,
+    )
+    tmp.replace(dest)
+
+
+def _save_playback(key: str, stems: dict[str, np.ndarray]) -> None:
+    backing = sum(v for k, v in stems.items() if k != "guitar")
+    try:
+        for role, y in (("guitar", stems["guitar"]), ("backing", backing)):
+            encode_m4a(np.asarray(y, dtype=np.float32), _playback_path(key, role))
+    except (OSError, subprocess.SubprocessError) as e:  # listening stems are a convenience, never fatal
+        log.warning("could not encode the listening stems: %s", e)
+
+
+def separate_file(
+    path: Path, separator: DemucsSeparator, force: bool = False, key: str | None = None,
+) -> tuple[Audio | None, SeparationInfo]:
     """Separate ``path``; return (Audio to analyse, or None = keep the original; info). Cached by content.
 
     ``force`` ("always separate") uses the guitar stem even for a solo take, but never an empty one.
+    ``key`` is ``stem_key(path)`` when the caller already has it.
     """
-    key = f"{_file_hash(path)}_{MODEL}_v{DECISION_VERSION}"
+    key = key or stem_key(path)
     d = cache_dir()
     wav, meta = d / f"{key}.npy", d / f"{key}.json"
-    if meta.exists():
-        info = SeparationInfo(**json.loads(meta.read_text()))
+    info = SeparationInfo(**json.loads(meta.read_text())) if meta.exists() else None
+    usable = info is not None and info.stems_db.get("guitar", -120.0) >= EMPTY_GUITAR_DB
+    if info is not None and (playback_files(key) or not usable):
         info.cached = True
-    else:
+    else:  # first time, or a cache from before the listening stems: separate (again)
         mix = load_stereo(path)
         if mix.shape[1] < MODEL_SR // 2:
             raise IngestError("audio too short for source separation")
@@ -189,6 +240,7 @@ def separate_file(path: Path, separator: DemucsSeparator, force: bool = False) -
             import soxr
 
             np.save(wav, soxr.resample(stems["guitar"].mean(axis=0), MODEL_SR, ANALYSIS_SR).astype(np.float32))
+            _save_playback(key, stems)
         meta.write_text(json.dumps(asdict(info)))
     if force and not info.used and wav.exists():
         info = SeparationInfo(**{**asdict(info), "used": True, "stem": "guitar", "reason": "Always separate (your choice)"})

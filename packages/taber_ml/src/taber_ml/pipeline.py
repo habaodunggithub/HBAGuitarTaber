@@ -6,6 +6,7 @@ cancellation and result delivery (local directory, HTTP pull worker, serverless)
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -19,8 +20,10 @@ from .audio.f0 import F0Result, get_tracker
 from .audio.ingest import load_audio
 from .audio.key import detect_key
 from .audio.segment import F0FirstSegmenter, Segmentation
-from .audio.separation import separate_file
+from .audio.separation import playback_files, separate_file, stem_key
 from .models import ModelRegistry
+
+log = logging.getLogger("taber.pipeline")
 
 PIPELINE_VERSION = "0.2.1"  # 0.2: Basic Pitch onsets + string classifier; 0.2.1: large string classifier
 STAGES = ["ingest", "separation", "beats", "f0", "segment", "video", "quality"]
@@ -44,6 +47,25 @@ class JobSpec:
     tempo_hint_bpm: float | None = None
     tracker: str = "auto"
     beat_tracker: str = "auto"
+
+
+def _publish_stems(io: JobIO, key: str) -> list[str]:
+    """Hand the listening stems (guitar, backing) to the IO, if it takes them. Returns the roles delivered.
+
+    Optional on purpose: an IO without ``submit_stem`` (CLI, batch) just skips it, and a failed upload
+    only costs the editor its stem buttons, never the analysis.
+    """
+    submit = getattr(io, "submit_stem", None)
+    if submit is None:
+        return []
+    done = []
+    for role, path in playback_files(key).items():
+        try:
+            submit(role, path)
+            done.append(role)
+        except Exception as e:  # noqa: BLE001
+            log.warning("could not upload the %s stem: %s", role, e)
+    return done
 
 
 def _f0_preview(f0: F0Result, step_s: float = 0.02) -> F0Track:
@@ -93,12 +115,14 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     else:
         try:
             sep = models.get_separator()
-            stem_audio, info = separate_file(primary, sep, force=opts.separate_source == "on")
+            key = stem_key(primary)
+            stem_audio, info = separate_file(primary, sep, force=opts.separate_source == "on", key=key)
             separation = asdict(info)
             if info.warning:
                 warnings.append(info.warning)
             if stem_audio is not None:
                 seg_audio = stem_audio  # beat_audio keeps the original mix (drums help beat tracking)
+                separation["playback"] = _publish_stems(io, key)
             if models.small_gpu:
                 models.release("separator")  # leave the 6 GB laptop GPU to the pitch tracker
         except ImportError:

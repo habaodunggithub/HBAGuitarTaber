@@ -9,6 +9,7 @@ export type UploadedAsset = AssetInfo & { project_id: string };
 export const urls = {
   assetContent: (assetId: string) => `${V}/assets/${assetId}/content`,
   frame: (assetId: string, t: number) => `${V}/assets/${assetId}/frame?t=${t}`,
+  stem: (id: string, role: 'guitar' | 'backing', analysisId: string) => `${V}/transcriptions/${id}/stems/${role}?a=${analysisId}`,
   export: (id: string, format: string) => `${V}/transcriptions/${id}/export?format=${format}`,
   jobEvents: (jobId: string) => `${V}/jobs/${jobId}/events`,
 };
