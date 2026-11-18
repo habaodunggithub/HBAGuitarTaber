@@ -113,7 +113,7 @@ jobs:
           merge-multiple: true
       - name: Checksums
         run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
-      - name: Draft the release (check it, then press Publish: the download page updates itself)
+      - name: Draft the release (check it, then press Publish; the download page updates itself)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
