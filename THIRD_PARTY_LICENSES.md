@@ -50,3 +50,21 @@ license here: a model trained on non-commercial data inherits that restriction (
 ## Not installed (planned)
 
 Beat This!, madmom (its model weights are non-commercial: `no`), Ultralytics YOLO (AGPL: `no`).
+
+## Desktop app (apps/desktop)
+
+Shipped inside the installers, or downloaded by the app on first launch. The Python packages above are not shipped:
+the app's own copy of `uv` downloads them from PyPI (and torch from the PyTorch index) on the user's computer.
+
+| Component | License | Shipped how | Note |
+|---|---|---|---|
+| Electron 45 (Chromium, Node.js) | MIT; Chromium's BSD-3-Clause and component licenses | in the installer | the licenses come in the app folder (`LICENSE.electron.txt`, `LICENSES.chromium.html`) |
+| FFmpeg 8.1 | LGPL-2.1-or-later (built without GPL or nonfree parts) | in the installer, as separate `ffmpeg` / `ffprobe` programs | Windows/Linux: BtbN `lgpl-shared` builds; macOS: built from source by `scripts/build-ffmpeg-macos.sh`; licence and source link in `resources/ffmpeg/` |
+| uv | MIT or Apache-2.0 | in the installer | builds the runtime |
+| CPython 3.12 (python-build-standalone) | PSF License | downloaded by uv on first launch | |
+
+## Download page (site/)
+
+| Component | License | Note |
+|---|---|---|
+| Six Caps, Caveat, IBM Plex Mono, Sriracha (fonts) | SIL OFL 1.1 | self-hosted in `site/fonts/`; Sriracha is used for the Vietnamese page |
