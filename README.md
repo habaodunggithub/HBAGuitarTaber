@@ -11,9 +11,12 @@
 </div>
 
 > [!IMPORTANT]
-> This project is **not open source**. The code is published for reference only: using, copying, modifying or
-> redistributing it requires written permission from the author, and permitted uses must credit
-> Ha Van Thien Bao. See [LICENSE](LICENSE).
+> **Free to use, not open source.** Anyone may download the app and use it for non-commercial purposes, and the tabs
+> you make with it are yours (even to sell). Commercial use of the app, redistributing it, publishing modified
+> versions, and copying its code, design or models into another product are not allowed without written permission
+> from Ha Van Thien Bao. See [LICENSE](LICENSE) ([tóm tắt tiếng Việt](LICENSE.vi.md)).
+
+**Download the desktop app** (Windows, macOS, Linux): https://habaodunggithub.github.io/HBAGuitarTaber/
 
 Drop a recording of a solo (audio or a phone video, optionally with the clean DI take) and Taber writes the tab:
 which string and fret each note was played on, the rhythm on a beat grid, and techniques such as bends,
@@ -49,7 +52,13 @@ original take, and export it to Guitar Pro, MusicXML, MIDI or ASCII.
 - [just](https://just.systems/), the task runner: `uv tool install rust-just`
 - Optional: an NVIDIA GPU with CUDA, for faster analysis
 
-### Run the app
+### Desktop app
+
+Download it from the [download page](https://habaodunggithub.github.io/HBAGuitarTaber/). The first launch installs the
+analysis engine once (NVIDIA GPU, processor, or a lite one) and everything then runs on your computer. Building it
+yourself: [apps/desktop/README.md](apps/desktop/README.md).
+
+### Run the app from source
 
 ```bash
 just setup     # Python deps (CUDA torch), web deps, Chromium for the tests
@@ -101,6 +110,8 @@ editor never waits for a GPU. Design decisions and their measurements are record
 | `packages/taber_ml` | Models and pipeline: separation, pitch tracking, segmentation, techniques, video, CLI, worker |
 | `services/api` | FastAPI + SQLite: uploads, job queue (lease / heartbeat), live progress (SSE), revisions, exports |
 | `apps/web` | React + Vite app: play-along lane, alphaTab score, editor, Playwright end-to-end tests |
+| `apps/desktop` | Electron shell: installs the Python runtime on first launch, runs the API + worker, opens the editor |
+| `site/` | The download page (GitHub Pages) |
 | `kaggle/` | Kaggle notebooks and metadata (environment check, batch, pull worker) |
 | `ml/eval` | Ground-truth licks, GuitarSet evaluation and tuning studies |
 

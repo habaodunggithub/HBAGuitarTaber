@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -61,6 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"], allow_headers=["*"],
     )
+    if settings.trusted_hosts:  # added last = runs first: a rebound Host is rejected before anything else
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
     @app.exception_handler(svc.ServiceError)
     async def _svc_err(_, exc: svc.ServiceError):

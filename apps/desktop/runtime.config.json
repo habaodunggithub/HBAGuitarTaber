@@ -1,0 +1,30 @@
+{
+  "$comment": "How the desktop app builds its Python runtime (docs/adr/ADR-011-desktop-app.md). Read by scripts/stage.mjs.",
+  "python": "3.12",
+  "variants": {
+    "win32-x64": ["gpu", "cpu", "lite"],
+    "linux-x64": ["gpu", "cpu", "lite"],
+    "darwin-arm64": ["cpu", "lite"]
+  },
+  "extras": {
+    "gpu": ["torch", "video"],
+    "cpu": ["torch", "video"],
+    "lite": ["video"]
+  },
+  "torchOverride": {
+    "$comment": "Replace the locked PyPI torch wheel with one from a PyTorch index. Bump the CUDA tag when torch is bumped: stage fails if the index has no wheel for the locked version.",
+    "win32-x64-gpu": { "index": "https://download.pytorch.org/whl/cu132", "wheelPlatform": "win_amd64" },
+    "linux-x64-cpu": {
+      "index": "https://download.pytorch.org/whl/cpu",
+      "wheelPlatform": "manylinux_2_28_x86_64",
+      "drop": ["nvidia-", "cuda-", "triton"]
+    }
+  },
+  "downloadEstimate": { "gpu": "3–4 GB", "cpu": "about 0.6 GB", "lite": "about 0.3 GB" },
+  "ffmpeg": {
+    "$comment": "LGPL builds only (the app is not GPL). Windows/Linux: BtbN shared builds. macOS: built from source by scripts/build-ffmpeg-macos.sh.",
+    "btbnRelease": "latest",
+    "btbnBranch": "n8.1",
+    "sourceVersion": "8.1.3"
+  }
+}

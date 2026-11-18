@@ -19,6 +19,25 @@ def test_health(client):
     assert client.get("/api/v1/health").json()["ok"] is True
 
 
+def test_trusted_hosts_reject_a_rebound_host(settings, monkeypatch):
+    """Desktop mode: only the loopback names may reach the API (a DNS-rebound page sends its own Host)."""
+    from app.config import Settings
+    from app.main import create_app
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("TABER_TRUSTED_HOSTS", '["127.0.0.1","localhost"]')
+    s = Settings(data_dir=settings.data_dir, worker_token=settings.worker_token, spa_dir=settings.spa_dir)
+    assert s.trusted_hosts == ["127.0.0.1", "localhost"]
+    with TestClient(create_app(s), base_url="http://127.0.0.1:8765") as c:
+        assert c.get("/api/v1/health").status_code == 200
+        assert c.get("/api/v1/health", headers={"Host": "localhost:8765"}).status_code == 200
+        assert c.get("/api/v1/health", headers={"Host": "evil.example:8765"}).status_code == 400
+
+
+def test_trusted_hosts_default_is_open(client):
+    assert client.get("/api/v1/health", headers={"Host": "my-tunnel.example"}).status_code == 200
+
+
 def test_upload_ok_probe_and_sha(client, asset):
     assert asset["kind"] == "audio" and 0.9 < asset["duration_s"] < 1.1 and len(asset["sha256"]) == 64
     content = client.get(f"/api/v1/assets/{asset['asset_id']}/content")

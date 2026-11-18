@@ -1,36 +1,117 @@
-HBA Guitar Taber — Proprietary License
+HBA Guitar Taber License 1.0
+Free to use, non-commercial, no derivatives
 
-Copyright (c) 2026 Ha Van Thien Bao. All rights reserved.
+Copyright (c) 2026 Ha Van Thien Bao. All rights reserved, except as granted below.
 
-This repository is NOT open source. The source code, documentation, designs and
-other material in it (the "Software") are made visible for reference only.
+By downloading, installing, running or building HBA Guitar Taber, you agree to this
+license. If you do not agree, do not use it. A Vietnamese summary is in LICENSE.vi.md;
+this English text is the license.
 
-1. Permission required. No one may use, copy, modify, merge, publish, distribute,
-   sublicense, sell, host as a service, or use the Software (in whole or in part)
-   to train or evaluate machine-learning models, without the prior written
-   permission of the copyright holder. Permission is requested by opening an
-   issue on the GitHub repository or by contacting the copyright holder through
-   their GitHub profile.
 
-2. Attribution. Any use that the copyright holder permits must keep this
-   copyright notice and this license in every copy or substantial portion of the
-   Software, and must visibly credit "Ha Van Thien Bao" as the original author in
-   the product, its documentation, or its about / credits screen, unless the
-   written permission says otherwise.
+1. Definitions
 
-3. Viewing and forking on GitHub. Viewing the Software on GitHub, and forking it
-   within GitHub as allowed by the GitHub Terms of Service, does not grant any
-   right beyond what those Terms require. A fork is covered by this license.
+"Software" means HBA Guitar Taber: its source code, the desktop and web applications,
+installers and builds, the models and weights trained for it, its user interface and
+visual design, its documentation and design records, and the download website.
 
-4. Third-party components. Libraries, fonts, sound fonts and other components
-   made by others keep their own licenses (see THIRD_PARTY_LICENSES.md and the
-   license files next to those components). This license does not apply to them.
+"Official builds" means the installers published by the author on the project's GitHub
+Releases page: https://github.com/habaodunggithub/HBAGuitarTaber/releases
 
-5. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
-   EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
-   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+"Your content" means the recordings you put into the Software and the tabs, scores and
+files it produces from them (for example .gp5, MusicXML, MIDI or ASCII tab).
 
-6. Termination. Any use outside a written permission ends that permission
-   automatically.
+"Commercial use" means any use intended for, or directed toward, commercial advantage
+or payment: selling, renting or licensing the Software or access to it; including it
+in, or bundling it with, a product or service that is paid for, carries advertising or
+is offered as part of a business; running it to provide a transcription service to
+others; or using it inside a company's internal operations.
+
+
+2. What you may do (free of charge)
+
+a. Download the official builds, install them on any number of devices you use, and run
+   them for personal, educational, research or other non-commercial purposes. A person
+   (a teacher, a student, a band member, a hobbyist) making tabs with it is
+   non-commercial use of the Software, even if they later sell those tabs (section 3).
+b. Read the source code on GitHub to learn how the Software works, check what it does,
+   report problems and propose changes.
+c. Build the Software from source and run your build on your own devices, for the same
+   non-commercial purposes, without sharing that build with anyone.
+d. Fork the repository on GitHub only to propose changes back to the author (pull
+   requests).
+e. Share the link to the official download page or the GitHub repository. Write about,
+   review, film or teach the Software freely.
+
+
+3. Your content is yours
+
+The author claims no rights in your content. You may use, share, publish and sell the
+tabs and files you make with the Software, including commercially, provided you have the
+rights to the music and recordings they come from. This license does not give you any
+right to music written or recorded by others.
+
+
+4. What you may not do (unless the author agrees in writing)
+
+a. Commercial use of the Software, as defined in section 1.
+b. Redistribute the Software: do not re-host, mirror, upload or hand out its installers,
+   builds or source code, modified or not. Share the official link instead (2.e).
+c. Modify the Software and share the result, or publish any work derived from it.
+d. Copy the Software's code, user interface, visual design (the musician's notebook
+   look, illustrations, icon), documentation or trained models into another product, or
+   use them to build, design or train a product or service that does what the Software
+   does or competes with it. This applies whether the copy is exact, translated into
+   another language, or closely imitated.
+e. Use the Software, its source code, documentation or models to train or evaluate
+   machine-learning models, other than running the Software as intended.
+f. Remove or change copyright notices, this license or the author credit.
+g. Use the names "HBA Guitar Taber" or "Taber", or the pick icon, for your own product,
+   or in a way that suggests the author endorses you.
+h. Break or work around any limit of the Software in order to do any of the above.
+
+
+5. Contributions
+
+If you send the author a change (a pull request, a patch, a suggestion with code), you
+confirm you have the right to do so, and you give the author a perpetual, worldwide,
+free and irrevocable license to use, change, license and sell it as part of the
+Software or otherwise. You keep any other rights you had in it.
+
+
+6. Third-party components
+
+The Software uses libraries, models, fonts, sound fonts and tools made by others (listed
+in THIRD_PARTY_LICENSES.md, and in the files shipped next to those components, such as
+FFmpeg's licence). They keep their own licenses. Nothing in this license limits a right
+those licenses give you.
+
+
+7. Commercial and other permissions
+
+For commercial use, redistribution, or anything section 4 does not allow, ask the author
+first: open an issue on the GitHub repository or write through the author's GitHub
+profile. A permission counts only when the author gives it in writing.
+
+
+8. Ending
+
+This license ends automatically, for you, if you break it. If you stop the breach within
+30 days of learning about it, and it is your first breach, your license is restored.
+When it ends you must stop using the Software and delete your copies. Sections 3, 5, 9
+and 10 stay in force.
+
+
+9. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. The tabs it produces can be wrong; check them before you
+rely on them.
+
+
+10. Limitation of liability
+
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE, TO THE EXTENT THE LAW
+ALLOWS.

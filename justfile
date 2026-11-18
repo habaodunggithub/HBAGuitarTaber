@@ -71,3 +71,21 @@ test: test-py test-web test-e2e
 
 lint:
     uv run --no-sync ruff check packages services
+
+# ── desktop app (apps/desktop, docs/adr/ADR-011) ──
+# stage what the installer ships for this OS: SPA, wheels, requirements per runtime variant, uv, ffmpeg
+desktop-stage *ARGS: web-build
+    node apps/desktop/scripts/stage.mjs {{ARGS}}
+
+# run the desktop shell from source (needs `just desktop-stage` once)
+desktop:
+    pnpm --dir apps/desktop start
+
+# no window: install a runtime variant (gpu | cpu | lite), start API + worker, transcribe a take, export .gp5
+desktop-smoke VARIANT="cpu":
+    pnpm --dir apps/desktop build
+    node apps/desktop/dist/smoke.js --variant {{VARIANT}} --home "${TMPDIR:-/tmp}/taber-desktop-smoke"
+
+# installers for this OS into apps/desktop/release/
+desktop-dist: desktop-stage
+    pnpm --dir apps/desktop dist

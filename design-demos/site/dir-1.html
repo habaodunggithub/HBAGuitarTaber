@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBA Guitar Taber · download</title>
+<meta name="description" content="Turn a recorded guitar solo into an editable tab. Free desktop app for Windows, macOS and Linux.">
+<link rel="icon" href="../../site/img/favicon.png">
+<style>
+@font-face { font-family: 'Six Caps'; src: url('../../site/fonts/six-caps-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Caveat'; font-weight: 700; src: url('../../site/fonts/caveat-latin-700-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('../../site/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; src: url('../../site/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 600; src: url('../../site/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); font-display: swap; }
+:root {
+  --paper: #e9e1cf; --paper-3: #f6f0e3; --ink: #1d1b18; --ink-2: #4f493f; --ink-3: #5c564a; --rule: rgba(29,27,24,.22);
+  --blue: #2457c5; --hl: #f7d54a;
+  --display: 'Six Caps', 'Arial Narrow', sans-serif; --hand: 'Caveat', 'Segoe Print', cursive; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(.23,1,.32,1);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--mono); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+a { color: inherit; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 48px; }
+
+/* top */
+.top { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+.mark { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 500; }
+.mark img { width: 28px; height: 28px; }
+.top nav { display: flex; gap: 28px; font-size: 14px; }
+.top nav a { text-decoration: none; color: var(--ink-2); }
+.top nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+
+/* first screen: the product is bigger than the page */
+.hero { position: relative; height: calc(100vh - 72px); min-height: 700px; max-height: 900px; }
+.intro { position: relative; z-index: 2; width: 380px; padding-top: 56px; }
+.line { font-size: 34px; line-height: 1.15; letter-spacing: -.02em; margin: 0 0 22px; font-weight: 400; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; font-size: 12px; }
+.tags span { border: 1px solid var(--ink); padding: 1px 7px; }
+.intro p { font-size: 15px; color: var(--ink-2); margin: 0 0 28px; max-width: 34ch; }
+.get { display: inline-flex; flex-direction: column; gap: 2px; background: var(--hl); color: var(--ink); border: 1.5px solid var(--ink); padding: 14px 20px 12px; text-decoration: none; box-shadow: 3px 3px 0 var(--ink); transition: transform 140ms var(--ease), box-shadow 140ms var(--ease); }
+.get:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.get:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.get b { font-weight: 600; font-size: 16px; }
+.get small { font-size: 12px; color: var(--ink-2); }
+.other { display: block; margin-top: 14px; font-size: 14px; color: var(--ink-2); }
+.legend { list-style: none; padding: 0; margin: 48px 0 0; font-size: 14px; color: var(--ink-2); display: grid; gap: 8px; }
+.legend li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+.dot { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font: 500 12px/22px var(--mono); text-align: center; }
+.shot { position: absolute; left: 470px; top: 28px; width: 1180px; aspect-ratio: 1440/900; border: 1.5px solid var(--ink); background: var(--paper-3); box-shadow: -14px 14px 0 rgba(29,27,24,.1); }
+.shot img { display: block; width: 100%; height: 100%; }
+.shot .dot { position: absolute; transform: translate(-50%,-50%); box-shadow: 0 0 0 4px rgba(36,87,197,.22); }
+.hero::after { content: ''; position: absolute; left: 0; right: -48px; bottom: 0; height: 120px; background: linear-gradient(transparent, var(--paper)); z-index: 1; pointer-events: none; }
+
+/* spec sheet */
+section { padding: 96px 0 0; }
+.lead { font-size: 15px; color: var(--ink-2); margin: -18px 0 32px; max-width: 60ch; }
+h2 { font-family: var(--display); font-weight: 400; font-size: 120px; line-height: .86; text-transform: uppercase; margin: 0 0 36px; }
+.sheet { display: grid; grid-template-columns: 200px repeat(3, 1fr); border-top: 1.5px solid var(--ink); }
+.sheet > div { padding: 16px 18px 16px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.sheet .k { color: var(--ink-3); font-size: 14px; }
+.sheet .os { font-family: var(--display); font-size: 64px; line-height: .9; text-transform: uppercase; padding-top: 20px; }
+.sheet a.dl { display: inline-flex; gap: 10px; align-items: baseline; font-weight: 500; text-decoration: none; border-bottom: 1.5px solid var(--blue); color: var(--blue); }
+.sheet a.dl:hover { background: rgba(36,87,197,.08); }
+.sheet [data-size]:not(:empty)::before { content: '('; } .sheet [data-size]:not(:empty)::after { content: ')'; }
+.sheet code { font-size: 14px; background: rgba(36,87,197,.1); padding: 1px 5px; }
+.small { font-size: 14px; color: var(--ink-2); margin-top: 18px; }
+
+.engines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1.5px solid var(--ink); }
+.engines article { padding: 22px 22px 26px 0; border-right: 1px solid var(--rule); }
+.engines article + article { padding-left: 22px; }
+.engines article:last-child { border-right: 0; }
+.engines h3 { font-weight: 600; font-size: 18px; margin: 0 0 4px; }
+.engines .size { font-family: var(--display); font-size: 72px; line-height: .9; color: var(--blue); margin: 12px 0; }
+.engines p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.private { margin-top: 28px; font-family: var(--hand); font-weight: 700; font-size: 26px; color: var(--ink); }
+.private mark { background: linear-gradient(transparent 55%, var(--hl) 55%); color: inherit; }
+
+/* how it listens: a technical drawing */
+.stages { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1.5px solid var(--ink); }
+.stages li { list-style: none; position: relative; padding: 26px 12px 0 0; font-size: 14px; color: var(--ink-2); }
+.stages li::before { content: ''; position: absolute; left: 0; top: -1px; width: 1.5px; height: 14px; background: var(--ink); }
+.stages b { display: block; font-weight: 600; color: var(--ink); font-size: 14px; margin-bottom: 4px; }
+.stages .n { position: absolute; left: 8px; top: -12px; width: 22px; height: 22px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: 50%; font: 500 11px/19px var(--mono); text-align: center; color: var(--ink); }
+.out { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 14px; }
+.out span { border: 1px solid var(--ink); padding: 4px 10px; background: var(--paper-3); }
+
+/* limits */
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1.5px solid var(--ink); }
+.limits div { padding: 18px 22px 0 0; }
+.limits .big { font-family: var(--display); font-size: 140px; line-height: .86; }
+.limits p { font-size: 14px; color: var(--ink-2); margin: 8px 0 0; max-width: 32ch; }
+
+.launch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; border-top: 1.5px solid var(--ink); padding-top: 18px; font-size: 14px; color: var(--ink-2); }
+.launch b { color: var(--ink); display: block; margin-bottom: 4px; }
+.launch code { font-size: 14px; background: rgba(36,87,197,.1); padding: 1px 5px; color: var(--ink); }
+
+footer { margin-top: 120px; border-top: 1.5px solid var(--ink); padding: 22px 0 48px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; font-size: 14px; color: var(--ink-2); }
+footer nav { display: flex; flex-wrap: wrap; gap: 22px; }
+.preview { position: fixed; right: 12px; bottom: 12px; z-index: 9; font-size: 12px; background: var(--ink); color: var(--paper); padding: 4px 8px; }
+html:not([data-release="ready"]) .preview::after { content: ' · no release published yet'; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .wrap { padding: 0 16px; }
+  .top nav { display: none; }
+  .hero { height: auto; min-height: 0; max-height: none; }
+  .hero::after { display: none; }
+  .hero { display: flex; flex-direction: column; }
+  .intro { display: contents; }
+  .line { order: 1; padding-top: 24px; } .tags { order: 2; } .shot { order: 3; } .intro p { order: 4; margin-top: 28px; } .get { order: 5; align-self: flex-start; } .other { order: 6; } .legend { order: 7; }
+  .line { font-size: 28px; }
+  .shot { position: relative; left: 0; top: 0; width: 170%; margin: 8px 0 0; }
+  .legend { margin-top: 28px; }
+  h2 { font-size: 76px; }
+  .sheet { grid-template-columns: 1fr; }
+  .sheet > div { padding-right: 0; }
+  .sheet .k { padding-bottom: 0; border-bottom: 0; }
+  .sheet .os { font-size: 52px; }
+  .engines, .limits, .launch { grid-template-columns: 1fr; }
+  .engines article, .engines article + article { padding: 20px 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .stages { grid-template-columns: 1fr; border-top: 0; border-left: 1.5px solid var(--ink); }
+  .stages li { padding: 0 0 18px 26px; }
+  .stages li::before { display: none; }
+  .stages .n { left: -12px; top: -2px; }
+  .limits .big { font-size: 110px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .get { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="mark" href="#"><img src="../../site/img/icon.png" alt="">taber</a>
+    <nav aria-label="Page"><a href="#downloads">download</a><a href="#engine">engine</a><a href="#listen">how it listens</a><a href="#limits">limits</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber">github</a></nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="intro">
+        <h1 class="line">the solo,<br>written down.</h1>
+        <div class="tags"><span>HBA Guitar Taber</span><span data-version>desktop</span><span>Windows, macOS, Linux</span></div>
+        <p>Record a solo. Taber hears which string and fret each note was played on, the rhythm, the bends and slides, and writes the tab. You fix what it got wrong, then play along.</p>
+        <a class="get" data-primary href="https://github.com/habaodunggithub/HBAGuitarTaber/releases"><b data-primary-label>All downloads</b><small data-primary-note>Windows, macOS and Linux</small></a>
+        <a class="other" href="#downloads">other systems, sizes, checksums ↓</a>
+        <ol class="legend">
+          <li><span class="dot">1</span>a metronome that swings on the take's own tempo</li>
+          <li><span class="dot">2</span>the play-along lane: string, fret, bend, vibrato</li>
+          <li><span class="dot">3</span>hear the original, the guitar alone or the backing</li>
+          <li><span class="dot">4</span>export to Guitar Pro, MusicXML, MIDI, ASCII</li>
+        </ol>
+      </div>
+      <figure class="shot" aria-label="The editor, with box_techniques transcribed: a metronome at 110 BPM, the play-along lane and the shortcuts">
+        <img src="assets/editor.webp" alt="Taber's editor showing a transcribed lick">
+        <span class="dot" style="left:25.5%;top:21%">1</span>
+        <span class="dot" style="left:78%;top:13.5%">2</span>
+        <span class="dot" style="left:7.8%;top:89%">3</span>
+        <span class="dot" style="left:66.5%;top:9.5%">4</span>
+      </figure>
+    </div>
+
+    <section id="downloads">
+      <h2>Three builds</h2>
+      <p class="lead">Free. <span data-version>v0.1.0</span> <span data-date></span>. One installer per system; the engine comes later, on first launch.</p>
+      <div class="sheet" role="table" aria-label="Downloads">
+        <div class="k" role="rowheader"></div><div class="os">Windows</div><div class="os">macOS</div><div class="os">Linux</div>
+        <div class="k">download</div>
+        <div><a class="dl" data-dl="win" href="#">installer .exe <span data-size></span></a></div>
+        <div><a class="dl" data-dl="mac" href="#">disk image .dmg <span data-size></span></a></div>
+        <div><a class="dl" data-dl="appimage" href="#">AppImage <span data-size></span></a><br><a class="dl" data-dl="deb" href="#">.deb <span data-size></span></a></div>
+        <div class="k">needs</div><div>Windows 10 or 11, 64-bit</div><div>Apple Silicon, macOS 14 or newer</div><div>x86-64, glibc 2.35+ (Ubuntu 22.04, Fedora 36, Debian 12 and newer)</div>
+        <div class="k">disk</div><div colspan="3" style="grid-column: span 3">about 0.5 GB for the app, plus the engine you pick on first launch (below)</div>
+      </div>
+      <p class="small">Check a download against <a data-dl="sums" href="#">SHA256SUMS.txt</a>, or read <a href="https://github.com/habaodunggithub/HBAGuitarTaber/releases">all releases and their notes</a>.</p>
+    </section>
+
+    <section id="engine">
+      <h2>Pick the engine</h2>
+      <p class="lead">The first launch asks once which engine to install, and suggests the one that fits this computer.</p>
+      <div class="engines">
+        <article><h3>NVIDIA GPU</h3><p>Windows and Linux, driver 580 or newer</p><div class="size">3–4 GB</div><p>Fastest. Every model on the graphics card: pitch, onsets, beats, backing-track removal, the string classifier.</p></article>
+        <article><h3>Processor</h3><p>any supported computer</p><div class="size">0.6 GB</div><p>The same models on the CPU. Same tabs, a slower analysis.</p></article>
+        <article><h3>Lite</h3><p>small disks, older machines</p><div class="size">0.3 GB</div><p>A lighter pitch tracker, no backing-track removal, no string classifier. Video assist still works.</p></article>
+      </div>
+      <p class="private">Your recordings <mark>never leave your computer</mark>: the engine runs there, not on a server.</p>
+    </section>
+
+    <section id="listen">
+      <h2>How it listens</h2>
+      <p class="lead">What happens after you drop a take, in the order the engine does it.</p>
+      <ol class="stages">
+        <li><span class="n">1</span><b>Read</b>wav, mp3, flac, m4a, ogg, or a phone video</li>
+        <li><span class="n">2</span><b>Separate</b>the guitar from a band behind it</li>
+        <li><span class="n">3</span><b>Beats</b>tempo and bar lines</li>
+        <li><span class="n">4</span><b>Pitch</b>every note, bends and vibrato included</li>
+        <li><span class="n">5</span><b>Strings</b>which string it was played on</li>
+        <li><span class="n">6</span><b>The hand</b>in a video: where the fretting hand is</li>
+        <li><span class="n">7</span><b>Assemble</b>frets, rhythm, techniques: the tab</li>
+      </ol>
+      <div class="out"><span>Guitar Pro .gp5</span><span>MusicXML</span><span>MIDI</span><span>ASCII tab</span><span>alphaTex</span></div>
+    </section>
+
+    <section id="limits">
+      <h2>What it gets wrong</h2>
+      <p class="lead">Measured on recordings it was not trained on, not promised.</p>
+      <div class="limits">
+        <div><div class="big">77%</div><p>of notes fully right (pitch, string and fret) on an acoustic player it never heard (GuitarSet).</p></div>
+        <div><div class="big">39%</div><p>on unseen electric licks (IDMT): electric guitar is the hard case, mostly notes that ring over the next one.</p></div>
+        <div><div class="big">1</div><p>line at a time: solos, not chords. Hammer-ons and pull-offs are not detected from audio yet.</p></div>
+      </div>
+    </section>
+
+    <section id="first-launch">
+      <h2>Opening it</h2>
+      <p class="lead">The app is not code-signed yet, so the first launch needs one extra click.</p>
+      <div class="launch">
+        <div><b>Windows</b>SmartScreen may say it protected your PC: choose <em>More info</em>, then <em>Run anyway</em>.</div>
+        <div><b>macOS</b>If it will not open: System Settings → Privacy &amp; Security → <em>Open Anyway</em>.</div>
+        <div><b>Linux</b>Make the AppImage runnable: <code>chmod +x HBA-Guitar-Taber-*.AppImage</code>, or install the .deb.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Ha Van Thien Bao</span>
+    <nav><a href="https://github.com/habaodunggithub/HBAGuitarTaber">Source on GitHub</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/blob/main/LICENSE">License</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/blob/main/THIRD_PARTY_LICENSES.md">Third-party licenses</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/issues">Report a problem</a></nav>
+  </footer>
+</div>
+<div class="preview">draft · preview data</div>
+<script>window.TABER_RELEASE = { tag: 'v0.1.0', published_at: null, assets: [
+  { name: 'HBA-Guitar-Taber-0.1.0-win-x64.exe', size: 0, url: '#' }, { name: 'HBA-Guitar-Taber-0.1.0-mac-arm64.dmg', size: 0, url: '#' },
+  { name: 'HBA-Guitar-Taber-0.1.0-linux-x86_64.AppImage', size: 0, url: '#' }, { name: 'HBA-Guitar-Taber-0.1.0-linux-amd64.deb', size: 0, url: '#' },
+  { name: 'SHA256SUMS.txt', size: 0, url: '#' } ] };</script>
+<script src="../../site/download.js"></script>
+</body>
+</html>

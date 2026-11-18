@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:" />
+    <title>HBA Guitar Taber</title>
+    <link rel="stylesheet" href="setup.css" />
+  </head>
+  <body>
+    <main class="sheet" aria-live="polite">
+      <header class="head">
+        <span class="brand">Taber</span>
+        <span class="hand" id="version"></span>
+      </header>
+
+      <section id="boot" class="screen">
+        <div class="metronome" aria-hidden="true"><i></i></div>
+        <p class="hand big">opening the notebook…</p>
+      </section>
+
+      <section id="choose" class="screen" hidden>
+        <h1 class="display">Set up the engine</h1>
+        <p class="lede">
+          Taber listens with a few models: pitch, note onsets, beats, and which string you played. They run on this
+          computer. They are downloaded once, from PyPI and PyTorch, into <code id="installDir"></code>
+        </p>
+        <form id="variants" class="variants"></form>
+        <div class="actions">
+          <button id="install" class="btn primary" type="button">Install</button>
+          <button id="keep" class="btn" type="button" hidden></button>
+          <span class="hand note">you can change this later, from the Engine menu</span>
+        </div>
+      </section>
+
+      <section id="installing" class="screen" hidden>
+        <h1 class="display">Setting up the engine</h1>
+        <div class="progress">
+          <div class="metronome" aria-hidden="true"><i></i></div>
+          <dl>
+            <dt>Step</dt><dd id="phase"></dd>
+            <dt>On disk</dt><dd id="written">–</dd>
+            <dt>Time</dt><dd id="elapsed">0:00</dd>
+          </dl>
+        </div>
+        <p class="log" id="message"></p>
+        <p class="hand note">This happens once. You can keep working in other windows.</p>
+      </section>
+
+      <section id="starting" class="screen" hidden>
+        <div class="metronome" aria-hidden="true"><i></i></div>
+        <p class="hand big" id="startMessage">opening the notebook…</p>
+      </section>
+
+      <section id="error" class="screen" hidden>
+        <h1 class="display" id="errTitle"></h1>
+        <p class="lede" id="errMessage"></p>
+        <pre class="tail" id="errTail"></pre>
+        <p class="muted">Full log: <code id="errLog"></code></p>
+        <div class="actions">
+          <button id="retry" class="btn primary" type="button">Try again</button>
+          <button id="change" class="btn" type="button">Change engine</button>
+          <button id="logs" class="btn" type="button">Open logs</button>
+          <button id="quit" class="btn" type="button">Quit</button>
+        </div>
+      </section>
+    </main>
+    <script src="setup.js"></script>
+  </body>
+</html>
