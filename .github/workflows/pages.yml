@@ -1,0 +1,47 @@
+# The download page on GitHub Pages (docs/adr/ADR-012-distribution.md). The installers stay on GitHub Releases:
+# this only publishes site/ plus latest.json, a snapshot of the latest release, so visitors do not hit the API limit.
+# One-time setup: Settings -> Pages -> Source: GitHub Actions.
+name: Download page
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  release:
+    types: [published, edited, deleted]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest release -> site/latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/releases/latest" > release.json 2>/dev/null; then
+            jq '{tag: .tag_name, name: .name, published_at: .published_at, html_url: .html_url,
+                 assets: [.assets[] | {name, size, url: .browser_download_url, digest}]}' release.json > site/latest.json
+          else
+            echo '{"tag": null}' > site/latest.json   # no published release yet: the page says so
+          fi
+          cat site/latest.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

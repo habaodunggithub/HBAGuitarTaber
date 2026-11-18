@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBA Guitar Taber · download</title>
+<meta name="description" content="Turn a recorded guitar solo into an editable tab. Free desktop app for Windows, macOS and Linux.">
+<meta name="theme-color" content="#161c2c">
+<link rel="icon" href="../../site/img/favicon.png">
+<style>
+@font-face { font-family: 'Six Caps'; src: url('../../site/fonts/six-caps-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Caveat'; font-weight: 700; src: url('../../site/fonts/caveat-latin-700-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('../../site/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; src: url('../../site/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); font-display: swap; }
+/* the app's night desk (apps/web/src/styles.css :root.night) */
+:root {
+  --paper: #161c2c; --paper-2: #1d2538; --paper-3: #1a2133; --ink: #ece4d2; --ink-2: #b3ac9a; --ink-3: #8f897a;
+  --rule: rgba(236,228,210,.2); --blue: #8fb0ff; --blue-soft: rgba(143,176,255,.16); --lamp: #ffc75a; --hl: #d9b53a;
+  --display: 'Six Caps', 'Arial Narrow', sans-serif; --hand: 'Caveat', 'Segoe Print', cursive; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(.23,1,.32,1);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { overflow-x: clip; scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--mono); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+a { color: inherit; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 48px; }
+header { display: flex; justify-content: space-between; align-items: center; height: 72px; font-size: 13px; }
+header .mark { text-decoration: none; letter-spacing: .04em; }
+header nav { display: flex; gap: 26px; }
+header nav a { text-decoration: none; color: var(--ink-2); }
+header nav a:hover { color: var(--blue); }
+
+/* first screen: the wheel */
+.hero { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: center; min-height: calc(100vh - 72px); max-height: 940px; }
+h1 { font-family: var(--display); font-weight: 400; text-transform: uppercase; font-size: 172px; line-height: .84; margin: 0 0 26px; }
+h1 em { font-style: normal; color: var(--lamp); }
+.intro p { color: var(--ink-2); margin: 0 0 28px; max-width: 36ch; font-size: 15px; }
+.get { display: inline-flex; align-items: center; gap: 14px; background: var(--lamp); color: #161c2c; text-decoration: none; padding: 14px 22px; border-radius: 999px; font-weight: 500; transition: transform 140ms var(--ease), box-shadow 140ms var(--ease); box-shadow: 0 0 0 0 rgba(255,199,90,.35); }
+.get:hover { transform: translateY(-2px); box-shadow: 0 0 0 6px rgba(255,199,90,.18); }
+.get:active { transform: scale(.97); }
+.note { display: block; margin-top: 12px; font-size: 14px; color: var(--ink-3); }
+.note a { color: var(--ink-2); }
+
+.wheel { position: relative; justify-self: center; width: min(820px, 100%); }
+.wheel svg { width: 100%; height: auto; display: block; }
+.wheel .band { fill: transparent; stroke: var(--rule); stroke-width: 1; cursor: pointer; transition: fill 200ms var(--ease); }
+.wheel .band.on, .wheel .band:hover { fill: var(--blue-soft); }
+.wheel text { fill: var(--ink-2); font: 13px var(--mono); letter-spacing: .04em; pointer-events: none; }
+.wheel .rim text { fill: var(--blue); font-weight: 500; }
+.wheel .spin { transform-origin: 380px 380px; animation: turn 240s linear infinite; }
+.wheel .spin.rev { animation-direction: reverse; animation-duration: 300s; }
+.wheel:hover .spin { animation-play-state: paused; }
+@keyframes turn { to { transform: rotate(360deg); } }
+.core { fill: var(--lamp); }
+.core-t { fill: #161c2c !important; font: 700 26px var(--hand) !important; letter-spacing: 0 !important; }
+.caption { position: absolute; right: -36px; bottom: -6px; width: 250px; padding: 14px 16px; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 6px; font-size: 14px; color: var(--ink-2); min-height: 120px; }
+.caption b { display: block; color: var(--ink); font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.caption i { display: block; font-style: normal; color: var(--blue); margin-top: 6px; font-size: 12px; }
+.stages { counter-reset: s; list-style: none; padding: 0; margin: 0; position: absolute; left: -4px; top: 6%; display: grid; gap: 2px; font-size: 14px; }
+.stages button { all: unset; cursor: pointer; color: var(--ink-3); padding: 2px 6px; border-radius: 4px; }
+.stages button::before { counter-increment: s; content: counter(s) ' '; color: var(--blue); }
+.stages button:hover, .stages button.on, .stages button:focus-visible { color: var(--ink); background: var(--blue-soft); }
+
+section { padding-top: 130px; }
+h2 { font-family: var(--display); font-weight: 400; text-transform: uppercase; font-size: 112px; line-height: .86; margin: 0 0 16px; }
+.lead { color: var(--ink-2); max-width: 60ch; margin: 0 0 44px; font-size: 15px; }
+
+/* downloads: three quadrants of one circle */
+.ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.way { position: relative; padding: 30px 26px 26px; border: 1px solid var(--rule); border-radius: 160px 160px 10px 10px; background: var(--paper-3); text-align: center; }
+.way .os { font-family: var(--display); font-size: 84px; line-height: .9; text-transform: uppercase; }
+.way p { color: var(--ink-2); font-size: 14px; margin: 8px 0 18px; min-height: 2.6em; }
+.way a.dl { display: flex; justify-content: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--blue); border-radius: 999px; color: var(--blue); text-decoration: none; font-weight: 500; margin-top: 8px; transition: background 160ms var(--ease); }
+.way a.dl:hover { background: var(--blue-soft); }
+.way [data-size] { color: var(--ink-3); font-weight: 400; }
+.sums { margin-top: 24px; color: var(--ink-2); font-size: 14px; }
+
+/* the engine: circles whose area is the download */
+.engine { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.engine svg { width: 100%; max-width: 560px; }
+.engine circle { fill: none; stroke-width: 1.5; }
+.engine dl { margin: 0; display: grid; gap: 26px; }
+.engine dt { font-weight: 500; font-size: 17px; }
+.engine dt span { font-family: var(--display); font-size: 56px; line-height: .9; color: var(--blue); margin-right: 14px; vertical-align: -6px; }
+.engine dd { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; max-width: 46ch; }
+.private { margin-top: 36px; font: 700 30px var(--hand); color: var(--lamp); }
+
+.desk img { width: 100%; display: block; border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.7); }
+.desk figcaption { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+.formats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; font-size: 13px; }
+.formats span { border: 1px solid var(--rule); border-radius: 999px; padding: 4px 12px; color: var(--ink-2); }
+
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+.limits svg { width: 180px; height: 180px; display: block; }
+.limits .track { stroke: var(--rule); }
+.limits .val { stroke: var(--blue); }
+.limits text { fill: var(--ink); font: 64px var(--display); }
+.limits p { color: var(--ink-2); font-size: 14px; max-width: 32ch; }
+.limits b { color: var(--ink); font-weight: 500; }
+
+.firsts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--rule); padding-top: 20px; }
+.firsts b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 4px; }
+.firsts code { font-size: 13px; color: var(--ink); background: var(--blue-soft); padding: 1px 6px; border-radius: 4px; }
+
+footer { margin-top: 140px; border-top: 1px solid var(--rule); padding: 24px 0 50px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 14px; color: var(--ink-3); }
+footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
+footer a { color: var(--ink-2); }
+.preview { position: fixed; right: 12px; bottom: 12px; z-index: 9; font-size: 12px; background: var(--ink); color: var(--paper); padding: 4px 8px; }
+:focus-visible { outline: 2px solid var(--lamp); outline-offset: 3px; }
+
+@media (max-width: 1000px) {
+  .wrap { padding: 0 16px; }
+  header nav { display: none; }
+  .hero { grid-template-columns: 1fr; min-height: 0; max-height: none; padding-top: 12px; }
+  h1 { font-size: 112px; }
+  .wheel { margin-top: 18px; }
+  .stages { position: static; margin-top: 18px; grid-template-columns: 1fr; }
+  .caption { position: static; width: auto; margin-top: 12px; min-height: 0; }
+  h2 { font-size: 76px; }
+  .ways, .limits, .firsts, .engine { grid-template-columns: 1fr; }
+  .way { border-radius: 120px 120px 10px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .wheel .spin { animation: none; } html { scroll-behavior: auto; } .get { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="mark" href="#">HBA GUITAR TABER</a>
+    <nav aria-label="Page"><a href="#downloads">download</a><a href="#engine">engine</a><a href="#editor">editor</a><a href="#limits">limits</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber">github</a></nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="intro">
+        <h1>A solo in,<br>a tab out</h1>
+        <p>Taber listens to a recorded guitar solo the way the wheel reads: from your take at the centre, outwards, until every note has a string, a fret, a beat and a technique.</p>
+        <a class="get" data-primary href="https://github.com/habaodunggithub/HBAGuitarTaber/releases"><span data-primary-label>All downloads</span> ↓</a>
+        <span class="note"><span data-primary-note>Windows, macOS and Linux</span>. Free, version <span data-version></span>. <a href="#downloads">Other systems</a></span>
+      </div>
+
+      <div class="wheel" id="wheel">
+        <svg viewBox="0 0 760 760" aria-hidden="true">
+          <defs id="paths"></defs>
+          <g id="bands"></g>
+          <g id="rings"></g>
+          <circle class="core" cx="380" cy="380" r="70"/>
+          <path d="M330 392 l8 -14 8 22 8 -34 8 40 8 -26 8 16 8 -10 8 6 8 -4" fill="none" stroke="#161c2c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <text class="core-t" x="380" y="420" text-anchor="middle">your take</text>
+        </svg>
+        <ol class="stages" id="stages"></ol>
+        <div class="caption" id="caption" aria-live="polite"><b>From the centre, outwards</b>Point at a ring to read what the engine does there, and which model does it.</div>
+      </div>
+    </div>
+
+    <section id="downloads">
+      <h2>Three ways in</h2>
+      <p class="lead">Free, <span data-version>v0.1.0</span>. About 0.5 GB once installed, plus the engine picked on first launch.</p>
+      <div class="ways">
+        <div class="way"><div class="os">Windows</div><p>Windows 10 or 11, 64-bit</p><a class="dl" data-dl="win" href="#">installer .exe <span data-size></span></a></div>
+        <div class="way"><div class="os">macOS</div><p>Apple Silicon, macOS 14 or newer</p><a class="dl" data-dl="mac" href="#">disk image .dmg <span data-size></span></a></div>
+        <div class="way"><div class="os">Linux</div><p>x86-64, glibc 2.35+ (Ubuntu 22.04 and newer)</p><a class="dl" data-dl="appimage" href="#">AppImage <span data-size></span></a><a class="dl" data-dl="deb" href="#">.deb <span data-size></span></a></div>
+      </div>
+      <p class="sums">Verify a download with <a data-dl="sums" href="#">SHA256SUMS.txt</a>, or see <a href="https://github.com/habaodunggithub/HBAGuitarTaber/releases">all releases</a>.</p>
+    </section>
+
+    <section id="engine">
+      <h2>The engine</h2>
+      <p class="lead">The first launch installs the engine once, and suggests the one that fits this computer. Each circle's area is its download.</p>
+      <div class="engine">
+        <svg viewBox="0 0 560 330" aria-hidden="true">
+          <circle cx="280" cy="165" r="160" stroke="var(--blue)"/>
+          <circle cx="280" cy="258.5" r="66.5" stroke="var(--ink-2)"/>
+          <circle cx="280" cy="278" r="47" stroke="var(--lamp)"/>
+          <text x="280" y="40" text-anchor="middle" fill="var(--blue)" font-family="IBM Plex Mono" font-size="14">NVIDIA GPU</text>
+          <text x="280" y="214" text-anchor="middle" fill="var(--ink-2)" font-family="IBM Plex Mono" font-size="13">Processor</text>
+          <text x="280" y="284" text-anchor="middle" fill="var(--lamp)" font-family="IBM Plex Mono" font-size="13">Lite</text>
+        </svg>
+        <dl>
+          <div><dt><span>3–4 GB</span>NVIDIA GPU</dt><dd>Fastest. Every model on the graphics card. Windows or Linux, NVIDIA driver 580 or newer.</dd></div>
+          <div><dt><span>0.6 GB</span>Processor</dt><dd>The same models on the CPU: same tabs, slower analysis. The pick on Macs and on PCs without NVIDIA.</dd></div>
+          <div><dt><span>0.3 GB</span>Lite</dt><dd>A lighter pitch tracker, no backing-track removal, no string classifier. Video assist still works.</dd></div>
+        </dl>
+      </div>
+      <p class="private">Your recordings never leave your computer.</p>
+    </section>
+
+    <section id="editor">
+      <h2>Then you edit</h2>
+      <p class="lead">The editor at night (click the amp's lamp in the app), with a lick it has just transcribed.</p>
+      <figure class="desk" style="margin:0"><img src="assets/editor-night.webp" alt="Taber's editor in night mode: metronome at 110 BPM, the play-along lane, shortcuts"><figcaption>Move a note to another string, change its pitch, add a missed one, lock what is right; hear the original, the guitar alone or the backing.</figcaption></figure>
+      <div class="formats"><span>Guitar Pro .gp5</span><span>MusicXML</span><span>MIDI</span><span>ASCII tab</span><span>alphaTex</span></div>
+    </section>
+
+    <section id="limits">
+      <h2>Honest numbers</h2>
+      <p class="lead">Notes fully right (pitch, string and fret) on recordings it never trained on.</p>
+      <div class="limits">
+        <div><svg viewBox="0 0 180 180" aria-label="77 percent"><circle class="track" cx="90" cy="90" r="76" fill="none" stroke-width="10"/><circle class="val" cx="90" cy="90" r="76" fill="none" stroke-width="10" stroke-dasharray="367.7 477.5" transform="rotate(-90 90 90)" stroke-linecap="round"/><text x="90" y="112" text-anchor="middle">77%</text></svg><p><b>Acoustic</b>, a GuitarSet player it never heard.</p></div>
+        <div><svg viewBox="0 0 180 180" aria-label="39 percent"><circle class="track" cx="90" cy="90" r="76" fill="none" stroke-width="10"/><circle class="val" cx="90" cy="90" r="76" fill="none" stroke-width="10" stroke-dasharray="186.2 477.5" transform="rotate(-90 90 90)" stroke-linecap="round"/><text x="90" y="112" text-anchor="middle">39%</text></svg><p><b>Electric</b>, unseen IDMT licks: the hard case, mostly notes that ring over the next.</p></div>
+        <div><svg viewBox="0 0 180 180" aria-label="one note at a time"><circle class="track" cx="90" cy="90" r="76" fill="none" stroke-width="10"/><circle cx="90" cy="14" r="9" fill="var(--lamp)"/><text x="90" y="112" text-anchor="middle">1</text></svg><p><b>One note at a time</b>: solos, not chords. Hammer-ons and pull-offs are not detected from audio yet.</p></div>
+      </div>
+    </section>
+
+    <section id="first-open">
+      <h2>First launch</h2>
+      <p class="lead">Taber is not code-signed yet: each system asks once.</p>
+      <div class="firsts">
+        <div><b>Windows</b>SmartScreen: <em>More info</em> → <em>Run anyway</em>.</div>
+        <div><b>macOS</b>System Settings → Privacy &amp; Security → <em>Open Anyway</em>.</div>
+        <div><b>Linux</b><code>chmod +x</code> the AppImage, or install the .deb.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Ha Van Thien Bao</span>
+    <nav><a href="https://github.com/habaodunggithub/HBAGuitarTaber">Source on GitHub</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/blob/main/LICENSE">License</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/blob/main/THIRD_PARTY_LICENSES.md">Third-party licenses</a><a href="https://github.com/habaodunggithub/HBAGuitarTaber/issues">Report a problem</a></nav>
+  </footer>
+</div>
+<div class="preview">draft · preview data</div>
+<script>
+// the wheel: one band per stage, in the order the engine listens (packages/taber_ml pipeline)
+(() => {
+  const STAGES = [
+    ['Read', 'wav · mp3 · flac · m4a · ogg · mp4 · mov · webm · ', 'Any recording, or a phone video. Decoded to one channel.', 'FFmpeg'],
+    ['Separate', 'the guitar, apart from the band · ', 'If a band plays behind the guitar, its stem is lifted out first. Note F1 0.62 → 0.85 with a band as loud as the guitar.', 'Demucs htdemucs_6s'],
+    ['Beats', 'tempo · bar lines · downbeats · ', 'The beat grid every note will sit on.', 'Beat This!'],
+    ['Pitch', 'every note · bends · vibrato · slides · whammy · ', 'The melody line, cent by cent, and where each note starts.', 'PESTO · Basic Pitch'],
+    ['Strings', 'which string it was played on · the fretting hand · ', 'The tone of each string, and in a video the fretting hand, decide the string.', 'string classifier · MediaPipe'],
+    ['Assemble', 'strings · frets · rhythm · techniques · the tab · ', 'The playable fingering with the fewest jumps, quantised to the beat. Instant: change capo or tuning without re-listening.', 'Viterbi, in the app'],
+  ];
+  const RIM = 'GUITAR PRO .GP5 · MUSICXML · MIDI · ASCII TAB · ALPHATEX · ';
+  const C = 380, R0 = 70, W = 40, NS = 'http://www.w3.org/2000/svg';
+  const el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const circlePath = (r) => `M ${C} ${C - r} a ${r} ${r} 0 1 1 -0.01 0`;
+  const annulus = (r1, r2) => `M ${C} ${C - r2} a ${r2} ${r2} 0 1 1 -0.01 0 Z M ${C} ${C - r1} a ${r1} ${r1} 0 1 0 0.01 0 Z`;
+  const defs = document.getElementById('paths'), bands = document.getElementById('bands'), rings = document.getElementById('rings');
+  const list = document.getElementById('stages'), cap = document.getElementById('caption');
+  const fillRing = (text, r, size) => { const n = Math.max(1, Math.floor((2 * Math.PI * r) / (text.length * size * 0.61))); return text.repeat(n); };
+  const all = [...STAGES, ['Exports', RIM, 'What you take away: open it in Guitar Pro, MuseScore, a DAW, or paste it in a forum.', 'taber_ir exporters']];
+  all.forEach(([name, ring, what, model], i) => {
+    const r1 = R0 + i * W, r2 = r1 + W, rt = r1 + 13;
+    defs.append(el('path', { id: `p${i}`, d: circlePath(rt) }));
+    const band = el('path', { d: annulus(r1, r2), class: 'band', 'fill-rule': 'evenodd' });
+    bands.append(band);
+    const g = el('g', { class: `spin${i % 2 ? ' rev' : ''}${i === all.length - 1 ? ' rim' : ''}` });
+    const t = el('text', {}); const tp = el('textPath', { href: `#p${i}` }); tp.textContent = fillRing(ring, rt, 13);
+    t.append(tp); g.append(t); rings.append(g);
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.textContent = name; li.append(b); list.append(li);
+    const show = () => {
+      bands.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); list.querySelectorAll('.on').forEach((x) => x.classList.remove('on'));
+      band.classList.add('on'); b.classList.add('on');
+      cap.innerHTML = ''; const h = document.createElement('b'); h.textContent = `${i + 1} · ${name}`; const m = document.createElement('i'); m.textContent = model;
+      cap.append(h, document.createTextNode(what), m);
+    };
+    band.addEventListener('pointerenter', show); b.addEventListener('focus', show); b.addEventListener('mouseenter', show); b.addEventListener('click', show);
+  });
+})();
+</script>
+<script>window.TABER_RELEASE = { tag: 'v0.1.0', published_at: null, assets: [
+  { name: 'HBA-Guitar-Taber-0.1.0-win-x64.exe', size: 0, url: '#' }, { name: 'HBA-Guitar-Taber-0.1.0-mac-arm64.dmg', size: 0, url: '#' },
+  { name: 'HBA-Guitar-Taber-0.1.0-linux-x86_64.AppImage', size: 0, url: '#' }, { name: 'HBA-Guitar-Taber-0.1.0-linux-amd64.deb', size: 0, url: '#' },
+  { name: 'SHA256SUMS.txt', size: 0, url: '#' } ] };</script>
+<script src="../../site/download.js"></script>
+</body>
+</html>
