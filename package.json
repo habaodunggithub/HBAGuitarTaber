@@ -1,0 +1,6 @@
+{
+  "name": "hba-guitar-taber-workspace",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "pnpm workspace root (apps/*). Tasks live in the justfile; electron-builder needs this file to find the workspace."
+}

@@ -1,6 +1,7 @@
 {
   "name": "@taber/desktop",
   "productName": "HBA Guitar Taber",
+  "desktopName": "hba-guitar-taber.desktop",
   "private": true,
   "license": "UNLICENSED",
   "version": "0.1.0",
@@ -15,7 +16,7 @@
     "stage": "node scripts/stage.mjs",
     "start": "pnpm build && electron .",
     "smoke": "pnpm build && node dist/smoke.js",
-    "dist": "pnpm build && electron-builder --config electron-builder.yml --publish never"
+    "dist": "pnpm build && electron-builder --projectDir . --config electron-builder.yml --publish never"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
