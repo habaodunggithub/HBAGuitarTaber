@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- the app's favicon pick on a sheet of manuscript paper -->
+  <defs>
+    <clipPath id="sheet"><rect x="100" y="100" width="824" height="824" rx="186"/></clipPath>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#efe7d6"/>
+  <g clip-path="url(#sheet)" stroke="#2457c5" stroke-opacity="0.22" stroke-width="6">
+    <path d="M100 330H924M100 390H924M100 450H924M100 510H924M100 570H924"/>
+    <path d="M100 700H924M100 760H924M100 820H924"/>
+  </g>
+  <path transform="translate(512 528) scale(19) translate(-16 -16)"
+        d="M16 29C9 22 5 15 5 9.5 5 5 10 3 16 3s11 2 11 6.5C27 15 23 22 16 29Z"
+        fill="#2457c5" stroke="#1d1b18" stroke-width="1.15" stroke-linejoin="round"/>
+  <path d="M440 330c40-26 110-30 150-6" fill="none" stroke="#efe7d6" stroke-opacity="0.55" stroke-width="16" stroke-linecap="round"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="none" stroke="#1d1b18" stroke-opacity="0.18" stroke-width="4"/>
+</svg>

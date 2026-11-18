@@ -1338,6 +1338,13 @@ Khuyến nghị: **public beta = B**. Lõi `run_analysis` giữ nguyên; chỉ t
 
 ---
 
+### ADR-011, ADR-012 (file riêng)
+
+- [ADR-011: Ứng dụng desktop = vỏ Electron + runtime Python do uv cài ở lần chạy đầu](adr/ADR-011-desktop-app.md)
+- [ADR-012: Phát hành qua GitHub Releases, trang tải trên GitHub Pages, build bằng GitHub Actions](adr/ADR-012-distribution.md)
+
+---
+
 ## 17. Lộ trình triển khai
 
 Ước lượng cho 1 người làm part-time (~15–20h/tuần). **Phase 0–3 chỉ làm audio.** Mỗi phase kết thúc bằng một thứ **chạy được**.

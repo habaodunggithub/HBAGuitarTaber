@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     max_attempts: int = 2  # 1 retry
     pipeline_version: str = "0.2.1"  # keep equal to taber_ml.pipeline.PIPELINE_VERSION: part of the analysis cache key
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Host headers the API answers (DNS-rebinding guard). Empty = any host (the default, as before).
+    # The desktop app sets TABER_TRUSTED_HOSTS='["127.0.0.1","localhost"]' (docs/adr/ADR-011).
+    trusted_hosts: list[str] = []
 
     @property
     def db_url(self) -> str:

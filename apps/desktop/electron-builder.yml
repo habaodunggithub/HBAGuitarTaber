@@ -1,0 +1,60 @@
+# Desktop installers (docs/adr/ADR-011-desktop-app.md, ADR-012-distribution.md).
+# `pnpm stage` must run first on the same OS: it fills stage/ (web, python, bin, ffmpeg).
+appId: io.github.habaodunggithub.taber
+productName: HBA Guitar Taber
+copyright: © 2026 Ha Van Thien Bao
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - "!dist/smoke.js"
+  - package.json
+asar: true
+extraResources:
+  - { from: stage/web, to: web }
+  - { from: stage/python, to: python }
+  - { from: stage/bin, to: bin }
+  - { from: stage/ffmpeg, to: ffmpeg }
+  - { from: ../../LICENSE, to: LICENSE.txt }
+  - { from: ../../THIRD_PARTY_LICENSES.md, to: THIRD_PARTY_LICENSES.md }
+artifactName: HBA-Guitar-Taber-${version}-${os}-${arch}.${ext}
+electronLanguages: [en-US]
+publish: null
+# the app binary is not a general Node runtime: ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect do nothing
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableCookieEncryption: true
+  onlyLoadAppFromAsar: true
+
+win:
+  target: [{ target: nsis, arch: [x64] }]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  perMachine: false # per user: no admin prompt, data in %LOCALAPPDATA%
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false # tabs and recordings stay unless the user deletes them
+  shortcutName: HBA Guitar Taber
+  license: stage/LICENSE.txt # the user accepts the license before installing
+
+mac:
+  target: [{ target: dmg, arch: [arm64] }]
+  icon: build/icon.png
+  category: public.app-category.music
+  minimumSystemVersion: "14.0" # numpy, scipy, onnxruntime and torch wheels in uv.lock need macOS 14
+  identity: "-" # ad-hoc signature until there is an Apple Developer ID (ADR-011, action 7)
+  hardenedRuntime: false
+  gatekeeperAssess: false
+dmg:
+  title: HBA Guitar Taber ${version}
+
+linux:
+  target: [{ target: AppImage, arch: [x64] }, { target: deb, arch: [x64] }]
+  executableName: hba-guitar-taber # not the npm name "@taber/desktop"
+  icon: build/icon.png
+  category: Audio
+  synopsis: Turn a recorded guitar solo into an editable tab
+  maintainer: Ha Van Thien Bao
