@@ -64,7 +64,7 @@ jobs:
           key: ffmpeg-macos-arm64-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.sh', 'apps/desktop/runtime.config.json') }}
       - name: FFmpeg from source (macOS, LGPL)
         if: runner.os == 'macOS' && steps.ffcache.outputs.cache-hit != 'true'
-        run: apps/desktop/scripts/build-ffmpeg-macos.sh ffmpeg-macos
+        run: bash apps/desktop/scripts/build-ffmpeg-macos.sh ffmpeg-macos
 
       - name: Stage web, Python runtime files, uv, FFmpeg
         env:
