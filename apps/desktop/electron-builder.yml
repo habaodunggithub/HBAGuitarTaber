@@ -54,6 +54,7 @@ dmg:
 linux:
   target: [{ target: AppImage, arch: [x64] }, { target: deb, arch: [x64] }]
   executableName: hba-guitar-taber # not the npm name "@taber/desktop"
+  syncDesktopName: true # window and .desktop entry share an id, so the dock groups them
   icon: build/icon.png
   category: Audio
   synopsis: Turn a recorded guitar solo into an editable tab
