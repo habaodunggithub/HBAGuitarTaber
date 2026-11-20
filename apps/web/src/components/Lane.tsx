@@ -17,7 +17,15 @@ interface Props {
   /** Current audio time in seconds (read every frame). */
   getTime: () => number;
   onSeek: (t: number) => void;
+  /** notes picked together (drag a box over the lane, Shift+click) */
+  picked?: NoteLoc[];
+  onPickMany?: (locs: NoteLoc[], add: boolean) => void;
+  /** double-click on a string where there is no note: add one there */
+  onAddAt?: (t: number, string: number) => void;
 }
+
+const DRAG_PX = 5; // further than this between press and release = a box, not a click
+const sameAt = (a: NoteLoc, b: NoteLoc) => a.m === b.m && a.s === b.s && a.n === b.n;
 
 const GAP = 26; // px between strings
 const TOP = 40; // room for bar numbers and technique marks
@@ -85,7 +93,7 @@ const Strip = memo(function Strip({ model, pps, height }: { model: LaneModel; pp
   );
 });
 
-export default function Lane({ score, selection, onSelect, getTime, onSeek }: Props) {
+export default function Lane({ score, selection, onSelect, getTime, onSeek, picked = [], onPickMany, onAddAt }: Props) {
   const model = useMemo(() => laneModel(score), [score]);
   const [pps, setPps] = useState(() => fitPps(model)); // pixels per second
   const [width, setWidth] = useState(900);
@@ -169,19 +177,103 @@ export default function Lane({ score, selection, onSelect, getTime, onSeek }: Pr
     if (selIndex >= 0) g.querySelector(`[data-i="${selIndex}"]`)?.classList.add('is-selected');
   }, [selIndex, model, pps]);
 
+  // the multi-selection: marked on the drawn notes (no re-render of the strip)
+  useEffect(() => {
+    const g = stripRef.current;
+    if (!g) return;
+    g.querySelectorAll('.is-picked').forEach((e) => e.classList.remove('is-picked'));
+    picked.forEach((l) => {
+      const i = model.notes.findIndex((n) => sameAt(n.loc, l));
+      if (i >= 0) g.querySelector(`[data-i="${i}"]`)?.classList.add('is-picked');
+    });
+  }, [picked, model, pps]);
+
   const tuning = score.assembly_params.tuning;
   const head = (width - LEFT) * PLAYHEAD;
 
+  // pointer position -> lane time and string row (null above the first string or below the last one:
+  // the bar numbers, the margins)
+  const at = (e: { clientX: number; clientY: number }, svg: SVGSVGElement) => {
+    const rect = svg.getBoundingClientRect();
+    const x = e.clientX - rect.left - LEFT;
+    const y = e.clientY - rect.top;
+    const row = Math.round((y - TOP) / GAP) + 1;
+    const onStrings = y >= TOP - GAP / 2 && y <= TOP + (model.strings - 1) * GAP + GAP / 2;
+    return { x, y, t: Math.max(0, getTime() + (x - head) / pps), string: onStrings ? Math.min(Math.max(row, 1), model.strings) : null };
+  };
+
+  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; id: number; moved: boolean } | null>(null);
+  const swallowClick = useRef(false);
+  // the first click of a double-click on empty space: where (time, string) it was, before the seek moved the strip
+  const lastEmpty = useRef<{ t: number; string: number | null } | null>(null);
+
+  const endDrag = () => {
+    drag.current = null;
+    setBox(null);
+  };
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    swallowClick.current = false; // a fresh press: whatever the last drag left behind is over
+    drag.current = null;
+    // (a press on a note may be the second half of a double-click whose first click moved the strip: lastEmpty stays)
+    if (e.button !== 0 || (e.target as Element).closest('[data-i]') || !onPickMany) return;
+    const p = at(e, e.currentTarget);
+    drag.current = { x: p.x, y: p.y, id: e.pointerId, moved: false };
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    if (!(e.buttons & 1)) { endDrag(); return; } // released outside the lane before the box started
+    const p = at(e, e.currentTarget);
+    if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) < DRAG_PX) return;
+    if (!d.moved) { d.moved = true; e.currentTarget.setPointerCapture(e.pointerId); }
+    setBox({ x0: d.x, y0: d.y, x1: p.x, y1: p.y });
+  };
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    endDrag();
+    if (!d || !d.moved) return;
+    swallowClick.current = true; // the click that follows this release is not a seek
+    const p = at(e, e.currentTarget);
+    // what is inside the rectangle on screen now: with the audio playing the notes moved under it during the drag
+    const now = getTime();
+    const [x0, x1] = [Math.min(d.x, p.x), Math.max(d.x, p.x)];
+    const [y0, y1] = [Math.min(d.y, p.y) - GAP / 2, Math.max(d.y, p.y) + GAP / 2];
+    const xOf = (t: number) => head + (t - now) * pps;
+    const rowY = (s: number) => TOP + (s - 1) * GAP;
+    const inBox = model.notes.filter((n) => xOf(n.start) >= x0 && xOf(n.start) <= x1 && rowY(n.string) >= y0 && rowY(n.string) <= y1);
+    onPickMany?.(inBox.map((n) => n.loc), e.shiftKey);
+  };
+
   const onClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (swallowClick.current) { swallowClick.current = false; return; }
+    // the second click of a double-click: the first one moved the strip, so what is under the
+    // pointer now is not what the user aimed at; the double-click handler takes it from here
+    if (e.detail >= 2) return;
     const target = (e.target as Element).closest('[data-i]');
     if (target) {
       const n = model.notes[Number(target.getAttribute('data-i'))];
-      if (n) onSelect(n.loc);
+      lastEmpty.current = null;
+      if (!n) return;
+      if (e.shiftKey && onPickMany) {
+        // Shift+click: add to (or take out of) the notes picked together; the selected note joins in
+        const has = picked.some((l) => sameAt(l, n.loc));
+        const base = picked.length ? picked : selection ? [selection] : [];
+        onPickMany(has ? picked.filter((l) => !sameAt(l, n.loc)) : [...base.filter((l) => !sameAt(l, n.loc)), n.loc], false);
+      } else onSelect(n.loc);
       return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - LEFT;
-    onSeek(Math.max(0, getTime() + (x - head) / pps));
+    const p = at(e, e.currentTarget);
+    lastEmpty.current = { t: p.t, string: p.string };
+    onSeek(p.t);
+  };
+
+  // the first click of a double-click already moved the playhead: add where that click was, if it was on a string
+  // (whatever the OS's double-click time; a press on a note in between cancels it)
+  const onDoubleClick = () => {
+    const c = lastEmpty.current;
+    lastEmpty.current = null;
+    if (onAddAt && c && c.string !== null) onAddAt(c.t, c.string);
   };
 
   return (
@@ -191,8 +283,13 @@ export default function Lane({ score, selection, onSelect, getTime, onSeek }: Pr
         width="100%"
         height={height}
         role="img"
-        aria-label="Tab that scrolls with the audio. Click a note to select it, click empty space to seek there."
+        aria-label="Tab that scrolls with the audio. Click a note to select it, click empty space to seek there, double-click a string to add a note, drag to pick several notes."
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={endDrag}
         data-testid="lane"
       >
         <defs>
@@ -217,6 +314,10 @@ export default function Lane({ score, selection, onSelect, getTime, onSeek }: Pr
           <line className="lane-head" x1={head} x2={head} y1={TOP - 18} y2={height - 6} />
           <path className="lane-needle" d={`M${head - 6} ${TOP - 26} h12 l-6 8 z`} />
         </g>
+        {box ? (
+          <rect className="lane-box" x={LEFT + Math.min(box.x0, box.x1)} y={Math.min(box.y0, box.y1)}
+            width={Math.abs(box.x1 - box.x0)} height={Math.abs(box.y1 - box.y0)} data-testid="lane-box" />
+        ) : null}
         <g className="lane-names" aria-hidden="true">
           {Array.from({ length: model.strings }, (_, i) => (
             <text key={i} x={14} y={TOP + i * GAP + 4}>{stringLabel(openPitch(tuning, i + 1), i)}</text>

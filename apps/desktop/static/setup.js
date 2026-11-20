@@ -49,11 +49,22 @@
       }
     };
     $('install').disabled = false;
+    // Windows / Linux have no menu bar: the engine commands sit behind the engine light in the app's top bar
+    if (!/Mac/.test(navigator.platform)) $('changeLater').textContent = 'you can change this later, from the engine light in the top bar';
   }
 
   function renderInstalling(s) {
     $('phase').textContent = s.phase;
-    if (s.written) $('written').textContent = s.written;
+    $('written').textContent = s.written || '–';
+    $('writtenLabel').textContent = s.fraction !== undefined ? 'Downloaded' : 'On disk';
+    $('rate').textContent = s.rate || '–';
+    const bar = $('bar');
+    bar.hidden = s.fraction === undefined;
+    if (s.fraction !== undefined) {
+      const pct = Math.round(s.fraction * 100);
+      bar.setAttribute('aria-valuenow', String(pct));
+      $('barFill').style.transform = `scaleX(${Math.max(s.fraction, 0.01)})`;
+    }
     if (s.message) $('message').textContent = s.message;
     clearInterval(timer);
     const tick = () => {

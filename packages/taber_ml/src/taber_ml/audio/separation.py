@@ -138,10 +138,11 @@ class DemucsSeparator:
 
     def _load(self):
         if self._model is None:
-            import torch
             from demucs.pretrained import get_model
 
-            dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
+            from ..device import torch_device
+
+            dev = self.device or torch_device()
             self._model = get_model(MODEL).eval().to(dev)
             self._dev = dev
         return self._model

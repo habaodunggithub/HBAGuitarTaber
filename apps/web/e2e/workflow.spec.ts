@@ -528,6 +528,63 @@ test.describe('correcting notes and the test set', () => {
     await expect(heading).toHaveText(raised!);
   });
 
+  test('in the lane: drag to pick notes and delete them at once, double-click a string to add one, type its fret', async ({ page }) => {
+    await createTab(page);
+    const before = await server(page);
+    const lane = page.getByTestId('lane');
+    // wait until the layout settles (a warning banner may still appear above the lane)
+    let lastY = -1;
+    await expect.poll(async () => {
+      await page.waitForTimeout(400);
+      const y = (await lane.boundingBox())!.y;
+      const still = y === lastY;
+      lastY = y;
+      return still;
+    }, { timeout: 15_000 }).toBe(true);
+    const notes = lane.locator('[data-i]');
+    const boxes = (await notes.evaluateAll((els) => els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top + r.height / 2 };
+    }))).sort((a, b) => a.x - b.x);
+    const lb = (await lane.boundingBox())!;
+
+    // a box from just before the first note to the start of the third, over every string
+    const x0 = boxes[0]!.x - 6;
+    const x1 = boxes[2]!.x + 2;
+    const inside = boxes.filter((b) => b.x >= x0 - 1 && b.x <= x1 + 1).length;
+    await page.mouse.move(x0, lb.y + 22);
+    await page.mouse.down();
+    await page.mouse.move((x0 + x1) / 2, lb.y + lb.height / 2, { steps: 4 });
+    await expect(page.getByTestId('lane-box')).toBeVisible();
+    await page.mouse.move(x1, lb.y + lb.height - 4, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.getByTestId('picked-count')).toHaveText(`${inside} notes picked`);
+    await expect(lane.locator('.is-picked')).toHaveCount(inside);
+    await page.keyboard.press('Delete');
+    await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 10_000 });
+    expect(struck(await server(page)).length).toBe(struck(before).length - inside);
+
+    await page.keyboard.press('Control+z'); // one step brings them all back
+    await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 10_000 });
+    expect(struck(await server(page)).length).toBe(struck(before).length);
+    await page.keyboard.press('Control+Shift+z');
+
+    // double-click on the G string (3) where the first note was: a note there, on that string
+    // (measured again: a warning banner can appear above the lane once the analysis is fetched)
+    const now = (await lane.boundingBox())!;
+    const firstX = boxes[0]!.x + (now.x - lb.x);
+    await page.mouse.dblclick(firstX + 2, now.y + 40 + 2 * 26);
+    await expect(page.getByTestId('position')).toHaveText(/^String 3, fret \d+$/);
+    await page.keyboard.type('12');
+    await expect(page.getByTestId('position')).toHaveText('String 3, fret 12');
+    await page.keyboard.press('7'); // a single digit above 2 applies at once
+    await expect(page.getByTestId('position')).toHaveText('String 3, fret 7');
+    await expect(page.getByTestId('save-state')).toHaveText('Saved', { timeout: 10_000 });
+    const added = struck(await server(page)).filter((n) => n.note_id?.startsWith('u'));
+    expect(added).toHaveLength(1);
+    expect(added[0]!.pitch_midi).toBe(55 + 7); // G3 + 7 frets
+  });
+
   test('a checked tab goes into the test set and can be removed', async ({ page }) => {
     await createTab(page);
     await page.getByTestId('truth-tool').click();

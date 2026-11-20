@@ -7,6 +7,9 @@ import { KeyList } from './Shell';
 interface Props {
   score: Score;
   selection: NoteLoc | null;
+  /** how many notes are picked together in the lane (0: none) */
+  picked?: number;
+  onClearPicked?: () => void;
   onPick: (string: number, fret: number) => void;
   onToggleLock: () => void;
   onRefingerMeasure: () => void;
@@ -69,13 +72,31 @@ function Fretboard({ alts, current, strings, onPick }: {
   );
 }
 
-export default function Inspector({ score, selection, onPick, onToggleLock, onRefingerMeasure, onShiftPitch, onDelete, onAddNote, busy }: Props) {
+export default function Inspector({ score, selection, picked = 0, onClearPicked, onPick, onToggleLock, onRefingerMeasure, onShiftPitch, onDelete, onAddNote, busy }: Props) {
   const note = selection ? getNote(score, selection) : undefined;
+  if (picked > 1) {
+    return (
+      <section className="inspector" aria-label="Note details">
+        <h2 className="pixel-h" data-testid="picked-count">{picked} notes picked</h2>
+        <p className="muted small">Notes that are not part of the solo (the backing guitar bleeding through, string noise)? Delete them in one go; Ctrl+Z brings them back.</p>
+        <div className="row">
+          <button type="button" className="btn" onClick={onDelete} data-testid="delete-picked"><Icon name="close" /> Delete {picked} notes</button>
+          <button type="button" className="btn quiet" onClick={onClearPicked}>Keep them (Esc)</button>
+        </div>
+        <p className="muted small">Shift+click a note in the lane to add or take it out; Shift+drag adds a box.</p>
+      </section>
+    );
+  }
   if (!selection || !note) {
     return (
       <section className="inspector" aria-label="Note details">
         <h2 className="pixel-h">Selected note</h2>
         <p className="muted small">Click a note in the lane or the score, or use the arrow keys, to see and change where it is played.</p>
+        <ul className="muted small edit-tips">
+          <li><b>Add</b>: double-click a string in the lane, where the note is missing.</li>
+          <li><b>Delete many</b>: drag across the lane to pick the notes, then press Delete.</li>
+          <li><b>Set the fret</b>: select a note and type the number (12 = 1 then 2).</li>
+        </ul>
         <button type="button" className="btn quiet" onClick={onAddNote} data-testid="add-note">
           <Icon name="plus" /> Add a missed note at the playhead (N)
         </button>
@@ -108,7 +129,7 @@ export default function Inspector({ score, selection, onPick, onToggleLock, onRe
         </dd>
       </dl>
 
-      <h3 className="panel-sub">Wrong note?</h3>
+      <h3 className="panel-sub">Wrong note? <span className="muted small">type a fret number to put it there</span></h3>
       <div className="row pitch-row" role="group" aria-label="Change the pitch">
         <button type="button" className="btn quiet" onClick={() => onShiftPitch(-12)} title="Down an octave">−8va</button>
         <button type="button" className="btn quiet" onClick={() => onShiftPitch(-1)} title="Down a semitone (Shift+↓)" aria-label="Down a semitone"><Icon name="minus" /></button>

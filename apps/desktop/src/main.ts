@@ -2,19 +2,25 @@
  * Electron main process: one window, the setup screen until the engine is ready, then the web app served by the
  * local API. The flow behind it is unchanged: API + pull worker (docs/adr/ADR-011-desktop-app.md).
  */
-import { app, BrowserWindow, dialog, ipcMain, Menu, type MenuItemConstructorOptions, nativeTheme, session, shell } from 'electron';
+import {
+  app, BrowserWindow, dialog, type IpcMainEvent, type IpcMainInvokeEvent, ipcMain, Menu, type MenuItemConstructorOptions, nativeTheme,
+  session, shell,
+} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Backend, BackendError } from './backend';
-import { detectHardware, type Hardware, MIN_DRIVER_MAJOR, recommend } from './hardware';
+import { detectHardware, type Hardware, MIN_COMPUTE_CAP, MIN_DRIVER_MAJOR, recommend } from './hardware';
 import { APP_NAME, resolveLayout } from './layout';
 import { LogFile } from './log';
-import { formatBytes, type Manifest, provision, readManifest, RuntimeError, type RuntimeState, runtimeStatus, type Variant } from './runtime';
+import {
+  formatBytes, type Manifest, type Phase, provision, readManifest, RuntimeError, type RuntimeState, runtimeStatus, type Variant,
+} from './runtime';
 import { loadSettings, saveSettings, type Settings } from './settings';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
 const SITE = 'https://habaodunggithub.github.io/HBAGuitarTaber/';
 const SELFTEST = process.env.TABER_DESKTOP_SELFTEST === '1';
+const MAC = process.platform === 'darwin';
 
 app.setName(APP_NAME);
 if (!app.requestSingleInstanceLock()) {
@@ -39,7 +45,13 @@ let stopped = false;
 type SetupState =
   | { screen: 'boot' }
   | { screen: 'choose'; variants: VariantCard[]; recommended: Variant; current?: Variant; installDir: string; reason: string }
-  | { screen: 'installing'; variant: Variant; phase: string; message: string; written?: string; startedAt: number }
+  | {
+    screen: 'installing'; variant: Variant; phase: string; message: string; written?: string; startedAt: number;
+    /** 0..1 for a download of known size (the bar on the setup page), else undefined */
+    fraction?: number;
+    /** "4.2 MB/s, about 6 min left" */
+    rate?: string;
+  }
   | { screen: 'starting'; message: string }
   | { screen: 'error'; title: string; message: string; logTail: string; logPath: string };
 
@@ -92,6 +104,29 @@ function createWindow(): BrowserWindow {
   });
   if (w?.maximized) bw.maximize();
   bw.once('ready-to-show', () => !SELFTEST && bw.show());
+  if (!MAC) {
+    // no File / Edit / View bar on Windows and Linux: the engine commands live in the app's own menu (Shell.tsx),
+    // and the shortcuts that menu carried still work
+    bw.removeMenu();
+    bw.webContents.on('before-input-event', (e, input) => {
+      if (input.type !== 'keyDown') return;
+      const mod = input.control || input.meta;
+      const key = input.key.toLowerCase();
+      const wc = bw.webContents;
+      const act =
+        key === 'f5' || (mod && !input.shift && key === 'r') ? () => wc.reload()
+        : key === 'f12' || (mod && input.shift && key === 'i') ? () => wc.toggleDevTools()
+        : key === 'f11' ? () => bw.setFullScreen(!bw.isFullScreen())
+        : mod && (key === '=' || key === '+') ? () => wc.setZoomLevel(Math.min(wc.getZoomLevel() + 0.5, 4))
+        : mod && key === '-' ? () => wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3))
+        : mod && key === '0' ? () => wc.setZoomLevel(0)
+        : null;
+      if (act) {
+        e.preventDefault();
+        act();
+      }
+    });
+  }
 
   // only the local app and the setup page load in this window; links go to the system browser
   bw.webContents.on('will-navigate', (e, url) => {
@@ -137,9 +172,11 @@ function variantCards(m: Manifest, hw: Hardware): VariantCard[] {
         ? `Fastest. Runs the models on your ${hw.nvidia.name}.`
         : 'Fastest, but needs an NVIDIA graphics card, and none was found.',
       size: m.downloadEstimate.gpu,
-      warning: hw.driverTooOld
-        ? `Driver ${hw.nvidia?.driver} is older than ${MIN_DRIVER_MAJOR}: update it first, or the models run on the CPU.`
-        : undefined,
+      warning: hw.gpuTooOld
+        ? `Your ${hw.nvidia?.name} (compute ${hw.nvidia?.computeCap}) is too old for this GPU build, which needs ${MIN_COMPUTE_CAP} or newer (GTX 16 / RTX 20 series and up). The models would run on the processor after a large download: choose Processor.`
+        : hw.driverTooOld
+          ? `Driver ${hw.nvidia?.driver} is older than ${MIN_DRIVER_MAJOR}: update it first, or the models run on the CPU.`
+          : undefined,
     },
     cpu: {
       id: 'cpu',
@@ -195,13 +232,35 @@ async function install(variant: Variant): Promise<void> {
   let phase = 'Getting ready';
   let message = '';
   let written: string | undefined;
-  const labels = { python: 'Getting Python', packages: 'Downloading the engine', check: 'Checking the engine' };
+  let last: Phase | null = null;
+  const labels: Record<Phase, string> = {
+    python: 'Getting Python',
+    download: 'Downloading PyTorch',
+    packages: 'Installing the engine',
+    check: 'Checking the engine',
+    models: 'Downloading the models',
+  };
   try {
     runtime = await provision(layout, manifest!, variant, log, (p) => {
+      if (p.phase !== last) {
+        last = p.phase;
+        written = undefined;
+      }
       phase = labels[p.phase];
       if (p.message) message = p.message;
-      if (p.bytes !== undefined) written = formatBytes(p.bytes);
-      sendSetup({ screen: 'installing', variant, phase, message, written, startedAt });
+      let fraction: number | undefined;
+      let rate: string | undefined;
+      if (p.bytes !== undefined && p.total) {
+        fraction = Math.min(1, p.bytes / p.total);
+        written = `${formatBytes(p.bytes)} of ${formatBytes(p.total)}`;
+        if (p.rate && p.rate > 0) {
+          const left = Math.max(0, (p.total - p.bytes) / p.rate);
+          rate = `${formatBytes(p.rate)}/s, about ${left < 90 ? `${Math.max(1, Math.round(left))} s` : `${Math.round(left / 60)} min`} left`;
+        }
+      } else if (p.bytes !== undefined) {
+        written = formatBytes(p.bytes);
+      }
+      sendSetup({ screen: 'installing', variant, phase, message, written, startedAt, fraction, rate });
     });
     settings.variant = variant;
     save();
@@ -228,7 +287,10 @@ async function startBackend(): Promise<void> {
       buttons: ['OK', 'Open log'],
     }).then((r) => r.response === 1 && shell.showItemInFolder(e.logPath));
   });
-  backend.on('state', () => buildMenu());
+  backend.on('state', () => {
+    buildMenu();
+    sendDesktopState();
+  });
   await backend.start();
 }
 
@@ -283,8 +345,13 @@ async function selftest() {
     workers = ((await (await fetch(`${backend!.url}/api/v1/workers`)).json()) as unknown[]).length;
     if (!workers) await new Promise((r) => setTimeout(r, 500));
   }
-  const ok = rendered > 0 && (workers > 0 || !settings.startWorker);
-  console.log(JSON.stringify({ selftest: ok ? 'ok' : 'failed', url: backend!.url, title, rendered, workers, runtime }));
+  // the app page reaches the engine commands through the bridge, and Windows / Linux show no menu bar
+  const bridge = await wc.executeJavaScript(
+    'window.taberDesktop ? window.taberDesktop.info().then((i) => (i ? i.api : "no info")) : "no bridge"',
+  );
+  const noMenuBar = MAC || Menu.getApplicationMenu() === null;
+  const ok = rendered > 0 && (workers > 0 || !settings.startWorker) && bridge === 'running' && noMenuBar;
+  console.log(JSON.stringify({ selftest: ok ? 'ok' : 'failed', url: backend!.url, title, rendered, workers, bridge, noMenuBar, runtime }));
   await backend!.stop();
   stopped = true;
   app.exit(ok ? 0 : 1);
@@ -336,7 +403,7 @@ function engineInfo() {
   const lines = [
     `Engine: ${r?.variant ?? 'not installed'}`,
     `Python ${r?.python ?? '?'}, torch ${r?.torch ?? 'not installed'}`,
-    `GPU: ${r?.cuda ? r.gpu : 'not used'}`,
+    `GPU: ${r?.cuda ? r.gpu : r?.gpuNote ? `not used (${r.gpuNote})` : 'not used'}`,
     `API: ${backend?.apiState ?? 'stopped'} on ${backend?.url ?? '-'}`,
     `Local worker: ${backend?.workerState ?? 'stopped'}`,
     '',
@@ -349,16 +416,19 @@ function engineInfo() {
 }
 
 function buildMenu() {
-  const mac = process.platform === 'darwin';
+  if (!MAC) {
+    Menu.setApplicationMenu(null);
+    return;
+  }
   const template: MenuItemConstructorOptions[] = [
-    ...(mac ? [{ role: 'appMenu' as const }] : []),
+    { role: 'appMenu' },
     {
       label: 'File',
       submenu: [
         { label: 'Open data folder', click: () => void shell.openPath(layout.data) },
         { label: 'Open logs folder', click: () => void shell.openPath(layout.logs) },
         { type: 'separator' },
-        mac ? { role: 'close' } : { role: 'quit' },
+        { role: 'close' },
       ],
     },
     { role: 'editMenu' }, // copy / paste in text fields on macOS needs it
@@ -400,12 +470,77 @@ function buildMenu() {
         { label: 'Download page', click: () => void shell.openExternal(SITE) },
         { label: 'Check for updates…', click: () => void checkForUpdates(true) },
         { label: 'Report a problem', click: () => void shell.openExternal(`https://github.com/${REPO}/issues`) },
-        ...(mac ? [] : [{ type: 'separator' as const }, { role: 'about' as const }]),
       ],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// ───────────────────────────── app page IPC ─────────────────────────────
+// The app page (served by the local API) gets a few commands, the ones the Engine menu had. Only that page may
+// call them: the window loads nothing else (will-navigate above), and every call checks the sender again.
+
+interface DesktopInfo {
+  version: string;
+  platform: NodeJS.Platform;
+  variant: Variant | null;
+  python: string | null;
+  torch: string | null;
+  gpu: string | null;
+  gpuNote: string | null;
+  api: string;
+  worker: string;
+  workerEnabled: boolean;
+  paths: { data: string; runtime: string; cache: string; logs: string };
+}
+
+function desktopInfo(): DesktopInfo {
+  return {
+    version: app.getVersion(),
+    platform: process.platform,
+    variant: runtime?.variant ?? null,
+    python: runtime?.python ?? null,
+    torch: runtime?.torch ?? null,
+    gpu: runtime?.cuda ? runtime.gpu : null,
+    gpuNote: runtime?.gpuNote ?? null,
+    api: backend?.apiState ?? 'stopped',
+    worker: backend?.workerState ?? 'stopped',
+    workerEnabled: settings.startWorker,
+    paths: { data: layout.data, runtime: layout.runtime, cache: layout.cache, logs: layout.logs },
+  };
+}
+
+function fromApp(e: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  const url = e.senderFrame?.url ?? '';
+  return !!backend?.port && url.startsWith(`${backend.url}/`);
+}
+
+function sendDesktopState() {
+  const wc = win?.webContents;
+  if (wc && backend?.port && wc.getURL().startsWith(`${backend.url}/`)) wc.send('desktop:state', desktopInfo());
+}
+
+ipcMain.handle('desktop:info', (e) => (fromApp(e) ? desktopInfo() : null));
+ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
+  if (!fromApp(e)) return;
+  switch (action) {
+    case 'restart-engine': void boot(false); break;
+    case 'change-engine': void boot(true); break;
+    case 'open-logs': void shell.openPath(layout.logs); break;
+    case 'open-data': void shell.openPath(layout.data); break;
+    case 'check-updates': void checkForUpdates(true); break;
+    case 'report-problem': void shell.openExternal(`https://github.com/${REPO}/issues`); break;
+    case 'download-page': void shell.openExternal(SITE); break;
+    case 'devtools': win?.webContents.toggleDevTools(); break;
+    case 'worker':
+      if (typeof arg !== 'boolean') return;
+      settings.startWorker = arg;
+      save();
+      void backend?.setWorkerEnabled(arg);
+      sendDesktopState();
+      break;
+  }
+});
 
 // ───────────────────────────── setup page IPC ─────────────────────────────
 

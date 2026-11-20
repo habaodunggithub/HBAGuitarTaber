@@ -3,6 +3,7 @@
     python launch.py api                 -> app.main:run()          (same as `taber-api`)
     python launch.py worker [ARGS...]    -> taber_ml.cli worker ... (same as `taber worker`)
     python launch.py check               -> JSON: what this runtime can do (after an install)
+    python launch.py fetch-models        -> download the model files the packages need, JSON lines of progress
 
 Not part of the pipeline: it only calls the existing entry points. What it adds is a watchdog: when the desktop
 app that started it disappears (crash, kill -9, power button), the child exits too instead of holding the port
@@ -58,16 +59,20 @@ def check() -> int:
     import app.main  # noqa: F401  - an install that cannot import the API is broken
     import taber_ml.pipeline  # noqa: F401
 
-    info: dict = {"python": sys.version.split()[0], "torch": None, "cuda": False, "gpu": None}
+    info: dict = {"python": sys.version.split()[0], "torch": None, "cuda": False, "gpu": None, "gpuNote": None}
     try:
         import torch
 
         info["torch"] = torch.__version__
-        if torch.cuda.is_available():
-            info["cuda"] = True
-            info["gpu"] = torch.cuda.get_device_name(0)
     except ImportError:
         pass
+    else:
+        from taber_ml.device import cuda_status
+
+        ok, why = cuda_status()  # runs a test kernel: a GPU this build cannot drive reports False
+        info["cuda"], info["gpu"] = ok, why if ok else None
+        if not ok and torch.cuda.is_available():
+            info["gpuNote"] = why
     print(json.dumps(info), flush=True)
     return 0
 
@@ -91,6 +96,13 @@ def main(argv: list[str]) -> int:
         return cli(["worker", *rest])
     if role == "check":
         return check()
+    if role == "fetch-models":
+        import socket
+
+        from taber_ml.weights import fetch_all
+
+        socket.setdefaulttimeout(60)
+        return fetch_all()
     print(f"unknown role {role!r}", file=sys.stderr)
     return 2
 

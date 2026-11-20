@@ -8,7 +8,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import { cleanEnv, type Layout, prependPath } from './layout';
+import { cacheEnv, cleanEnv, type Layout, prependPath } from './layout';
 import { LogFile } from './log';
 
 export type ProcState = 'stopped' | 'starting' | 'running' | 'crashed';
@@ -114,10 +114,7 @@ export class Backend extends EventEmitter {
       TABER_HOST: '127.0.0.1',
       TABER_PORT: String(this.port),
       TABER_TRUSTED_HOSTS: JSON.stringify(['127.0.0.1', 'localhost']),
-      TABER_CACHE_DIR: layout.cache,
-      TORCH_HOME: path.join(layout.cache, 'torch'),
-      HF_HOME: path.join(layout.cache, 'huggingface'),
-      MPLCONFIGDIR: path.join(layout.cache, 'matplotlib'),
+      ...cacheEnv(layout),
       TABER_DESKTOP_PARENT_PID: String(process.pid),
     });
     return fs.existsSync(layout.res.ffmpegBin) ? prependPath(env, layout.res.ffmpegBin) : env;

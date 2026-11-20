@@ -96,6 +96,9 @@ code { font-family: var(--mono); font-size: 13px; background: var(--blue-soft); 
 dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 0; }
 dt { color: var(--ink-3); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }
 dd { margin: 0; font-weight: 500; }
+.bar { height: 6px; background: var(--paper-3); border: 1.5px solid var(--ink); border-radius: 4px; overflow: hidden; margin: 0 0 14px; }
+.bar span { display: block; height: 100%; background: var(--blue); transform-origin: 0 50%; transform: scaleX(0.01); transition: transform 400ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
 .log { font-size: 13px; color: var(--ink-3); min-height: 2.6em; overflow-wrap: anywhere; margin: 0 0 6px; }
 .tail { background: var(--paper-3); border: 1.5px solid var(--rule); border-radius: 6px; padding: 12px; font-size: 12px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
 
