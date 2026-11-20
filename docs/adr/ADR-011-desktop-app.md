@@ -51,7 +51,7 @@ Luồng giữ nguyên như `just app` + `just worker`; khác biệt duy nhất l
 
 | Biến thể | Nền tảng | torch | Tải về (ước tính) | Trên đĩa (đo trên Linux) | Khi nào |
 |---|---|---|---|---|---|
-| `gpu` | Windows x64, Linux x64 có NVIDIA | Windows: `+cu132` từ chỉ mục PyTorch; Linux: bản PyPI (CUDA 13) | ~3–4 GB | 6,5 GB | Có `nvidia-smi` (driver R580+ cho CUDA 13) |
+| `gpu` | Windows x64, Linux x64 có NVIDIA | Windows: `+cu132` từ chỉ mục PyTorch; Linux: bản PyPI (CUDA 13) | ~3–4 GB | 6,5 GB | Có `nvidia-smi` (driver R580+ và compute capability 7.5+ cho CUDA 13: GTX 16 / RTX 20 trở lên) |
 | `cpu` | Windows x64, Linux x64, macOS arm64 | Windows/macOS: bản PyPI; Linux: `+cpu`, bỏ chuỗi `nvidia-*`/`cuda-*`/`triton` | ~0,6 GB | 2,2 GB | Không có NVIDIA |
 | `lite` | mọi nền tảng được phát hành | không có (pYIN, Basic Pitch ONNX, video MediaPipe) | ~0,3 GB | 1,2 GB | Máy yếu hoặc ít dung lượng |
 
@@ -60,6 +60,13 @@ Cả `lite` và `cpu` đã chạy smoke test thật trên Linux (dựng runtime 
 Danh sách gói xuất từ chính `uv.lock` (`uv export --frozen`, có hash), nên phiên bản trùng với môi trường dev. Dòng `torch`
 được thay bằng URL wheel trực tiếp kèm `sha256` lấy từ chỉ mục PyTorch lúc build. Cài bằng `uv pip sync` (đúng tập gói, gỡ gói thừa khi cập nhật), rồi `uv pip check`.
 Runtime chỉ dựng lại khi hash của lock đổi; các lần mở sau đi thẳng vào app.
+
+**Mạng chậm hoặc chập chờn** (lần cài đầu có thể vượt 1 giờ trên đường quốc tế yếu):
+
+- Wheel ghim bằng URL (torch `+cu132` trên Windows: một file 2,1 GB) do app tự tải (`runtime.ts`, `downloadResumable`): yêu cầu Range nối tiếp sau khi rớt mạng, sau 60 s không nhận byte nào, hoặc sau khi đóng app (lần mở sau tải tiếp từ file `.part`); kiểm `sha256` ở cuối. uv thì tải lại từ đầu khi rớt. Dòng `torch @ URL` được ghi thành `torch==2.15.0+cu132` + `--find-links cache/downloads`: uv cài từ file vừa tải, và khi file đã xoá (sau khi cài xong) thì bản đã cài vẫn thoả, nên cập nhật app không tải lại torch.
+- uv chạy với `UV_HTTP_TIMEOUT=120`, `UV_HTTP_RETRIES=8`. Cỡ cache được đo không đồng bộ, không chặn cửa sổ.
+- Các file model mà thư viện tự tải lúc dùng lần đầu (Demucs 55 MB, Beat This! 81 MB, MediaPipe 7,8 MB) được tải ngay lúc cài (`launch.py fetch-models`), có timeout, thử lại, tải nối, kiểm hash (`taber_ml/weights.py`). Không tải được thì vẫn cài xong; lần phân tích đầu tải lại, báo số MB trên màn hình job, và nếu vẫn hỏng thì chạy tiếp không có bước đó (giữ bản mix, beat tracker librosa, bỏ video) kèm cảnh báo, thay vì treo. Worker đặt `socket.setdefaulttimeout(120)` cho mọi thư viện tự tải mà không đặt timeout.
+- `taber_ml/device.py` chạy một kernel thử trước khi dùng GPU: card mà bản torch không hỗ trợ (compute capability dưới mức của bản build) chạy trên CPU thay vì lỗi ở model đầu tiên.
 
 ### Thư mục theo hệ điều hành
 
@@ -84,7 +91,8 @@ Windows dùng `LOCALAPPDATA` chứ không dùng `APPDATA` (roaming), vì runtime
 ### Bảo mật
 
 - API chỉ nghe trên `127.0.0.1`. Token worker vẫn sinh vào `data/worker_token` như cũ.
-- `BrowserWindow`: `contextIsolation`, `sandbox`, không `nodeIntegration`; chỉ trang cài đặt (file://) có preload. Điều hướng ra ngoài origin cục bộ bị chặn và mở bằng trình duyệt hệ thống.
+- `BrowserWindow`: `contextIsolation`, `sandbox`, không `nodeIntegration`. Preload đưa cho trang cài đặt (file://) luồng cài, và cho trang app (`http://127.0.0.1:<cổng>`) đúng các lệnh của menu Engine cũ (`window.taberDesktop`: khởi động lại / đổi engine, bật tắt worker, mở thư mục log / dữ liệu, kiểm tra bản mới). Main process kiểm lại URL của frame gửi ở mỗi lệnh; không lệnh nào nhận đường dẫn hay URL từ trang. Điều hướng ra ngoài origin cục bộ bị chặn và mở bằng trình duyệt hệ thống.
+- **Không thanh menu trên Windows/Linux**: các lệnh nằm trong bảng Engine của app (bấm đèn worker trên thanh trên cùng); phím tắt cũ vẫn còn (F5/Ctrl+R, F12/Ctrl+Shift+I, Ctrl+±/0, F11). macOS giữ menu hệ thống (Cmd+Q, copy/paste cần nó).
 - Chống DNS rebinding: API nhận thêm `TABER_TRUSTED_HOSTS` (mặc định tắt, giữ nguyên hành vi cũ); bản desktop đặt `127.0.0.1,localhost`.
   Nếu không có lớp này, một trang web bất kỳ đang mở trong trình duyệt có thể đọc và sửa tab qua cổng cục bộ khi app đang chạy.
 

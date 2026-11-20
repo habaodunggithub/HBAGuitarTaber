@@ -13,14 +13,9 @@ from .audio.f0 import get_tracker
 
 
 def detect_device() -> str:
-    try:
-        import torch
+    from .device import describe
 
-        if torch.cuda.is_available():
-            return f"cuda:{torch.cuda.get_device_name(0)}"
-    except Exception:
-        pass
-    return "cpu"
+    return describe()
 
 
 class ModelRegistry:
@@ -50,7 +45,9 @@ class ModelRegistry:
         try:
             import torch
 
-            return torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory < 8e9
+            from .device import torch_device
+
+            return torch_device() == "cuda" and torch.cuda.get_device_properties(0).total_memory < 8e9
         except Exception:
             return False
 

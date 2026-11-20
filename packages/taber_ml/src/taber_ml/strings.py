@@ -138,7 +138,9 @@ class StringClassifier:
         import torch
 
         path = Path(path) if path else default_weights()
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        from .device import torch_device
+
+        self.device = device or torch_device()
         ck = torch.load(path, map_location="cpu", weights_only=True)
         self.size = SIZES[ck.get("size", "base")]
         states = ck.get("state_dicts") or [ck["state_dict"]]

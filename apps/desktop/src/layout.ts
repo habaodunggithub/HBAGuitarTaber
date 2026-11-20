@@ -86,6 +86,16 @@ export function resolveLayout(resourcesRoot: string): Layout {
   };
 }
 
+/** Where the Python side keeps model files and caches: the same for the API, the worker and the install's checks. */
+export function cacheEnv(layout: Layout): Record<string, string> {
+  return {
+    TABER_CACHE_DIR: layout.cache,
+    TORCH_HOME: path.join(layout.cache, 'torch'),
+    HF_HOME: path.join(layout.cache, 'huggingface'),
+    MPLCONFIGDIR: path.join(layout.cache, 'matplotlib'),
+  };
+}
+
 /** Environment for every Python child: no leakage from the user's shell (PYTHONPATH, another venv, user site). */
 export function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};

@@ -84,7 +84,9 @@ class PestoTracker:
         import pesto
         import torch
 
-        dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
+        from ..device import torch_device
+
+        dev = self.device or torch_device()
         n = len(y)
         chunk, ctx = int(self.CHUNK_S * sr), int(self.CONTEXT_S * sr)
         times, midi, conf = [], [], []
@@ -117,7 +119,9 @@ class CrepeTracker:
         import torch
         import torchcrepe
 
-        dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
+        from ..device import torch_device
+
+        dev = self.device or torch_device()
         hop = int(round(self.hop_s * sr))
         x = torch.from_numpy(y).float()[None].to(dev)
         f0, per = torchcrepe.predict(

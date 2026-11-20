@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWorkers } from '../api/hooks';
+import { useDesktopInfo, VARIANT_LABEL } from '../lib/desktop';
 import { toggleTheme, useTheme } from '../lib/theme';
+import EngineDialog from './EngineDialog';
 import Icon from './Icon';
 
 /**
@@ -67,13 +69,33 @@ export default function Shell({ center, tools, children }: Props) {
 
 function WorkerLamp() {
   const workers = useWorkers();
-  if (workers.isPending) return null;
+  const info = useDesktopInfo();
+  const [open, setOpen] = useState(false);
+  if (workers.isPending && !info) return null;
   const online = workers.data?.length ?? 0;
+  const text = online ? `${online} worker${online > 1 ? 's' : ''} online` : 'No worker';
+  if (!info) {
+    return (
+      <p className={`lamp-pill${online ? ' on' : ''}`} role="status">
+        <span className="lamp" aria-hidden="true" />
+        <span className="lamp-text">{text}</span>
+      </p>
+    );
+  }
+  // in the desktop app the light opens the engine panel (the app has no menu bar on Windows / Linux)
+  const label = info.worker === 'running' && online ? `Engine: ${VARIANT_LABEL[info.variant ?? ''] ?? 'ready'}`
+    : online ? text
+      : info.worker === 'starting' || info.worker === 'running' ? 'Engine starting'
+        : 'Engine off';
   return (
-    <p className={`lamp-pill${online ? ' on' : ''}`} role="status">
-      <span className="lamp" aria-hidden="true" />
-      <span className="lamp-text">{online ? `${online} worker${online > 1 ? 's' : ''} online` : 'No worker'}</span>
-    </p>
+    <>
+      <button type="button" className={`lamp-pill lamp-btn${online ? ' on' : ''}`} aria-haspopup="dialog" onClick={() => setOpen(true)} title={`${text}. Engine settings`}>
+        <span className="lamp" aria-hidden="true" />
+        <span className="lamp-text">{label}</span>
+        <Icon name="down" size={14} />
+      </button>
+      {open ? <EngineDialog info={info} onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 

@@ -28,7 +28,7 @@
         <div class="actions">
           <button id="install" class="btn primary" type="button">Install</button>
           <button id="keep" class="btn" type="button" hidden></button>
-          <span class="hand note">you can change this later, from the Engine menu</span>
+          <span class="hand note" id="changeLater">you can change this later, from the Engine menu</span>
         </div>
       </section>
 
@@ -38,12 +38,14 @@
           <div class="metronome" aria-hidden="true"><i></i></div>
           <dl>
             <dt>Step</dt><dd id="phase"></dd>
-            <dt>On disk</dt><dd id="written">–</dd>
+            <dt id="writtenLabel">On disk</dt><dd id="written">–</dd>
+            <dt>Speed</dt><dd id="rate">–</dd>
             <dt>Time</dt><dd id="elapsed">0:00</dd>
           </dl>
         </div>
+        <div class="bar" id="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" hidden><span id="barFill"></span></div>
         <p class="log" id="message"></p>
-        <p class="hand note">This happens once. You can keep working in other windows.</p>
+        <p class="hand note">This happens once. If the connection drops or you close the app, the download continues where it stopped next time.</p>
       </section>
 
       <section id="starting" class="screen" hidden>
