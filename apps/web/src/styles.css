@@ -489,6 +489,12 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .lane-note.is-selected .lane-knock { fill: color-mix(in srgb, var(--blue) 16%, var(--paper-3)); }
 .lane-note.is-selected .lane-fret { fill: var(--blue); font-weight: 700; }
 .lane-note.is-now .lane-fret { fill: var(--blue); font-weight: 700; }
+/* picked together (box / Shift+click): a solid highlighter marker, readable when the note is past and at night
+   (the marker stays light in both themes, so its number is always the dark ink, not --ink) */
+.lane-note.is-picked, .lane-note.is-picked.is-past { opacity: 1; }
+.lane-note.is-picked .lane-knock { fill: var(--hl); stroke: var(--hl-ink); stroke-width: 1.4; }
+.lane-note.is-picked .lane-fret { fill: #1d1b18; font-weight: 700; }
+.lane-box { fill: color-mix(in srgb, var(--hl) 18%, transparent); stroke: var(--hl-ink); stroke-width: 1.2; stroke-dasharray: 4 3; pointer-events: none; }
 .lane-note.is-now .lane-fill { opacity: 0.8; }
 .lane-note.is-now .lane-pill { animation: note-pop 260ms var(--ease-out); }
 @keyframes note-pop { from { transform: scale(1.35); } }
@@ -509,6 +515,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .panel-sub { font-size: 11.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); margin: 22px 0 10px; }
 .inspector .row { margin-top: 20px; }
+.edit-tips { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .inspector .pitch-row { margin-top: 0; gap: 6px; }
 .inspector .pitch-row .btn { padding-inline: 10px; }
 .truth-pop { display: grid; gap: 10px; }

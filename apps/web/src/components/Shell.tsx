@@ -83,12 +83,16 @@ export const SHORTCUTS: [string[], string][] = [
   [['↑', '↓'], 'move to another string, same pitch'],
   [['L'], 'lock or unlock the note'],
   [['Shift', '↑', '↓'], 'raise or lower the pitch a semitone'],
+  [['0', '…', '24'], 'put the selected note on that fret (same string)'],
   [['N'], 'add a missed note at the playhead'],
-  [['Delete'], 'delete the note'],
+  [['Double-click'], 'add a note on that string, in the lane'],
+  [['Drag'], 'pick the notes in a box, in the lane (Shift adds)'],
+  [['Shift', 'Click'], 'add a note to the picked ones, or take it out'],
+  [['Delete'], 'delete the note, or all the picked ones'],
   [['T'], 'tap the beat while listening'],
   [['Ctrl', 'Z'], 'undo'],
   [['Ctrl', 'Shift', 'Z'], 'redo'],
-  [['Esc'], 'deselect'],
+  [['Esc'], 'deselect (and drop the picked notes)'],
   [['?'], 'open this list'],
 ];
 

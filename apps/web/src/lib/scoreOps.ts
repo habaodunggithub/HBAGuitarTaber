@@ -191,6 +191,49 @@ export function deleteNote(score: Score, l: NoteLoc): Score {
   return next;
 }
 
+/** Remove several notes at once (one undo step): each with its tied continuations. One copy of the score. */
+export function deleteNotes(score: Score, locs: NoteLoc[]): Score {
+  const key = (l: NoteLoc) => `${l.m}.${l.s}.${l.n}`;
+  const heads = new Map<string, NoteLoc>();
+  for (const l of locs) {
+    if (!getNote(score, l)) continue;
+    const h = chainHead(score, l);
+    heads.set(key(h), h);
+  }
+  if (!heads.size) return score;
+  const doomed = new Map<string, NoteLoc>();
+  const ids = new Set(score.deleted_note_ids ?? []);
+  for (const h of heads.values()) {
+    const id = getNote(score, h)!.note_id;
+    if (id && !id.startsWith('u')) ids.add(id);
+    for (const l of chain(score, h)) doomed.set(key(l), l);
+  }
+  const next = structuredClone(score);
+  // from the back: removing a later note never moves an earlier one
+  for (const l of [...doomed.values()].sort((a, b) => b.m - a.m || b.s - a.s || b.n - a.n)) {
+    next.measures[l.m]!.slots[l.s]!.notes.splice(l.n, 1);
+  }
+  if (ids.size !== (score.deleted_note_ids?.length ?? 0)) next.deleted_note_ids = [...ids];
+  return next;
+}
+
+/** Put a note on another fret of the same string (its pitch follows). Null if off the neck. */
+export function setFret(score: Score, l: NoteLoc, fret: number): Score | null {
+  const head = chainHead(score, l);
+  const note = getNote(score, head);
+  const t = score.assembly_params.tuning;
+  if (!note || fret < 0 || fret > score.assembly_params.max_fret - (t.capo ?? 0)) return null;
+  if (fret === note.fret) return score;
+  const pitch = soundingPitch(t, note.string, fret);
+  const next = structuredClone(score);
+  for (const loc of chain(score, head)) {
+    const n = getNote(next, loc)!;
+    Object.assign(n, { pitch_midi: pitch, fret, finger: null });
+    if (!n.tie_from_prev) n.locked = true;
+  }
+  return next;
+}
+
 /** Move a note by `semitones` (e.g. ±1, ±12): it stays on its string when it can. Null if unplayable. */
 export function shiftPitch(score: Score, l: NoteLoc, semitones: number): Score | null {
   const head = chainHead(score, l);
@@ -252,8 +295,11 @@ const GRID_TOL_S = 0.04;
  * until a slot starts within 40 ms of `t` (down to 1/64), and the new note goes there with the
  * pitch and string of the note before it; change its pitch afterwards. If a note is already
  * struck there, nothing is added and that note is returned.
+ *
+ * With `onString` (a click on a string in the lane), the note goes on that string, on the fret
+ * closest in pitch to the note before it; a note struck there on another string makes a chord.
  */
-export function insertNoteAt(score: Score, t: number): { score: Score; loc: NoteLoc; added: boolean } | null {
+export function insertNoteAt(score: Score, t: number, onString?: number): { score: Score; loc: NoteLoc; added: boolean } | null {
   const next = structuredClone(score);
   // a slot starting within 40 ms of t wins; otherwise the slot that contains t
   let near: [number, number] | null = null;
@@ -278,16 +324,51 @@ export function insertNoteAt(score: Score, t: number): { score: Score; loc: Note
     if (Math.abs(t - mid) < Math.abs(t - sl.start_s)) s += 1;
   }
   const slot = next.measures[m]!.slots[s]!;
-  const struck = slot.notes.findIndex((n) => !n.tie_from_prev);
+  const struckHere = (n: ScoreNote) => !n.tie_from_prev && (onString === undefined || n.string === onString);
+  const struck = slot.notes.findIndex(struckHere);
+  // (a struck note is never in the tail of a split slot, so this loc is valid in `score` too)
   if (struck >= 0) return { score, loc: { m, s, n: struck }, added: false };
 
   // the note sounding (or last struck) before this slot gives the pitch and the hand position
   const before = allLocs(next).filter((l) => l.m < m || (l.m === m && l.s < s)).map((l) => getNote(next, l)!);
   const prev = before.reverse().find((n) => !n.tie_from_prev) ?? null;
-  const pitch = prev?.pitch_midi ?? 64;
-  const pos = (prev && nearestPosition(next, pitch, prev)) ?? positionsFor(next, pitch)[0];
+  let pitch = prev?.pitch_midi ?? 64;
+  let pos: { string: number; fret: number } | null | undefined;
+  if (onString !== undefined) {
+    // nothing before it: the note after it is the reference (else the open string)
+    const ref = prev ?? allLocs(next).filter((l) => l.m > m || (l.m === m && l.s > s)).map((l) => getNote(next, l)!).find((n) => !n.tie_from_prev);
+    const tn = next.assembly_params.tuning;
+    const top = next.assembly_params.max_fret - (tn.capo ?? 0);
+    const want = ref ? ref.pitch_midi : openPitch(tn, onString) + (tn.capo ?? 0);
+    const fret = Math.min(Math.max(want - openPitch(tn, onString) - (tn.capo ?? 0), 0), top);
+    pos = { string: onString, fret };
+    pitch = soundingPitch(tn, onString, fret);
+  } else {
+    pos = (prev && nearestPosition(next, pitch, prev)) ?? positionsFor(next, pitch)[0];
+  }
   if (!pos) return null;
   const id = newNoteId();
+  if (onString !== undefined) {
+    // only this string changes: a note still ringing on it stops here, and its remaining tied slots ring the
+    // new note; whatever sounds on the other strings (struck or ringing) stays, so this can make a chord
+    const fresh: ScoreNote = { note_id: id, pitch_midi: pitch, string: onString, fret: pos.fret, finger: null, techniques: [], tie_from_prev: false, locked: true };
+    const ringing = slot.notes.findIndex((n) => n.tie_from_prev && n.string === onString);
+    let n0: number;
+    if (ringing >= 0) slot.notes[(n0 = ringing)] = fresh;
+    else n0 = slot.notes.push(fresh) - 1;
+    if (ringing >= 0) {
+      let cur = { m, s, n: n0 };
+      for (;;) {
+        const nx = nextSlot(next, cur);
+        if (!nx) break;
+        const i = nx.slot.notes.findIndex((n) => n.tie_from_prev && n.string === onString);
+        if (i < 0) break;
+        nx.slot.notes[i] = { ...fresh, tie_from_prev: true };
+        cur = { m: nx.m, s: nx.s, n: i };
+      }
+    }
+    return { score: next, loc: { m, s, n: n0 }, added: true };
+  }
   const replaced = slot.notes.map((n) => ({ string: n.string, fret: n.fret }));
   slot.notes = [{ note_id: id, pitch_midi: pitch, string: pos.string, fret: pos.fret, finger: null, techniques: [], tie_from_prev: false, locked: true }];
   // the note that was ringing here stops; its remaining tied slots now ring the new note
