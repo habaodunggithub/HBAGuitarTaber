@@ -11,10 +11,15 @@ fs.cpSync(path.join(root, 'static'), out, { recursive: true });
 
 const fontsrc = path.resolve(root, '..', 'web', 'node_modules', '@fontsource');
 const fonts = [
-  ['six-caps', 'six-caps-latin-400-normal.woff2'],
+  ['big-shoulders-display', 'big-shoulders-display-latin-300-normal.woff2'],
+  ['big-shoulders-display', 'big-shoulders-display-vietnamese-300-normal.woff2'],
   ['caveat', 'caveat-latin-700-normal.woff2'],
   ['ibm-plex-mono', 'ibm-plex-mono-latin-400-normal.woff2'],
   ['ibm-plex-mono', 'ibm-plex-mono-latin-500-normal.woff2'],
+  ['ibm-plex-mono', 'ibm-plex-mono-vietnamese-400-normal.woff2'],
+  ['ibm-plex-mono', 'ibm-plex-mono-vietnamese-500-normal.woff2'],
+  ['sriracha', 'sriracha-latin-400-normal.woff2'],
+  ['sriracha', 'sriracha-vietnamese-400-normal.woff2'],
 ];
 fs.mkdirSync(path.join(out, 'fonts'), { recursive: true });
 for (const [pkg, file] of fonts) {

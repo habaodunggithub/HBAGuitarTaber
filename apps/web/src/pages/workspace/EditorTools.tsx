@@ -32,6 +32,23 @@ interface Props {
   onRemoveTruth: () => void;
 }
 
+/**
+ * Keeps an opened popover inside the window. It hangs right-aligned under its button, which puts it past the
+ * left edge when the tools wrap onto their own line in a narrow window.
+ */
+function keepInView(e: React.SyntheticEvent<HTMLDetailsElement>) {
+  const body = e.currentTarget.querySelector<HTMLElement>(':scope > .pop-body');
+  if (!body) return;
+  body.style.translate = '';
+  if (!e.currentTarget.open) return;
+  const gutter = 12;
+  // the opening animation scales from the top right corner, so the right edge is already where it ends up
+  const right = body.getBoundingClientRect().right;
+  const left = right - body.offsetWidth;
+  const shift = left < gutter ? gutter - left : right > window.innerWidth - gutter ? window.innerWidth - gutter - right : 0;
+  if (shift) body.style.translate = `${shift}px 0`;
+}
+
 /** The editor's tools in the top rail: save state, undo/redo, settings, export, version history. */
 export default function EditorTools(p: Props) {
   const dirty = useEditor((s) => s.dirty);
@@ -47,13 +64,13 @@ export default function EditorTools(p: Props) {
         <button type="button" className="icon-btn" onClick={() => useEditor.getState().undo()} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><Icon name="undo" /></button>
         <button type="button" className="icon-btn" onClick={() => useEditor.getState().redo()} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><Icon name="redo" /></button>
       </div>
-      <details className="pop">
+      <details className="pop" onToggle={keepInView}>
         <summary className="tool"><Icon name="sliders" /><span className="tool-label">Settings</span></summary>
         <div className="pop-body wide">
           <ParamsPanel params={p.params} onApply={p.onApplyParams} busy={p.busy} tapBpm={p.tapBpm} tapCount={p.tapCount} onApplyTaps={p.onApplyTaps} />
         </div>
       </details>
-      <details className="pop">
+      <details className="pop" onToggle={keepInView}>
         <summary className="tool"><Icon name="download" /><span className="tool-label">Export</span></summary>
         <ul className="pop-body menu">
           {EXPORTS.map(([f, label]) => (
@@ -61,7 +78,7 @@ export default function EditorTools(p: Props) {
           ))}
         </ul>
       </details>
-      <details className="pop">
+      <details className="pop" onToggle={keepInView}>
         <summary className="tool" data-testid="truth-tool">
           <Icon name={p.truth ? 'check' : 'library'} />
           <span className="tool-label">{p.truth ? 'In test set' : 'Test set'}</span>
