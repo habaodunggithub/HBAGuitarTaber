@@ -1,6 +1,7 @@
 /** settings.json next to the data folder. Everything optional: a missing or broken file means defaults. */
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Lang } from './i18n';
 import type { Variant } from './runtime';
 
 export interface Settings {
@@ -8,6 +9,8 @@ export interface Settings {
   variant?: Variant;
   /** kept across launches: the SPA's localStorage (theme, ...) belongs to the origin, port included */
   port?: number;
+  /** the language the user picked in the app (shell and web app alike); undefined = the computer's */
+  language?: Lang;
   /** start the local analysis worker with the app (off when all jobs go to a Kaggle worker) */
   startWorker: boolean;
   /** look for a newer release on GitHub once a day */
