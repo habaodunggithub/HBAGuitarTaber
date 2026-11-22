@@ -12,8 +12,8 @@
 
 /*
  * Caveat has no Vietnamese, so the hand writes Vietnamese in Sriracha: the whole UI when it is in
- * Vietnamese, and the accented letters of a Vietnamese take name otherwise. Sriracha is drawn larger
- * than Caveat (size-adjust) and has one weight, which serves every weight so it is never faux-bolded.
+ * Vietnamese, and the accented letters of a Vietnamese take name otherwise. Sriracha is drawn at 80% to
+ * match Caveat's size, and its one weight serves every weight so it is never faux-bolded.
  */
 @font-face {
   font-family: 'Sriracha';

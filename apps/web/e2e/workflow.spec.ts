@@ -138,17 +138,6 @@ test.describe('re-assembling without a worker', () => {
     await expect(heading).toHaveText(noteBefore!);
   });
 
-  test('the settings stay inside a narrow window when the tools wrap onto their own line', async ({ page }) => {
-    await page.setViewportSize({ width: 1000, height: 900 });
-    await createTab(page);
-    await page.getByText('Settings').click();
-    const box = (await page.locator('.pop[open] > .pop-body').boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(1000);
-    await page.getByRole('spinbutton', { name: 'Capo' }).fill('1');
-    await page.getByRole('button', { name: 'Apply' }).click();
-  });
-
   test('locked notes survive re-assembly', async ({ page }) => {
     await createTab(page);
     await page.keyboard.press('ArrowRight');
@@ -167,6 +156,18 @@ test.describe('re-assembling without a worker', () => {
     await page.getByRole('button', { name: 'Re-finger bar' }).click();
     await expect(page.getByRole('button', { name: 'Re-finger bar' })).toBeEnabled();
     await expect(page.locator('.at-surface svg').first()).toBeVisible();
+  });
+});
+
+test.describe('editor tools', () => {
+  test('the settings stay inside a narrow window when the tools wrap onto their own line', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await createTab(page);
+    await page.getByText('Settings').click();
+    const box = (await page.locator('.pop[open] > .pop-body').boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(1000);
+    await expect(page.getByRole('button', { name: 'Apply' })).toBeInViewport();
   });
 });
 

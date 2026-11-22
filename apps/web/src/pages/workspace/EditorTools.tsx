@@ -45,7 +45,8 @@ function keepInView(e: React.SyntheticEvent<HTMLDetailsElement>) {
   // the opening animation scales from the top right corner, so the right edge is already where it ends up
   const right = body.getBoundingClientRect().right;
   const left = right - body.offsetWidth;
-  const shift = left < gutter ? gutter - left : right > window.innerWidth - gutter ? window.innerWidth - gutter - right : 0;
+  // move right when past the left edge, else left when past the right edge, else not at all
+  const shift = Math.max(gutter - left, Math.min(0, window.innerWidth - gutter - right));
   if (shift) body.style.translate = `${shift}px 0`;
 }
 

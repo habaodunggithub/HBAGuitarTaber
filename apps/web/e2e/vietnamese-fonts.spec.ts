@@ -27,7 +27,7 @@ async function vietnameseMisses(page: Page, lang: 'en' | 'vi', variables: string
     async ({ text, variables }) => {
       const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, '');
       const shipped = new Set([...document.fonts].map((f) => unquote(f.family)));
-      const misses: { variable: string; stack: string; reason: string }[] = [];
+      const misses: Miss[] = [];
       for (const variable of variables) {
         const value = getComputedStyle(document.documentElement).getPropertyValue(variable);
         const families = value.split(',').map(unquote).filter((f) => shipped.has(f));
