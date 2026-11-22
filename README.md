@@ -30,7 +30,10 @@ https://habaodunggithub.github.io/HBAGuitarTaber/
 | Linux | x86-64, Ubuntu 22.04 or newer (glibc 2.35+) | `.deb` (Debian, Ubuntu) or AppImage |
 
 Intel Macs are not supported. Older versions and release notes are on
-[GitHub Releases](https://github.com/habaodunggithub/HBAGuitarTaber/releases).
+[GitHub Releases](https://github.com/habaodunggithub/HBAGuitarTaber/releases). Each release also lists
+`SHA256SUMS.txt`, a fingerprint of every file: if the one you downloaded matches, it is exactly the file
+that was published.
+<!-- Link each release's VirusTotal scan here once desktop.yml adds it to the release notes. -->
 
 **The first time you open it**, Taber is not code-signed yet, so your system asks once whether you trust it:
 
@@ -52,8 +55,8 @@ Taber then installs its **analysis engine** once. It suggests the one that fits 
 | Lite | 0.3 GB | Low disk space. A lighter pitch tracker and no backing-track removal. |
 
 **Your recordings and tabs stay on your computer.** Nothing you play is uploaded. Taber only goes online to
-install the engine the first time (and a small hand-tracking model the first time you use a video), and once a
-day to ask GitHub whether a newer version exists. That check sends nothing about you or your recordings.
+download the engine and the models it listens with (once, the first time they are needed), and once a day to
+ask GitHub whether a newer version exists. That check sends nothing about you or your recordings.
 
 ## What it does
 
@@ -66,15 +69,17 @@ day to ask GitHub whether a newer version exists. That check sends nothing about
 4. **Practise and export.** Hear the guitar alone, or the band without the guitar to play along with. Change
    capo, tuning or tempo instantly. Export to Guitar Pro (`.gp5`), MusicXML, MIDI or ASCII tab.
 
-A solo recorded over a backing track works too: Taber separates the guitar from the band first. With a phone
-video, mark four points on the neck once and Taber watches your fretting hand to pick the right string.
+A solo recorded over a backing track works too: Taber separates the guitar from the band first (not with the
+Lite engine). With a phone video, mark four points on the neck once and Taber watches your fretting hand to
+pick the right string. Both are new: so far they have been tested on acoustic guitar and generated videos,
+not yet on real electric takes or real phone videos.
 
 ## What it can't do yet
 
 Measured on recordings it had never heard before, not promised:
 
 - **Electric guitar is the hard case.** On electric licks, 39% of the notes come out fully right (pitch,
-  string and fret), and about a quarter of the notes are missed, mostly ones that ring into the next note. On
+  string and fret), and 26% of the notes are missed, mostly ones that ring into the next note. On
   acoustic guitar it is 77%. Expect to fix an electric solo by hand.
 - **Hammer-ons and pull-offs are not detected yet.** They sound too much like picked notes. Add them in the
   editor.
@@ -95,9 +100,9 @@ Say which system you use, which engine you picked, and what you did just before 
 
 ## Support Taber
 
-Taber is free and will stay free. If it saved you some hours of transcribing, you can support it with a
-bank transfer inside Vietnam (VietQR). The QR code will be here with version 1.0.
-<!-- Put the VietQR image and account name here, and keep it in sync with .github/FUNDING.yml. -->
+Taber is free. If it saved you some hours of writing out solos by ear, you can support it with a bank
+transfer inside Vietnam (VietQR). The QR code will be here with version 1.0.
+<!-- Put the VietQR image and account name here, and the same link in .github/FUNDING.yml when it is added. -->
 
 ## For developers
 
