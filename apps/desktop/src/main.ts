@@ -203,7 +203,13 @@ async function ensureEngine(forceChoose = false): Promise<void> {
     runtime = status.state;
     return;
   }
-  if (SELFTEST && !status.ready) throw new RuntimeError('selftest needs an installed runtime', '');
+  if (SELFTEST && !status.ready) {
+    // CI on a clean machine (.github/workflows/desktop.yml): install the named engine without asking, as the setup page would
+    const v = process.env.TABER_DESKTOP_SELFTEST_VARIANT as Variant | undefined;
+    if (!v || !manifest.variants.includes(v)) throw new RuntimeError('selftest needs an installed runtime, or TABER_DESKTOP_SELFTEST_VARIANT', '');
+    await install(v);
+    return;
+  }
   // an update of the app keeps the variant the user chose: no question, just sync
   const keep = !forceChoose && status.state?.variant && manifest.variants.includes(status.state.variant) ? status.state.variant : null;
   const variant = keep ?? (await askVariant(manifest, hardware, forceChoose || status.ready ? 'change' : status.reason));
