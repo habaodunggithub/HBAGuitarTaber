@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { lookup, useT } from '../i18n';
 import { desktop, diagnostics, type DesktopAction, type DesktopInfo } from '../lib/desktop';
 import Icon from './Icon';
@@ -11,6 +11,16 @@ import { toast } from './Toaster';
 export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onClose: () => void }) {
   const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
+  // what each removal frees: measured when the panel opens (the runtime holds many files)
+  const [sizes, setSizes] = useState<{ engine: string; everything: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void desktop?.sizes().then((s) => live && setSizes(s));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const size = (s: string | undefined) => s ?? t.engine.measuring;
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
@@ -65,6 +75,12 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
         <button type="button" className="btn" onClick={() => run('restart-engine', busy)}><Icon name="refresh" size={16} /> {t.engine.restart}</button>
         <button type="button" className="btn" onClick={() => run('change-engine', busy)}><Icon name="sliders" size={16} /> {t.engine.change}</button>
       </div>
+      <p className="label engine-sub">{t.engine.space}</p>
+      <div className="engine-links">
+        <button type="button" className="text-btn" onClick={() => run('remove-engine')} data-testid="remove-engine">{t.engine.removeEngine(size(sizes?.engine))}</button>
+        <button type="button" className="text-btn" onClick={() => run('remove-everything')} data-testid="remove-everything">{t.engine.removeEverything(size(sizes?.everything))}</button>
+      </div>
+      <p className="muted small">{t.engine.removeHint}</p>
       <p className="label engine-sub">{t.engine.whenWrong}</p>
       <div className="engine-links">
         <button type="button" className="text-btn" onClick={() => run('open-logs')}>{t.engine.openLogs}</button>

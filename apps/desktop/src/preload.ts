@@ -35,5 +35,6 @@ if (location.protocol === 'file:') {
     action: (name: string) => ipcRenderer.send('desktop:action', String(name)),
     setWorker: (on: boolean) => ipcRenderer.send('desktop:action', 'worker', Boolean(on)),
     setAutoUpdates: (on: boolean) => ipcRenderer.send('desktop:action', 'auto-updates', Boolean(on)),
+    sizes: () => ipcRenderer.invoke('desktop:sizes'),
   });
 }

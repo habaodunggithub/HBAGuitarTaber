@@ -110,6 +110,19 @@ export const en = {
     logs: (p: string) => `Logs: ${p}`,
   },
 
+  removal: {
+    engineTitle: 'Remove the engine?',
+    engineDetail: (size: string) =>
+      `This frees ${size}: the Python runtime, the models and the caches. Your tabs and recordings stay. Taber restarts and installs the engine again.`,
+    engineYes: 'Remove the engine',
+    everythingTitle: 'Remove all of Taber\'s data?',
+    everythingDetail: (size: string) =>
+      `This deletes ${size}: every tab and recording, the engine, the settings and the logs. It cannot be undone. Export the tabs you want to keep first. Taber closes and finishes deleting right after; remove the app itself as you would any other.`,
+    everythingYes: 'Delete everything',
+    cancel: 'Cancel',
+    failed: 'Could not remove everything',
+  },
+
   updates: {
     available: (app: string, version: string) => `${app} ${version} is available`,
     availableDetail: (current: string) => `You have ${current}. Your tabs and the engine are kept when you install the new version.`,

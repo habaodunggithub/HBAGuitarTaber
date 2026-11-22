@@ -18,6 +18,8 @@ import {
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { newer, notice } from './updates';
 import { bundleEntries, systemFacts, zip } from './diagnostics';
+import { check, freed, remove, type Removal, targets } from './removal';
+import { cleanupRequest, runCleanup, startCleanup } from './cleanup';
 import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
@@ -26,7 +28,10 @@ const SELFTEST = process.env.TABER_DESKTOP_SELFTEST === '1';
 const MAC = process.platform === 'darwin';
 
 app.setName(APP_NAME);
-if (!app.requestSingleInstanceLock()) {
+// started again only to finish "Remove all data" after the app quit (src/cleanup.ts): nothing else runs
+const CLEANUP = cleanupRequest(process.argv);
+if (CLEANUP) runCleanup(CLEANUP);
+else if (!app.requestSingleInstanceLock()) {
   // a second API on the same SQLite file and data folder would fight the first one
   app.quit();
 }
@@ -400,6 +405,48 @@ async function checkForUpdates(manual: boolean) {
   }
 }
 
+// ───────────────────────────── removing data ─────────────────────────────
+
+/**
+ * Removes the engine (then restarts into the setup page) or all the app's data (then quits), after a confirmation
+ * here in the main process that says what goes. The engine is stopped first so no process holds its files.
+ */
+async function removeData(what: Removal) {
+  const paths = targets(layout, what, [app.getPath('userData')]);
+  const keep = [path.dirname(process.execPath), app.getAppPath()]; // never the installed app itself
+  const r = t().removal;
+  const size = formatBytes(await freed(paths));
+  const opts = {
+    type: 'warning' as const,
+    message: what === 'engine' ? r.engineTitle : r.everythingTitle,
+    detail: what === 'engine' ? r.engineDetail(size) : r.everythingDetail(size),
+    buttons: [r.cancel, what === 'engine' ? r.engineYes : r.everythingYes],
+    defaultId: 0,
+    cancelId: 0,
+  };
+  const { response } = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
+  if (response !== 1) return;
+  desktopLog.line(`removing ${what}: ${paths.join(', ')}`);
+  try {
+    check(paths, keep);
+    await backend?.stop();
+    backend = null;
+    if (what === 'engine') {
+      remove(paths, keep);
+      delete settings.variant;
+      save();
+      app.relaunch(); // into the setup page, which installs the engine again
+    } else {
+      startCleanup(paths); // deletes once this process has ended (src/cleanup.ts)
+    }
+    app.exit(0);
+  } catch (e) {
+    desktopLog.line(`removing ${what} failed: ${(e as Error).message}`);
+    dialog.showErrorBox(r.failed, (e as Error).message);
+    void boot(false); // the engine was stopped: start it again
+  }
+}
+
 // ───────────────────────────── diagnostics bundle ─────────────────────────────
 
 /** Asks where to save the diagnostics bundle (src/diagnostics.ts), writes it, shows it in its folder. */
@@ -572,6 +619,12 @@ function sendDesktopState() {
 }
 
 ipcMain.handle('desktop:info', (e) => (fromApp(e) ? desktopInfo() : null));
+// the space each removal frees, for the Engine panel (walking the runtime takes a moment: asked when it opens)
+ipcMain.handle('desktop:sizes', async (e) => {
+  if (!fromApp(e)) return null;
+  const all = targets(layout, 'everything', [app.getPath('userData')]);
+  return { engine: formatBytes(await freed(targets(layout, 'engine'))), everything: formatBytes(await freed(all)) };
+});
 ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
   if (!fromApp(e)) return;
   switch (action) {
@@ -581,6 +634,8 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
     case 'open-data': void shell.openPath(layout.data); break;
     case 'check-updates': void checkForUpdates(true); break;
     case 'export-diagnostics': void exportDiagnostics(); break;
+    case 'remove-engine': void removeData('engine'); break;
+    case 'remove-everything': void removeData('everything'); break;
     case 'report-problem': void shell.openExternal(`https://github.com/${REPO}/issues`); break;
     case 'download-page': void shell.openExternal(SITE); break;
     case 'devtools': win?.webContents.toggleDevTools(); break;
@@ -656,7 +711,7 @@ app.on('second-instance', () => {
   win.focus();
 });
 
-app.whenReady().then(() => {
+if (!CLEANUP) app.whenReady().then(() => {
   fs.mkdirSync(layout.logs, { recursive: true });
   desktopLog = new LogFile(layout.logs, 'desktop');
   setLang(pickLang(settings.language, app.getPreferredSystemLanguages()));
