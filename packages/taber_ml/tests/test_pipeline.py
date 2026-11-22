@@ -148,6 +148,9 @@ def test_silence_and_garbage_inputs(tmp_path):
     sf.write(silent, np.zeros(SR * 2, dtype=np.float32), SR)
     an, _ = analyze(silent)
     assert an.notes == [] and any("notes" in w for w in an.quality.warnings)
+    # every warning also comes as a code the app translates, in the same order
+    assert [n.code for n in an.quality.notices][-1] == "no_notes"
+    assert len(an.quality.notices) == len(an.quality.warnings)
 
     with pytest.raises(IngestError):
         load_audio(tmp_path / "missing.wav")
@@ -164,6 +167,7 @@ def test_clipping_is_reported(tmp_path):
     sf.write(path, np.clip(y * 8, -1, 1), sr)
     an, _ = analyze(path)
     assert an.quality.clipping and any("clip" in w for w in an.quality.warnings)
+    assert "clipped" in [n.code for n in an.quality.notices]
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")

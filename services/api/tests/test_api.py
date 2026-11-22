@@ -47,6 +47,7 @@ def test_upload_ok_probe_and_sha(client, asset):
 def test_upload_rejects_non_media_and_cleans_up(client, settings, project_id):
     r = upload(client, b"definitely not audio", name="x.mp3", project_id=project_id)
     assert r.status_code == 422
+    assert r.json()["code"] == "not_media"  # the app says it in its own language
     assert not any((settings.data_dir / "assets").iterdir())  # nothing left behind
 
 
@@ -59,6 +60,7 @@ def test_upload_rejects_too_long(client, settings, project_id):
     settings.max_duration_s = 0
     r = upload(client, project_id=project_id)
     assert r.status_code == 422 and "maximum" in r.json()["detail"]
+    assert r.json()["code"] == "too_long" and r.json()["params"]["max"] == 0
 
 
 # ───────────────────────────── worker auth ─────────────────────────────

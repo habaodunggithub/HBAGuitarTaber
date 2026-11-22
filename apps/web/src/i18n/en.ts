@@ -443,6 +443,68 @@ export const en = {
     cancel: 'Cancel',
   },
 
+  /**
+   * What the server and the analysis say, by the code they send (services/api, packages/taber_ml): a test there
+   * checks every code it sends is here. Values come in `p`. A code missing here shows the server's English text.
+   */
+  server: {
+    notices: {
+      clipped: 'The audio is clipped (overloaded); accuracy may suffer.',
+      separation_model_missing: 'The backing-track separation model could not be downloaded (check the internet connection), so notes were read from the full mix. The next analysis tries the download again.',
+      separation_no_guitar: 'The guitar could not be separated from the backing track, so notes were read from the full mix and may include other instruments.',
+      demucs_missing: 'Demucs is not installed, so the backing track was not removed. Run just setup to install it.',
+      beat_model_missing: 'The beat model could not be downloaded (check the internet connection), so a simpler beat tracker was used.',
+      no_beat: 'No steady beat found; enter a tempo or tap the beat.',
+      onnx_missing: 'onnxruntime is not installed, so the onset model was not used. Run just setup to install it.',
+      strings_need_torch: 'The string classifier needs torch (just setup); strings were chosen from hand movement only.',
+      hand_model_missing: 'The hand model could not be downloaded (check the internet connection), so the video was not used. Try again later.',
+      /** `p.reason` is the translated `reason_code` (server.videoReasons) */
+      video_no_help: (p: Params) => `The video did not help: ${p.reason}. Check the 4 calibration points.`,
+      video_hard_to_track: 'The guitar moved a lot or the light is low, so the neck was hard to track; video results are less reliable.',
+      video_libs_missing: 'Video analysis libraries are not installed. Run just setup to install them.',
+      video_unreadable: (p: Params) => `Could not read the video: ${p.error}`,
+      no_notes: 'No notes found; check the audio file.',
+      little_pitch: 'Few passages have a clear pitch; the audio may be polyphonic or noisy.',
+    },
+    videoReasons: {
+      not_calibrated: 'The fretboard has not been calibrated on the video',
+      no_video: 'No video',
+      hand_model_missing: 'The hand model could not be downloaded',
+      no_fingertips: 'no fingertips seen on the fretboard around the notes',
+      video_libs_missing: 'mediapipe/opencv is not installed (just setup)',
+      video_unreadable: 'The video could not be read',
+    },
+    /** the worker's progress lines, recognized by their fixed English wording (services/api tests pin it) */
+    progress: {
+      download: (model: string, done: string, total: string) => `Downloading the ${model}, first time only: ${done} of ${total}`,
+      retrying: 'Temporary error, retrying',
+      requeued: 'Worker lost connection, re-queuing',
+    },
+    /** model names inside the download line, by the English name the worker sends */
+    models: {
+      'backing-track separation model': 'backing-track separation model',
+      'beat model': 'beat model',
+      'hand model': 'hand model',
+    },
+    errors: {
+      not_media: 'Could not read the file: it is not a valid audio or video file',
+      no_audio_stream: 'The file has no audio stream',
+      audio_too_large: (p: Params) => `Audio is larger than ${p.mb} MB`,
+      file_too_large: (p: Params) => `File is larger than ${p.mb} MB`,
+      too_long: (p: Params) => `File is ${p.seconds}s long, the maximum is ${p.max}s`,
+      frame_failed: 'Could not grab a frame at this time',
+      frame_outside: 'This time is outside the video',
+      needs_audio_input: 'Add a guitar recording (audio, or a video with sound).',
+      audio_input_invalid: 'The audio input must be an audio file or a video with sound',
+      no_video: 'This tab has no video. Upload a video with the guitar audible.',
+      analysis_running: 'An analysis is already running for this tab',
+      tab_not_found: 'Tab not found',
+      not_ready: 'The tab is not ready yet',
+      no_audio_input: 'This tab has no audio input',
+      frets_order: 'The second fret must be higher than the first',
+    },
+  },
+
   errors: {
     upload: (status: number) => `Upload failed (${status}). Try again, or choose another file.`,
     connection: 'Lost connection to the server. Check that just app is still running, then try again.',
@@ -451,3 +513,6 @@ export const en = {
 };
 
 export type Messages = typeof en;
+
+/** Values the server sends with a code. */
+export type Params = Record<string, string | number>;

@@ -8,7 +8,7 @@ import Icon from '../../components/Icon';
 import Metronome from '../../components/Metronome';
 import Shell from '../../components/Shell';
 import { desktop, type DesktopInfo, useDesktopInfo } from '../../lib/desktop';
-import { fill, lookup, useT } from '../../i18n';
+import { fill, lookup, progressText, useT } from '../../i18n';
 import { BackLink } from './common';
 
 const jobBeat = () => performance.now() / 1000;
@@ -82,6 +82,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
   const running = !waiting && !failed;
   // the worker's own line, when it says more than the step name: a first-use model download, a retry
   const detail = running && p.message && (/^Downloading /.test(p.message) || p.stage === 'retry') ? p.message : '';
+  const said = detail ? progressText(t, detail) : null;
 
   const cancel = () => {
     if (!tab.job || !window.confirm(t.job.cancelConfirm)) return;
@@ -108,7 +109,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
             {label}
             {running ? <span className="stage-time"> · {clock(onStep)}</span> : null}
           </p>
-          {detail ? <p className="stage-detail" data-i18n="server">{detail}</p> : null}
+          {detail ? (said ? <p className="stage-detail">{said}</p> : <p className="stage-detail" data-i18n="server">{detail}</p>) : null}
           <ol className="tracklist" aria-label={t.job.steps}>
             {ORDER.map((s, i) => {
               const state = i < idx ? 'done' : i === idx && !waiting && !failed ? 'now' : '';

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { keys } from '../../api/hooks';
 import { getT } from '../../i18n';
+import { errorText } from '../../lib/errors';
 import { useEditor } from '../../stores/editor';
 
 export type SaveState = 'saved' | 'saving' | 'error';
@@ -37,7 +38,7 @@ export function useAutosave(id: string, onError: (msg: string) => void) {
       })
       .catch((e: unknown) => {
         setState('error');
-        report.current(getT().workspace.saveFailed((e as Error).message));
+        report.current(getT().workspace.saveFailed(errorText(e)));
       })
       .finally(() => { inFlight.current = null; });
     inFlight.current = p;

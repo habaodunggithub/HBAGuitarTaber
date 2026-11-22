@@ -31,6 +31,7 @@ class VideoReport:
     notes_with_evidence: int
     tracked_ratio: float
     reason: str = ""
+    reason_code: str = ""  # the reason as a code the app translates
     # where the neck was seen over time (Analysis.video_track); popped before the report goes into quality
     track: dict | None = field(default=None, repr=False)
 
@@ -219,5 +220,6 @@ def analyze_video(path: str, notes: list[NoteEvent], cal: VideoCalibration, trac
         notes_with_evidence=n_ev,
         tracked_ratio=round(tracked / processed, 3) if processed else 0.0,
         reason="" if n_ev else "no fingertips seen on the fretboard around the notes",
+        reason_code="" if n_ev else "no_fingertips",
         track=track,
     )

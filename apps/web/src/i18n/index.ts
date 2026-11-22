@@ -1,6 +1,6 @@
 import { Fragment, createElement, type ReactNode } from 'react';
 import { create } from 'zustand';
-import { en, type Messages } from './en';
+import { en, type Messages, type Params } from './en';
 import { vi } from './vi';
 
 /**
@@ -110,4 +110,26 @@ export function fill(text: string, parts: Record<string, ReactNode>): ReactNode 
   return text.split(/\{(\w+)\}/).map((piece, i) => createElement(Fragment, { key: i }, i % 2 ? parts[piece] ?? `{${piece}}` : piece));
 }
 
-export type { Messages };
+/**
+ * What the server said with `code`, in the app's language: null when the catalog does not know the code (an older
+ * app, a newer server), so the caller shows the server's own English text, marked data-i18n="server".
+ */
+export function serverText(t: Messages, kind: 'notices' | 'errors', code: string | null | undefined, params: Params = {}): string | null {
+  const map: Record<string, string | ((p: Params) => string)> = t.server[kind];
+  if (!code || !Object.hasOwn(map, code)) return null;
+  const m = map[code]!;
+  const p: Params = { ...params };
+  if (typeof p.reason_code === 'string' && p.reason_code) p.reason = lookup(t.server.videoReasons, p.reason_code); // a code inside a code
+  return typeof m === 'function' ? m(p) : m;
+}
+
+/** A progress line from the worker in the app's language, or null for one the catalog does not know. */
+export function progressText(t: Messages, line: string): string | null {
+  const p = t.server.progress;
+  if (line === en.server.progress.retrying) return p.retrying;
+  if (line === en.server.progress.requeued) return p.requeued;
+  const m = /^Downloading the (.+), first time only: (.+) of (.+)$/.exec(line);
+  return m ? p.download(lookup(t.server.models, m[1]!), m[2]!, m[3]!) : null;
+}
+
+export type { Messages, Params };
