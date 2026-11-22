@@ -90,6 +90,21 @@ jobs:
         working-directory: apps/desktop # electron-builder reads package.json from its project dir, not pnpm's
         run: pnpm exec electron-builder --projectDir . --config electron-builder.yml --publish never
 
+      - name: Ad-hoc signature intact (macOS)
+        # an unsigned app reaches "Open Anyway" only with its ad-hoc signature whole; a bundle changed after
+        # signing is "damaged" and cannot be opened at all (docs/research/unsigned-install-paths.md)
+        if: runner.os == 'macOS'
+        working-directory: apps/desktop/release
+        run: |
+          mnt="$RUNNER_TEMP/dmg"
+          mkdir -p "$mnt"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" ./*.dmg
+          app=$(ls -d "$mnt"/*.app)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | grep -E 'Signature|Identifier|Format'
+          spctl --assess --type execute -vv "$app" || echo "Gatekeeper refuses it, as expected for an app without a Developer ID: users go through Open Anyway"
+          hdiutil detach "$mnt"
+
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}
@@ -100,9 +115,43 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
 
+  ubuntu-2404:
+    # the Linux packages are built on 22.04 (glibc 2.35); this installs them on a clean 24.04 the way a user would
+    name: Linux x64 on Ubuntu 24.04
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      TABER_DESKTOP_HOME: ${{ runner.temp }}/taber-home
+      TABER_DESKTOP_SELFTEST: "1"
+      TABER_DESKTOP_SELFTEST_VARIANT: lite
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-Linux
+          path: pkg
+
+      - name: Install the .deb
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq xvfb ./pkg/*.deb
+
+      - name: Self-test the installed app (installs the Lite engine, starts it, renders the editor)
+        run: xvfb-run -a hba-guitar-taber
+
+      - name: AppImage without libfuse2t64 (what a clean 24.04 does)
+        run: |
+          chmod +x pkg/*.AppImage
+          if ./pkg/*.AppImage --version >out.txt 2>&1; then cat out.txt; else cat out.txt; echo "::notice::AppImage needs libfuse2t64 on Ubuntu 24.04"; fi
+
+      - name: Self-test the AppImage (with libfuse2t64, as the install page says)
+        run: |
+          sudo apt-get install -yq libfuse2t64
+          xvfb-run -a ./pkg/*.AppImage
+
   release:
     name: Draft release
-    needs: build
+    needs: [build, ubuntu-2404]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
