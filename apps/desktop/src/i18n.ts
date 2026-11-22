@@ -238,6 +238,19 @@ export const vi: Messages | null = {
     openLog: 'Mở log',
   },
 
+  removal: {
+    engineTitle: 'Xoá engine?',
+    engineDetail: (size: string) =>
+      `Việc này giải phóng ${size}: runtime Python, các model và cache. Tab và bản ghi của bạn vẫn còn. Taber sẽ khởi động lại và cài lại engine.`,
+    engineYes: 'Xoá engine',
+    everythingTitle: 'Xoá toàn bộ dữ liệu của Taber?',
+    everythingDetail: (size: string) =>
+      `Việc này xoá ${size}: mọi tab và bản ghi, engine, cài đặt và log. Không thể hoàn tác. Hãy xuất những tab bạn muốn giữ trước. Taber sẽ đóng và xoá nốt ngay sau đó; còn bản thân app thì gỡ như mọi app khác.`,
+    everythingYes: 'Xoá hết',
+    cancel: 'Huỷ',
+    failed: 'Không xoá được hết',
+  },
+
   engineInfo: {
     title: 'Engine',
     engine: (variant: string) => `Engine: ${variant}`,
