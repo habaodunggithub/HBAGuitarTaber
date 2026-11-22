@@ -16,6 +16,7 @@ import {
   formatBytes, type Manifest, type Phase, provision, readManifest, RuntimeError, type RuntimeState, runtimeStatus, type Variant,
 } from './runtime';
 import { loadSettings, saveSettings, type Settings } from './settings';
+import { newer, notice } from './updates';
 import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
@@ -358,14 +359,14 @@ async function selftest() {
 
 // ───────────────────────────── updates ─────────────────────────────
 
-function newer(a: string, b: string): boolean {
-  const pa = a.replace(/^v/, '').split(/[.-]/).map((x) => Number.parseInt(x, 10) || 0);
-  const pb = b.replace(/^v/, '').split(/[.-]/).map((x) => Number.parseInt(x, 10) || 0);
-  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
-  return false;
-}
+/** The latest release tag seen, kept from the last check: a start later the same day skips the fetch. */
+let latestRelease: string | null = settings.latestRelease ?? null;
 
-/** Asks GitHub for the latest release (no data about the user is sent), once a day unless asked from the menu. */
+/**
+ * Asks GitHub for the latest release, once a day unless asked from the menu. The request carries the computer's IP
+ * address like any web request, a fixed User-Agent and nothing else. Releases/latest leaves out drafts and
+ * pre-releases; the beta (0.9.x) goes out as ordinary releases to its testers.
+ */
 async function checkForUpdates(manual: boolean) {
   if (!manual && (!settings.checkUpdates || Date.now() - (settings.lastUpdateCheck ?? 0) < 86_400_000)) return;
   try {
@@ -377,7 +378,10 @@ async function checkForUpdates(manual: boolean) {
     save();
     if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
     const rel = (await r.json()) as { tag_name: string; html_url: string };
-    if (newer(rel.tag_name, app.getVersion())) {
+    latestRelease = settings.latestRelease = rel.tag_name;
+    save();
+    sendDesktopState(); // the app page shows a small notice in its top bar, unless this version was dismissed
+    if (manual && newer(rel.tag_name, app.getVersion())) {
       const { response } = await dialog.showMessageBox({
         type: 'info',
         message: t().updates.available(APP_NAME, rel.tag_name.replace(/^v/, '')),
@@ -492,6 +496,9 @@ interface DesktopInfo {
   api: string;
   worker: string;
   workerEnabled: boolean;
+  /** a newer release to tell the user about (not dismissed), else null */
+  update: string | null;
+  checkUpdates: boolean;
   paths: { data: string; runtime: string; cache: string; logs: string };
 }
 
@@ -507,6 +514,8 @@ function desktopInfo(): DesktopInfo {
     api: backend?.apiState ?? 'stopped',
     worker: backend?.workerState ?? 'stopped',
     workerEnabled: settings.startWorker,
+    update: settings.checkUpdates ? notice(latestRelease, app.getVersion(), settings.dismissedUpdate) : null,
+    checkUpdates: settings.checkUpdates,
     paths: { data: layout.data, runtime: layout.runtime, cache: layout.cache, logs: layout.logs },
   };
 }
@@ -543,6 +552,20 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
       buildMenu();
       break;
     }
+    case 'update-dismiss': {
+      const v = notice(latestRelease, app.getVersion(), settings.dismissedUpdate);
+      if (!v) return;
+      settings.dismissedUpdate = v; // until a newer one comes out
+      save();
+      sendDesktopState();
+      break;
+    }
+    case 'auto-updates':
+      if (typeof arg !== 'boolean') return;
+      settings.checkUpdates = arg;
+      save();
+      sendDesktopState();
+      break;
     case 'worker':
       if (typeof arg !== 'boolean') return;
       settings.startWorker = arg;

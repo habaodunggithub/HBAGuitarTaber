@@ -234,6 +234,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 @media (hover: hover) and (pointer: fine) { .rail a:hover, .rail-btn:hover { color: var(--blue); } }
 .topbar-center { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; }
 .topbar-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.update-pill { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 2px 4px 2px 12px; background: var(--hl); border: 1.4px solid var(--ink); font-family: var(--hand); font-weight: 700; font-size: 17px; white-space: nowrap; }
 .lang-pick { display: inline-flex; border: 1.4px solid var(--ink); border-radius: 4px; overflow: hidden; font: 500 12px var(--mono); }
 .lang-pick button { all: unset; cursor: pointer; padding: 5px 9px; min-width: 22px; text-align: center; }
 .lang-pick button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }

@@ -98,6 +98,14 @@ export const en = {
     report: 'Report a problem',
     openData: 'Open the data folder',
     checkUpdates: 'Check for updates',
+    autoUpdates: 'Look for a new version every day',
+    autoUpdatesHint: 'Once a day Taber asks api.github.com which version is the latest. Like any web request it carries your computer\'s IP address; nothing else is sent: no version, no account, no takes or tabs.',
+  },
+
+  update: {
+    available: (version: string) => `Taber ${version} is out`,
+    download: 'Download',
+    dismiss: 'Hide until the next version',
   },
 
   home: {

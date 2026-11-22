@@ -54,6 +54,13 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
           <small>{t.engine.analyzeHereHint}</small>
         </span>
       </label>
+      <label className="engine-toggle">
+        <input type="checkbox" checked={info.checkUpdates} onChange={(e) => desktop?.setAutoUpdates(e.currentTarget.checked)} data-testid="auto-updates" />
+        <span>
+          {t.engine.autoUpdates}
+          <small>{t.engine.autoUpdatesHint}</small>
+        </span>
+      </label>
       <div className="engine-actions">
         <button type="button" className="btn" onClick={() => run('restart-engine', busy)}><Icon name="refresh" size={16} /> {t.engine.restart}</button>
         <button type="button" className="btn" onClick={() => run('change-engine', busy)}><Icon name="sliders" size={16} /> {t.engine.change}</button>
