@@ -69,6 +69,13 @@ test.describe('every string comes from a catalog', () => {
     expect(await untranslated(page)).toEqual([]);
   });
 
+  test('an error from the server is said in the app language', async ({ page }) => {
+    await page.goto('/?lang=pseudo');
+    await page.locator('#wet').setInputFiles({ name: 'not-audio.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('definitely not audio') });
+    await page.getByTestId('submit').click();
+    await expect(page.getByRole('alert')).toContainText('⟦'); // the code "not_media", from the catalog
+  });
+
   test('the editor: note details, tools, popovers and the shortcut sheet', async ({ page }) => {
     await createTab(page, 'box_techniques.wav', 'pseudo');
     await expect(page.getByTestId('save-state')).toContainText('⟦');

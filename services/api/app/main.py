@@ -67,7 +67,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(svc.ServiceError)
     async def _svc_err(_, exc: svc.ServiceError):
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status)
+        body: dict = {"detail": exc.detail}
+        if exc.code:
+            body |= {"code": exc.code, "params": exc.params}
+        return JSONResponse(body, status_code=exc.status)
 
     for r in (media.router, transcriptions.router, jobs.router):
         app.include_router(r)

@@ -1,6 +1,7 @@
 import { Fragment, createElement, type ReactNode } from 'react';
 import { create } from 'zustand';
-import { en, type Messages } from './en';
+import { ApiError } from '../api/http';
+import { en, type Messages, type Params } from './en';
 import { vi } from './vi';
 
 /**
@@ -110,4 +111,23 @@ export function fill(text: string, parts: Record<string, ReactNode>): ReactNode 
   return text.split(/\{(\w+)\}/).map((piece, i) => createElement(Fragment, { key: i }, i % 2 ? parts[piece] ?? `{${piece}}` : piece));
 }
 
-export type { Messages };
+/**
+ * What the server said with `code`, in the app's language: null when the catalog does not know the code (an older
+ * app, a newer server), so the caller shows the server's own English text, marked data-i18n="server".
+ */
+export function serverText(t: Messages, kind: 'notices' | 'errors', code: string | null | undefined, params: Params = {}): string | null {
+  const map: Record<string, string | ((p: Params) => string)> = t.server[kind];
+  if (!code || !Object.hasOwn(map, code)) return null;
+  const m = map[code]!;
+  const p: Params = { ...params };
+  if (typeof p.reason === 'string' && p.reason) p.reason = lookup(t.server.videoReasons, p.reason); // a code inside a code
+  return typeof m === 'function' ? m(p) : m;
+}
+
+/** The text to show for a failed request or action: the catalog's when the server sent a code it knows. */
+export function errorText(e: unknown): string {
+  if (e instanceof ApiError) return serverText(getT(), 'errors', e.code, e.params) ?? e.message;
+  return e instanceof Error ? e.message : String(e);
+}
+
+export type { Messages, Params };

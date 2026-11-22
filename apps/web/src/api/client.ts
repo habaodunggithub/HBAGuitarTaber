@@ -54,10 +54,10 @@ export const api = {
       xhr.open('POST', `${V}/uploads`);
       xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
       xhr.onload = () => {
-        let body: { detail?: string } & Partial<UploadedAsset> = {};
+        let body: { detail?: string; code?: string; params?: Record<string, string | number> } & Partial<UploadedAsset> = {};
         try { body = JSON.parse(xhr.responseText); } catch { /* not json */ }
         if (xhr.status >= 200 && xhr.status < 300) resolve(body as UploadedAsset);
-        else reject(new ApiError(xhr.status, body.detail ?? getT().errors.upload(xhr.status)));
+        else reject(new ApiError(xhr.status, body.detail ?? getT().errors.upload(xhr.status), body.code ?? null, body.params ?? {}));
       };
       xhr.onerror = () => reject(new Error(getT().errors.connection));
       const fd = new FormData();

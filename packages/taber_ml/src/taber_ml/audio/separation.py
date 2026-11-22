@@ -49,6 +49,7 @@ class SeparationInfo:
     backing_db: float  # energy of everything that is not guitar(+other), relative to the mix
     stems_db: dict[str, float]  # each stem's energy relative to the mix
     warning: str | None = None
+    warning_code: str | None = None  # the warning as a code the app translates (Notice)
     model: str = MODEL
     cached: bool = False
 
@@ -98,6 +99,7 @@ def choose_stem(stems: dict[str, np.ndarray], mix: np.ndarray) -> tuple[np.ndarr
         return None, SeparationInfo(
             False, "original", "No clear guitar after separation, using the original audio", backing_db, stems_db,
             warning="The guitar could not be separated from the backing track, so notes were read from the full mix and may include other instruments.",
+            warning_code="separation_no_guitar",
         )
     if backing_db < SOLO_BACKING_DB:
         return None, SeparationInfo(False, "original", "The recording is almost only guitar, using the original audio", backing_db, stems_db)

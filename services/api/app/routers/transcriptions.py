@@ -219,7 +219,7 @@ def analyse_with_video(tid: str, body: VideoIn, db: Session = Depends(get_db), s
     """Re-analyse with the video: fingertips on the calibrated fretboard steer the string/fret choice."""
     t = svc.get_transcription(db, tid)
     if body.calibration.fret_b <= body.calibration.fret_a:
-        raise ServiceError(422, "The second fret must be higher than the first")
+        raise ServiceError(422, "The second fret must be higher than the first", code="frets_order")
     job = svc.start_video_analysis(db, settings, t, body.calibration, body.worker_target)
     return {"job_id": job.id}
 
@@ -231,7 +231,7 @@ def export_score(tid: str, format: str = Query("gp5"), db: Session = Depends(get
     t = svc.get_transcription(db, tid)
     rev = svc.latest_revision(db, t)
     if rev is None:
-        raise ServiceError(409, "The transcription is not ready yet")
+        raise ServiceError(409, "The transcription is not ready yet", code="not_ready")
     mime, ext = FORMATS[format]
     safe = "".join(c if c.isalnum() or c in "-_ ." else "_" for c in t.title).strip() or "tab"
     return Response(

@@ -367,4 +367,4 @@ def test_video_without_calibration_is_reported(tmp_path):
     sf.write(wav, render(an.notes), 44100)
     spec = JobSpec(options=AnalysisOptions(use_video=True, separate_source="off"), inputs={"wet": str(wav)}, tracker="pyin")
     result = run_analysis(spec, LocalDirIO(spec.inputs))
-    assert result.quality.video == {"used": False, "reason": "The fretboard has not been calibrated on the video"}
+    assert result.quality.video == {"used": False, "reason": "The fretboard has not been calibrated on the video", "reason_code": "not_calibrated"}

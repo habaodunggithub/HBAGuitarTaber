@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api } from '../api/client';
 import type { CreateTranscription } from '../api/types';
-import { lookup, useT } from '../i18n';
+import { errorText, lookup, useT } from '../i18n';
 import { fmtBytes } from '../lib/format';
 import { TUNING_PRESETS } from '../lib/tuning';
 import Icon from './Icon';
@@ -117,7 +117,7 @@ const body: CreateTranscription = {
 const res = await api.create(wetA.project_id, body);
 await onCreated(res.transcription_id);
     } catch (e) {
-setError((e as Error).message);
+setError(errorText(e));
 setBusy(null);
 setProgress(null);
     }

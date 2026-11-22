@@ -22,7 +22,7 @@ def probe(path: Path) -> dict:
     except FileNotFoundError as e:
         raise ServiceError(500, "ffprobe is not installed on the server") from e
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        raise ServiceError(422, "Could not read the file: it is not a valid audio or video file") from e
+        raise ServiceError(422, "Could not read the file: it is not a valid audio or video file", code="not_media") from e
     return json.loads(res.stdout or "{}")
 
 
@@ -35,9 +35,9 @@ def frame_jpeg(path: Path, t: float) -> bytes:
             capture_output=True, check=True, timeout=30,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        raise ServiceError(422, "Could not grab a frame at this time") from e
+        raise ServiceError(422, "Could not grab a frame at this time", code="frame_failed") from e
     if not res.stdout:
-        raise ServiceError(422, "This time is outside the video")
+        raise ServiceError(422, "This time is outside the video", code="frame_outside")
     return res.stdout
 
 
@@ -55,13 +55,16 @@ def inspect(path: Path, size: int, settings: Settings) -> MediaInfo:
     has_audio = any(s.get("codec_type") == "audio" for s in streams)
     has_video = any(s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic") for s in streams)
     if not has_audio:
-        raise ServiceError(422, "The file has no audio stream")
+        raise ServiceError(422, "The file has no audio stream", code="no_audio_stream")
     kind = "video" if has_video else "audio"
     if kind == "audio" and size > settings.max_audio_mb * MB:
-        raise ServiceError(413, f"Audio is larger than {settings.max_audio_mb} MB")
+        raise ServiceError(413, f"Audio is larger than {settings.max_audio_mb} MB", code="audio_too_large", mb=settings.max_audio_mb)
     duration = float(info.get("format", {}).get("duration") or 0.0)
     if duration > settings.max_duration_s:
-        raise ServiceError(422, f"File is {duration:.0f}s long, the maximum is {settings.max_duration_s}s")
+        raise ServiceError(
+            422, f"File is {duration:.0f}s long, the maximum is {settings.max_duration_s}s", code="too_long",
+            seconds=round(duration), max=settings.max_duration_s,
+        )
     kept = {"format": info.get("format", {}).get("format_name"), "streams": [
         {k: s.get(k) for k in ("codec_type", "codec_name", "sample_rate", "channels", "width", "height")} for s in streams]}
     return MediaInfo(kind=kind, duration_s=duration, probe=kept)

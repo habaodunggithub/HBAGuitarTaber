@@ -15,7 +15,7 @@ import type { TabController } from '../components/TabView';
 import { toast } from '../components/Toaster';
 import Transport from '../components/Transport';
 import VideoCalibrate from '../components/VideoCalibrate';
-import { getT, useT } from '../i18n';
+import { errorText, getT, lookup, serverText, useT } from '../i18n';
 import { fmtTime, keyLabel } from '../lib/format';
 import { cyclePosition, deleteNote, deleteNotes, getNote, insertNoteAt, measureRange, setFret, setLocked, setPosition, shiftPitch, stepLoc, type NoteLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
@@ -210,7 +210,7 @@ function Editor({ t }: { t: Transcription }) {
   // ── server-side actions: save local edits first, the server recomputes from its copy ──
   const recompute = useCallback(async (body: ReassembleIn, done: () => void) => {
     await flushSave();
-    reassemble.mutate(body, { onSuccess: done, onError: (e) => setNotice(e.message) });
+    reassemble.mutate(body, { onSuccess: done, onError: (e) => setNotice(errorText(e)) });
   }, [flushSave, reassemble]);
 
   const applyParams = (params: AssemblyParams) =>
@@ -244,16 +244,18 @@ function Editor({ t }: { t: Transcription }) {
 
   const saveTruth = () => void flushSave().then(() => truth.save.mutate(undefined, {
     onSuccess: (i) => toast(m.workspace.truthAdded(i.notes), 'check'),
-    onError: (e) => setNotice(e.message),
+    onError: (e) => setNotice(errorText(e)),
   }));
-  const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast(m.workspace.truthRemoved), onError: (e) => setNotice(e.message) });
+  const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast(m.workspace.truthRemoved), onError: (e) => setNotice(errorText(e)) });
 
   const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(m.workspace.restored(n), 'history') }));
 
   if (!score) return <Shell center={<BackLink />}><main id="content" className="page"><p className="muted" role="status">{m.workspace.opening}</p></main></Shell>;
 
   const busy = reassemble.isPending || restore.isPending;
-  const warnings = t.quality?.warnings ?? [];
+  // each warning in the app's language when the analysis sent its code (older analyses have only the English text)
+  const notices = t.quality?.notices ?? [];
+  const warnings = (t.quality?.warnings ?? []).map((text, i) => ({ text, said: serverText(m, 'notices', notices[i]?.code, notices[i]?.params) }));
   const loopLabel = selection ? m.workspace.bar(selection.m + 1) : null;
   const lastSlot = score.measures.at(-1)?.slots.at(-1);
   const key = t.quality?.key;
@@ -317,8 +319,7 @@ function Editor({ t }: { t: Transcription }) {
           {warnings.length ? (
             <div className="banner warn" role="status">
               <Icon name="alert" />
-              {/* the analysis writes its warnings in English (server strings are a later step) */}
-              <div data-i18n="server">{warnings.map((w) => <p key={w}>{w}</p>)}</div>
+              <div>{warnings.map((w) => w.said ? <p key={w.text}>{w.said}</p> : <p key={w.text} data-i18n="server">{w.text}</p>)}</div>
             </div>
           ) : null}
           {notice ? (
@@ -399,7 +400,7 @@ type VideoQuality = NonNullable<NonNullable<Transcription['quality']>['video']>;
 function VideoStatus({ video }: { video: VideoQuality | null }) {
   const m = useT();
   if (!video) return <p className="muted small">{m.workspace.videoUnused}</p>;
-  if (!video.used) return <p className="muted small">{m.workspace.videoNoHelp(video.reason ?? '')}</p>;
+  if (!video.used) return <p className="muted small">{m.workspace.videoNoHelp(video.reason_code ? lookup(m.server.videoReasons, video.reason_code) : video.reason ?? '')}</p>;
   return (
     <p className="muted small" data-testid="video-status">
       {m.workspace.videoUsed(Math.round((video.tracked_ratio ?? 0) * 100), Math.round((video.hands_ratio ?? 0) * 100), video.notes_with_evidence ?? 0)}

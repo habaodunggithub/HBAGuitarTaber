@@ -119,12 +119,20 @@ class F0Track(BaseModel):
     midi: list[float | None] = Field(default_factory=list)  # None = unvoiced
 
 
+class Notice(BaseModel):
+    """A warning the app shows, as a code it translates (apps/web/src/i18n/en.ts, server.notices) and its values."""
+
+    code: str
+    params: dict[str, str | float] = Field(default_factory=dict)
+
+
 class QualityReport(BaseModel):
     voiced_ratio: float = 0.0
     low_confidence_note_ratio: float = 0.0
     clipping: bool = False
     polyphony_detected: bool = False
-    warnings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)  # English, for the CLI and older clients
+    notices: list[Notice] = Field(default_factory=list)  # the same warnings, as codes the app translates
     # what the source-separation stage did (None: not attempted). Keys: used, stem, reason, backing_db, stems_db,
     # playback (stems uploaded for listening: "guitar", "backing")
     separation: dict | None = None

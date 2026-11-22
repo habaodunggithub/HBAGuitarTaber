@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, urls } from '../api/client';
 import { fmtTime } from '../lib/format';
 import { calibrationBoardPoints, calibrationToImage, fretU, TAPER, type GuitarBody, type Pt } from '../lib/homography';
-import { type Messages, useT } from '../i18n';
+import { errorText, type Messages, useT } from '../i18n';
 import Icon from './Icon';
 
 /**
@@ -117,7 +117,7 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
       await api.analyseWithVideo(transcriptionId, { t_s: t, points, fret_a: frets[0]!, fret_b: frets.at(-1)!, frets, guitar: body });
       onStarted();
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorText(e));
       setBusy(false);
     }
   };

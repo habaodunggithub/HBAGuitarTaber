@@ -51,9 +51,11 @@ export interface Quality {
   low_confidence_note_ratio: number;
   clipping: boolean;
   warnings: string[];
+  /** the same warnings as codes the app translates (server.notices); absent in older analyses */
+  notices?: { code: string; params: Record<string, string | number> }[];
   /** playback: the stems the worker uploaded for listening (absent on analyses made before this existed) */
   separation?: { used: boolean; stem: string; reason: string; backing_db?: number; playback?: ('guitar' | 'backing')[] } | null;
-  video?: { used: boolean; reason?: string; frames?: number; hands_ratio?: number; notes_with_evidence?: number; tracked_ratio?: number } | null;
+  video?: { used: boolean; reason?: string; reason_code?: string; frames?: number; hands_ratio?: number; notes_with_evidence?: number; tracked_ratio?: number } | null;
   key?: { name: string; tonic: number; mode: 'major' | 'minor'; margin: number; scale_prior: boolean } | null;
 }
 

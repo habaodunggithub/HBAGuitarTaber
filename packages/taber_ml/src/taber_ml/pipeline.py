@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Protocol
 
 import numpy as np
-from taber_ir.models import SCHEMA_VERSION, Analysis, AnalysisOptions, F0Track, QualityReport
+from taber_ir.models import SCHEMA_VERSION, Analysis, AnalysisOptions, F0Track, Notice, QualityReport
 
 from .audio.beats import get_beat_tracker
 from .audio.f0 import F0Result, get_tracker
@@ -109,6 +109,12 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     opts = spec.options
     timings: dict[str, float] = {}
     warnings: list[str] = []
+    notices: list[Notice] = []
+
+    def warn(code: str, text: str, **params: str | float) -> None:
+        """A warning for the user: English text (CLI, older clients) and a code the app translates."""
+        warnings.append(text)
+        notices.append(Notice(code=code, params=params))
 
     def stage(name: str, i: int, msg: str = "") -> float:
         if io.is_canceled():
@@ -128,7 +134,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     seg_audio = load_audio(primary)
     beat_audio = load_audio(wet_path) if (wet_path and di_path) else seg_audio
     if seg_audio.clipping:
-        warnings.append("The audio is clipped (overloaded); accuracy may suffer.")
+        warn("clipped", "The audio is clipped (overloaded); accuracy may suffer.")
     timings["ingest"] = time.perf_counter() - t0
 
     # ── 1. source separation: notes are read from the guitar stem, beats still from the full mix ──
@@ -140,8 +146,8 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
         separation = {"used": False, "stem": "original", "reason": "A clean DI track is available, no separation needed"}
     elif _fetch_weight(io, "separation", 1, "demucs"):
         separation = {"used": False, "stem": "original", "reason": "The separation model could not be downloaded"}
-        warnings.append("The backing-track separation model could not be downloaded (check the internet connection), "
-                        "so notes were read from the full mix. The next analysis tries the download again.")
+        warn("separation_model_missing", "The backing-track separation model could not be downloaded (check the internet connection), "
+             "so notes were read from the full mix. The next analysis tries the download again.")
     else:
         try:
             sep = models.get_separator()
@@ -149,7 +155,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
             stem_audio, info = separate_file(primary, sep, force=opts.separate_source == "on", key=key)
             separation = asdict(info)
             if info.warning:
-                warnings.append(info.warning)
+                warn(info.warning_code or "separation", info.warning)
             if stem_audio is not None:
                 seg_audio = stem_audio  # beat_audio keeps the original mix (drums help beat tracking)
                 separation["playback"] = _publish_stems(io, key)
@@ -158,7 +164,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
         except ImportError:
             separation = {"used": False, "stem": "original", "reason": "demucs is not installed (just setup)"}
             if opts.separate_source == "on":
-                warnings.append("Demucs is not installed, so the backing track was not removed. Run just setup to install it.")
+                warn("demucs_missing", "Demucs is not installed, so the backing track was not removed. Run just setup to install it.")
     timings["separation"] = time.perf_counter() - t0
 
     # ── 2. beats ──
@@ -166,13 +172,13 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     beats_name = spec.beat_tracker
     if beats_name in ("auto", "beat_this") and _fetch_weight(io, "beats", 2, "beat_this"):
         beats_name = "librosa"
-        warnings.append("The beat model could not be downloaded (check the internet connection), so a simpler beat tracker was used.")
+        warn("beat_model_missing", "The beat model could not be downloaded (check the internet connection), so a simpler beat tracker was used.")
     beat_tracker = models.get(f"beats:{beats_name}", lambda: get_beat_tracker(beats_name))
     grid = beat_tracker.track(beat_audio, spec.tempo_hint_bpm)
     if models.small_gpu:
         models.release(f"beats:{beats_name}")
     if not grid.beats_s:
-        warnings.append("No steady beat found; enter a tempo or tap the beat.")
+        warn("no_beat", "No steady beat found; enter a tempo or tap the beat.")
     timings["beats"] = time.perf_counter() - t0
 
     # ── 3a. f0 ──
@@ -189,7 +195,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
             posteriors = models.get_onset_model().run(seg_audio.y, seg_audio.sr)
         except ImportError:
             if opts.segmenter == "basic_pitch":
-                warnings.append("onnxruntime is not installed, so the onset model was not used. Run just setup to install it.")
+                warn("onnx_missing", "onnxruntime is not installed, so the onset model was not used. Run just setup to install it.")
     segmenter = F0FirstSegmenter(onset_model=posteriors is not None)
     seg: Segmentation = segmenter.segment(seg_audio, f0, detect_techniques=opts.detect_techniques, posteriors=posteriors)
     # key from the first pass; a second pass with the scale prior runs only if SegmentParams enables it
@@ -212,7 +218,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
                 n.string_probs = [round(float(x), 4) for x in pr]
             string_model = f"{clf.name}@{clf.version}"
         elif opts.string_model == "on":
-            warnings.append("The string classifier needs torch (just setup); strings were chosen from hand movement only.")
+            warn("strings_need_torch", "The string classifier needs torch (just setup); strings were chosen from hand movement only.")
     timings["segment"] = time.perf_counter() - t0
 
     # ── quality ──
@@ -223,12 +229,12 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
     if opts.use_video:
         vpath = io.fetch_input(spec.inputs["video"]) if "video" in spec.inputs else wet_path
         if opts.video_calibration is None:
-            video_report = {"used": False, "reason": "The fretboard has not been calibrated on the video"}
+            video_report = {"used": False, "reason": "The fretboard has not been calibrated on the video", "reason_code": "not_calibrated"}
         elif vpath is None:
-            video_report = {"used": False, "reason": "No video"}
+            video_report = {"used": False, "reason": "No video", "reason_code": "no_video"}
         elif _fetch_weight(io, "video", 5, "hands"):
-            video_report = {"used": False, "reason": "The hand model could not be downloaded"}
-            warnings.append("The hand model could not be downloaded (check the internet connection), so the video was not used. Try again later.")
+            video_report = {"used": False, "reason": "The hand model could not be downloaded", "reason_code": "hand_model_missing"}
+            warn("hand_model_missing", "The hand model could not be downloaded (check the internet connection), so the video was not used. Try again later.")
         else:
             try:
                 from .video.stage import analyze_video
@@ -237,24 +243,24 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
                 video_report = asdict(rep_)
                 video_track = video_report.pop("track")  # stored on its own, not in the quality summary
                 if not rep_.used:
-                    warnings.append("The video did not help: " + rep_.reason + ". Check the 4 calibration points.")
+                    warn("video_no_help", "The video did not help: " + rep_.reason + ". Check the 4 calibration points.", reason=rep_.reason_code)
                 elif rep_.tracked_ratio < 0.5:
-                    warnings.append("The guitar moved a lot or the light is low, so the neck was hard to track; video results are less reliable.")
+                    warn("video_hard_to_track", "The guitar moved a lot or the light is low, so the neck was hard to track; video results are less reliable.")
             except ImportError:
-                video_report = {"used": False, "reason": "mediapipe/opencv is not installed (just setup)"}
-                warnings.append("Video analysis libraries are not installed. Run just setup to install them.")
+                video_report = {"used": False, "reason": "mediapipe/opencv is not installed (just setup)", "reason_code": "video_libs_missing"}
+                warn("video_libs_missing", "Video analysis libraries are not installed. Run just setup to install them.")
             except ValueError as e:
-                video_report = {"used": False, "reason": str(e)}
-                warnings.append(f"Could not read the video: {e}")
+                video_report = {"used": False, "reason": str(e), "reason_code": "video_unreadable"}
+                warn("video_unreadable", f"Could not read the video: {e}", error=str(e))
     timings["video"] = time.perf_counter() - t0
 
     t0 = stage("quality", 6, "Checking quality")
     voiced = float(np.mean(~np.isnan(f0.midi))) if len(f0) else 0.0
     low_conf = float(np.mean([n.confidence < 0.5 for n in seg.notes])) if seg.notes else 0.0
     if not seg.notes:
-        warnings.append("No notes found; check the audio file.")
+        warn("no_notes", "No notes found; check the audio file.")
     elif voiced < 0.25:
-        warnings.append("Few passages have a clear pitch; the audio may be polyphonic or noisy.")
+        warn("little_pitch", "Few passages have a clear pitch; the audio may be polyphonic or noisy.")
     quality = QualityReport(
         voiced_ratio=round(voiced, 3),
         low_confidence_note_ratio=round(low_conf, 3),
@@ -264,6 +270,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
         video=video_report,
         key=key_report,
         warnings=warnings,
+        notices=notices,
     )
     timings["quality"] = time.perf_counter() - t0
 

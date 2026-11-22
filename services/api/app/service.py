@@ -22,9 +22,12 @@ ACTIVE = ("queued", "running")
 
 
 class ServiceError(Exception):
-    def __init__(self, status: int, detail: str):
+    """An API error. `code` (with `params`) names the ones a user can meet, so the app can say them in its own language
+    (apps/web/src/i18n/en.ts, server.errors); `detail` stays the English text."""
+
+    def __init__(self, status: int, detail: str, code: str | None = None, **params: str | float):
         super().__init__(detail)
-        self.status, self.detail = status, detail
+        self.status, self.detail, self.code, self.params = status, detail, code, params
 
 
 def compute_cache_key(inputs: list[tuple[str, str]], options: AnalysisOptions, pipeline_version: str) -> str:
@@ -130,7 +133,7 @@ def create_transcription(
 ) -> tuple[Transcription, Job | None]:
     roles = {r for _, r in inputs}
     if not roles <= ROLES or not roles & {"wet", "di"}:
-        raise ServiceError(422, "At least one input with role 'wet' or 'di' is required")
+        raise ServiceError(422, "At least one input with role 'wet' or 'di' is required", code="needs_audio_input")
     if len(roles) != len(inputs):
         raise ServiceError(422, "Each role can be used only once")
     assets: dict[str, MediaAsset] = {}
@@ -139,7 +142,7 @@ def create_transcription(
         if a is None or a.project_id != project_id:
             raise ServiceError(404, f"Asset {aid} not found in this project")
         if role in ("wet", "di") and a.kind not in ("audio", "video"):
-            raise ServiceError(422, "The audio input must be an audio file or a video with sound")
+            raise ServiceError(422, "The audio input must be an audio file or a video with sound", code="audio_input_invalid")
         assets[role] = a
     cache_key = compute_cache_key([(r, a.sha256) for r, a in assets.items()], options, settings.pipeline_version)
     t = Transcription(
@@ -355,9 +358,9 @@ def start_video_analysis(db: Session, settings: Settings, t: Transcription, cali
         raise ServiceError(409, "This transcription has no input files")
     assets = dict(job_assets(db, [last.id])[last.id])
     if not any(a.kind == "video" for a in assets.values()):
-        raise ServiceError(422, "This transcription has no video. Upload a video with the guitar audible.")
+        raise ServiceError(422, "This transcription has no video. Upload a video with the guitar audible.", code="no_video")
     if last.status in ACTIVE:
-        raise ServiceError(409, "An analysis is already running for this transcription")
+        raise ServiceError(409, "An analysis is already running for this transcription", code="analysis_running")
     options = AnalysisOptions.model_validate(last.analysis_options)
     options.use_video = True
     options.video_calibration = calibration
@@ -371,7 +374,7 @@ def start_video_analysis(db: Session, settings: Settings, t: Transcription, cali
 def get_transcription(db: Session, tid: str) -> Transcription:
     t = db.get(Transcription, tid)
     if t is None:
-        raise ServiceError(404, "Transcription not found")
+        raise ServiceError(404, "Transcription not found", code="tab_not_found")
     return t
 
 

@@ -38,12 +38,12 @@ def save(db: Session, storage: Storage, t: Transcription) -> dict:
     """Snapshot the current revision as ground truth (replaces an earlier snapshot of this take)."""
     rev = svc.latest_revision(db, t)
     if rev is None:
-        raise ServiceError(409, "The transcription is not ready yet")
+        raise ServiceError(409, "The transcription is not ready yet", code="not_ready")
     analysis = svc.load_analysis_for(db, storage, t)
     job = svc.latest_job(db, t.id)
     assets = svc.job_assets(db, [job.id])[job.id] if job else []
     if not any(role in ("wet", "di") for role, _a in assets):
-        raise ServiceError(409, "This transcription has no audio input")
+        raise ServiceError(409, "This transcription has no audio input", code="no_audio_input")
     score = Score.model_validate(rev.score)
 
     out = folder(storage, t.id)
