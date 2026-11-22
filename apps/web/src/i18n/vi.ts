@@ -96,6 +96,14 @@ export const vi: Messages | null = {
     report: 'Báo lỗi',
     openData: 'Mở thư mục dữ liệu',
     checkUpdates: 'Kiểm tra bản mới',
+    autoUpdates: 'Mỗi ngày tự kiểm tra bản mới',
+    autoUpdatesHint: 'Mỗi ngày một lần, Taber hỏi api.github.com phiên bản mới nhất là gì. Như mọi yêu cầu trên mạng, nó mang theo địa chỉ IP của máy bạn; ngoài ra không gửi gì khác: không phiên bản, không tài khoản, không bản ghi hay tab.',
+  },
+
+  update: {
+    available: (version: string) => `Đã có Taber ${version}`,
+    download: 'Tải về',
+    dismiss: 'Ẩn tới bản sau',
   },
 
   home: {
