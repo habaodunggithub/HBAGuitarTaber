@@ -68,6 +68,7 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
       <p className="label engine-sub">{t.engine.whenWrong}</p>
       <div className="engine-links">
         <button type="button" className="text-btn" onClick={() => run('open-logs')}>{t.engine.openLogs}</button>
+        <button type="button" className="text-btn" onClick={() => run('export-diagnostics')} data-testid="export-diagnostics">{t.engine.exportDiagnostics}</button>
         <button type="button" className="text-btn" onClick={copy}>{t.engine.copyDiagnostics}</button>
         <button type="button" className="text-btn" onClick={() => run('report-problem')}>{t.engine.report} <Icon name="arrowUpRight" size={14} /></button>
         <button type="button" className="text-btn" onClick={() => run('open-data')}>{t.engine.openData}</button>

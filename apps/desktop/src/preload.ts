@@ -19,6 +19,7 @@ if (location.protocol === 'file:') {
     retry: () => ipcRenderer.send('setup:retry'),
     change: () => ipcRenderer.send('setup:change'),
     openLogs: () => ipcRenderer.send('setup:open-logs'),
+    exportDiagnostics: () => ipcRenderer.send('setup:export-diagnostics'),
     quit: () => ipcRenderer.send('setup:quit'),
   });
 } else if (location.protocol === 'http:' && location.hostname === '127.0.0.1') {

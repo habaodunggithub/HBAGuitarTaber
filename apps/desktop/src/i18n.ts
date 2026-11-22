@@ -35,7 +35,14 @@ export const en = {
     retry: 'Try again',
     change: 'Change engine',
     openLogs: 'Open logs',
+    exportDiagnostics: 'Export diagnostics bundle',
     quit: 'Quit',
+  },
+
+  diagnostics: {
+    save: 'Save the diagnostics bundle',
+    zip: 'Zip archive',
+    failed: 'Could not write the diagnostics bundle',
   },
 
   variants: {
@@ -126,6 +133,7 @@ export const en = {
     downloadPage: 'Download page',
     checkUpdates: 'Check for updates…',
     report: 'Report a problem',
+    exportDiagnostics: 'Export diagnostics bundle…',
   },
 };
 

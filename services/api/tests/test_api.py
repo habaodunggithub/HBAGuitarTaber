@@ -16,7 +16,8 @@ from taber_ir.models import AssemblyParams, Score, Tuning
 
 # ───────────────────────────── uploads ─────────────────────────────
 def test_health(client):
-    assert client.get("/api/v1/health").json()["ok"] is True
+    h = client.get("/api/v1/health").json()
+    assert h["ok"] is True and h["pipeline"]  # the diagnostics bundle reports it
 
 
 def test_trusted_hosts_reject_a_rebound_host(settings, monkeypatch):
