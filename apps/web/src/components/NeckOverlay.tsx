@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { getT } from '../i18n';
 import { neckAt, neckLines, segPath, type VideoTrack } from '../lib/neckTrack';
 
 interface Props {
@@ -39,7 +40,7 @@ export default function NeckOverlay({ host, media, track }: Props) {
       const state = !f ? 'none' : f.tracked ? 'tracked' : 'lost';
       if (root.dataset.state !== state && badge.current) {
         badge.current.dataset.state = state;
-        badge.current.textContent = state === 'tracked' ? 'Neck tracked' : state === 'lost' ? 'Tracking lost: calibration used' : '';
+        badge.current.textContent = state === 'tracked' ? getT().neck.tracked : state === 'lost' ? getT().neck.lost : '';
       }
       root.dataset.state = state;
       if (!f) return;

@@ -36,8 +36,6 @@ declare global {
 
 export const desktop: Bridge | null = typeof window !== 'undefined' ? window.taberDesktop ?? null : null;
 
-export const VARIANT_LABEL: Record<string, string> = { gpu: 'NVIDIA GPU', cpu: 'Processor', lite: 'Lite' };
-
 /** Live engine state from the desktop app, null in a browser (or until the first answer). */
 export function useDesktopInfo(): DesktopInfo | null {
   const [info, setInfo] = useState<DesktopInfo | null>(null);
@@ -54,7 +52,7 @@ export function useDesktopInfo(): DesktopInfo | null {
   return info;
 }
 
-/** Plain text a user can paste into a bug report: versions, engine, where the logs are. */
+/** Plain text a user can paste into a bug report: versions, engine, where the logs are. In English on purpose: it is read by whoever fixes the bug. */
 export function diagnostics(i: DesktopInfo): string {
   return [
     `HBA Guitar Taber ${i.version} (${i.platform})`,

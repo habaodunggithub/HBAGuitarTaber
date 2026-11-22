@@ -1,5 +1,6 @@
 import type { Score } from '../api/types';
 import { altPositions, getNote, type NoteLoc } from '../lib/scoreOps';
+import { lookup, useT } from '../i18n';
 import { noteName } from '../lib/tuning';
 import Icon from './Icon';
 import { KeyList } from './Shell';
@@ -19,13 +20,6 @@ interface Props {
   busy: boolean;
 }
 
-const TECH_LABEL: Record<string, string> = {
-  bend: 'Bend', release: 'Release', prebend: 'Pre-bend', vibrato: 'Vibrato', whammy: 'Whammy',
-  slide_in: 'Slide in', slide_out: 'Slide out', slide_legato: 'Slide', slide_shift: 'Shift slide',
-  hammer_on: 'Hammer-on', pull_off: 'Pull-off', palm_mute: 'Palm mute', let_ring: 'Let ring',
-  harmonic_natural: 'Harmonic', harmonic_pinch: 'Pinch harmonic', tap: 'Tapping', dead_note: 'Dead note',
-};
-
 const INLAY = new Set([3, 5, 7, 9, 15, 17, 19, 21]);
 
 /** A slice of the neck around every place this pitch can be played; tap a dot to move the note there. */
@@ -35,6 +29,7 @@ function Fretboard({ alts, current, strings, onPick }: {
   strings: number;
   onPick: (string: number, fret: number) => void;
 }) {
+  const t = useT();
   const frets = alts.map((a) => a.fret);
   const lo = Math.max(0, Math.min(...frets) - 1);
   const hi = Math.max(lo + 5, Math.max(...frets) + 1);
@@ -49,13 +44,13 @@ function Fretboard({ alts, current, strings, onPick }: {
           <line key={`s${i}`} x1={lo === 0 ? 1 : 0} x2={cols} y1={i + 0.5} y2={i + 0.5} className="fb-string" style={{ strokeWidth: 1 + i * 0.3 }} vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
-      <ul className="fb-grid" role="listbox" aria-label="Other places to play it" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${strings}, 1fr)` }}>
+      <ul className="fb-grid" role="listbox" aria-label={t.inspector.otherPlacesList} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${strings}, 1fr)` }}>
         {alts.map((a) => {
           const on = a.string === current.string && a.fret === current.fret;
           return (
             <li key={`${a.string}-${a.fret}`} style={{ gridRow: a.string, gridColumn: a.fret - lo + 1 }}>
               <button type="button" role="option" aria-selected={on} className={`fb-dot${on ? ' on' : ''}`} onClick={() => onPick(a.string, a.fret)}
-                aria-label={`String ${a.string}, fret ${a.fret}`} title={`String ${a.string}, fret ${a.fret}`}>
+                aria-label={t.inspector.stringFret(a.string, a.fret)} title={t.inspector.stringFret(a.string, a.fret)}>
                 {a.fret}
               </button>
             </li>
@@ -65,7 +60,7 @@ function Fretboard({ alts, current, strings, onPick }: {
       <div className="fb-nums" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {Array.from({ length: cols }, (_, c) => {
           const f = lo + c;
-          return <span key={f} className={INLAY.has(f) || f === 12 ? 'mark' : ''}>{f === 0 ? 'open' : f}</span>;
+          return <span key={f} className={INLAY.has(f) || f === 12 ? 'mark' : ''}>{f === 0 ? t.inspector.open : f}</span>;
         })}
       </div>
     </div>
@@ -73,32 +68,32 @@ function Fretboard({ alts, current, strings, onPick }: {
 }
 
 export default function Inspector({ score, selection, picked = 0, onClearPicked, onPick, onToggleLock, onRefingerMeasure, onShiftPitch, onDelete, onAddNote, busy }: Props) {
+  const t = useT();
+  const i = t.inspector;
   const note = selection ? getNote(score, selection) : undefined;
   if (picked > 1) {
     return (
-      <section className="inspector" aria-label="Note details">
-        <h2 className="pixel-h" data-testid="picked-count">{picked} notes picked</h2>
-        <p className="muted small">Notes that are not part of the solo (the backing guitar bleeding through, string noise)? Delete them in one go; Ctrl+Z brings them back.</p>
+      <section className="inspector" aria-label={i.region}>
+        <h2 className="pixel-h" data-testid="picked-count">{i.picked(picked)}</h2>
+        <p className="muted small">{i.pickedHint}</p>
         <div className="row">
-          <button type="button" className="btn" onClick={onDelete} data-testid="delete-picked"><Icon name="close" /> Delete {picked} notes</button>
-          <button type="button" className="btn quiet" onClick={onClearPicked}>Keep them (Esc)</button>
+          <button type="button" className="btn" onClick={onDelete} data-testid="delete-picked"><Icon name="close" /> {i.deletePicked(picked)}</button>
+          <button type="button" className="btn quiet" onClick={onClearPicked}>{i.keepPicked}</button>
         </div>
-        <p className="muted small">Shift+click a note in the lane to add or take it out; Shift+drag adds a box.</p>
+        <p className="muted small">{i.pickedMore}</p>
       </section>
     );
   }
   if (!selection || !note) {
     return (
-      <section className="inspector" aria-label="Note details">
-        <h2 className="pixel-h">Selected note</h2>
-        <p className="muted small">Click a note in the lane or the score, or use the arrow keys, to see and change where it is played.</p>
+      <section className="inspector" aria-label={i.region}>
+        <h2 className="pixel-h">{i.selected}</h2>
+        <p className="muted small">{i.selectHint}</p>
         <ul className="muted small edit-tips">
-          <li><b>Add</b>: double-click a string in the lane, where the note is missing.</li>
-          <li><b>Delete many</b>: drag across the lane to pick the notes, then press Delete.</li>
-          <li><b>Set the fret</b>: select a note and type the number (12 = 1 then 2).</li>
+          {i.tips.map(([b, rest]) => <li key={b}><b>{b}</b>{rest}</li>)}
         </ul>
         <button type="button" className="btn quiet" onClick={onAddNote} data-testid="add-note">
-          <Icon name="plus" /> Add a missed note at the playhead (N)
+          <Icon name="plus" /> {i.addMissed}
         </button>
         <KeyList compact />
       </section>
@@ -107,53 +102,53 @@ export default function Inspector({ score, selection, picked = 0, onClearPicked,
   const alts = altPositions(score, selection);
   const strings = score.assembly_params.tuning.open_pitches?.length ?? 6;
   return (
-    <section className="inspector" aria-label="Note details">
+    <section className="inspector" aria-label={i.region}>
       <div className="note-head">
         <h2 className="note-name pixel-h">{noteName(note.pitch_midi)}</h2>
-        <span className="chip">Bar {selection.m + 1}</span>
-        {note.locked ? <span className="chip solid"><Icon name="lock" size={13} /> Locked</span> : null}
+        <span className="chip">{i.bar(selection.m + 1)}</span>
+        {note.locked ? <span className="chip solid"><Icon name="lock" size={13} /> {i.locked}</span> : null}
       </div>
       <dl className="facts">
-        <dt>Position</dt>
-        <dd data-testid="position">String {note.string}, fret {note.fret}</dd>
-        <dt>Finger</dt>
-        <dd>{note.finger === '0' ? 'Open string' : note.finger === 'T' ? 'Thumb' : note.finger ? `Finger ${note.finger}` : 'Unknown'}</dd>
-        <dt>Technique</dt>
+        <dt>{i.position}</dt>
+        <dd data-testid="position">{i.stringFret(note.string, note.fret)}</dd>
+        <dt>{i.finger}</dt>
+        <dd>{note.finger === '0' ? i.openString : note.finger === 'T' ? i.thumb : note.finger ? i.fingerN(note.finger) : i.unknown}</dd>
+        <dt>{i.technique}</dt>
         <dd>
-          {note.techniques.length ? note.techniques.map((t) => (
-            <span key={t.type} className="chip" title={`confidence ${Math.round((t.confidence ?? 1) * 100)}%`}>
-              {TECH_LABEL[t.type] ?? t.type}
-              {t.value != null ? ` ${t.value}` : ''}
+          {note.techniques.length ? note.techniques.map((x) => (
+            <span key={x.type} className="chip" title={i.confidence(Math.round((x.confidence ?? 1) * 100))}>
+              {lookup(i.techniques, x.type)}
+              {x.value != null ? ` ${x.value}` : ''}
             </span>
-          )) : 'None'}
+          )) : i.none}
         </dd>
       </dl>
 
-      <h3 className="panel-sub">Wrong note? <span className="muted small">type a fret number to put it there</span></h3>
-      <div className="row pitch-row" role="group" aria-label="Change the pitch">
-        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-12)} title="Down an octave">−8va</button>
-        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-1)} title="Down a semitone (Shift+↓)" aria-label="Down a semitone"><Icon name="minus" /></button>
-        <button type="button" className="btn quiet" onClick={() => onShiftPitch(1)} title="Up a semitone (Shift+↑)" aria-label="Up a semitone"><Icon name="plus" /></button>
-        <button type="button" className="btn quiet" onClick={() => onShiftPitch(12)} title="Up an octave">+8va</button>
-        <button type="button" className="btn quiet" onClick={onDelete} data-testid="delete-note" title="Not a real note (Delete)"><Icon name="close" /> Delete</button>
-        <button type="button" className="btn quiet" onClick={onAddNote} title="A note was missed at the playhead (N)"><Icon name="plus" /> Add at playhead</button>
+      <h3 className="panel-sub">{i.wrongNote} <span className="muted small">{i.wrongNoteHint}</span></h3>
+      <div className="row pitch-row" role="group" aria-label={i.changePitch}>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-12)} title={i.octaveDown} data-i18n="as-is">−8va</button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(-1)} title={i.semitoneDownTitle} aria-label={i.semitoneDown}><Icon name="minus" /></button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(1)} title={i.semitoneUpTitle} aria-label={i.semitoneUp}><Icon name="plus" /></button>
+        <button type="button" className="btn quiet" onClick={() => onShiftPitch(12)} title={i.octaveUp} data-i18n="as-is">+8va</button>
+        <button type="button" className="btn quiet" onClick={onDelete} data-testid="delete-note" title={i.deleteTitle}><Icon name="close" /> {i.delete}</button>
+        <button type="button" className="btn quiet" onClick={onAddNote} title={i.addAtPlayheadTitle}><Icon name="plus" /> {i.addAtPlayhead}</button>
       </div>
 
-      <h3 className="panel-sub">Same pitch, other places</h3>
+      <h3 className="panel-sub">{i.otherPlaces}</h3>
       {alts.length > 1 ? (
         <Fretboard alts={alts} current={{ string: note.string, fret: note.fret }} strings={strings} onPick={onPick} />
       ) : (
-        <p className="muted small">This pitch can only be played in one place.</p>
+        <p className="muted small">{i.onePlace}</p>
       )}
 
       <div className="row">
         <button type="button" className={`btn${note.locked ? ' on' : ''}`} aria-pressed={!!note.locked} onClick={onToggleLock}>
           <Icon name={note.locked ? 'lock' : 'unlock'} />
-          {note.locked ? 'Locked' : 'Lock note (L)'}
+          {note.locked ? i.locked : i.lock}
         </button>
-        <button type="button" className="btn quiet" onClick={onRefingerMeasure} disabled={busy} title="Re-run string/fret choice for this bar, keeping locked notes">
+        <button type="button" className="btn quiet" onClick={onRefingerMeasure} disabled={busy} title={i.refingerTitle}>
           <Icon name="refresh" />
-          Re-finger bar
+          {i.refinger}
         </button>
       </div>
     </section>

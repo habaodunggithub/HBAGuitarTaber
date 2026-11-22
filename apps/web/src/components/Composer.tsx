@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api } from '../api/client';
 import type { CreateTranscription } from '../api/types';
+import { lookup, useT } from '../i18n';
 import { fmtBytes } from '../lib/format';
 import { TUNING_PRESETS } from '../lib/tuning';
 import Icon from './Icon';
@@ -69,6 +70,7 @@ export default function Composer({ onCreated }: { onCreated: (id: string) => Pro
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const peaks = usePeaks(wet);
+  const t = useT();
 
   const choose = (f: File | null) => {
     setWet(f);
@@ -87,19 +89,19 @@ export default function Composer({ onCreated }: { onCreated: (id: string) => Pro
     if (!wet) return;
     setError(null);
     try {
-setBusy('Uploading…');
+setBusy(t.composer.uploading);
 setProgress(0);
 const prog = [0, 0];
 const upd = () => {
   const frac = ((prog[0] ?? 0) + (prog[1] ?? 0)) / (di ? 2 : 1);
   setProgress(frac);
-  setBusy(`Uploading ${Math.round(frac * 100)}%…`);
+  setBusy(t.composer.uploadingPct(Math.round(frac * 100)));
 };
 const [wetA, diA] = await Promise.all([
   api.upload(wet, (f) => { prog[0] = f; upd(); }),
   di ? api.upload(di, (f) => { prog[1] = f; upd(); }) : Promise.resolve(null),
 ]);
-setBusy('Creating the tab…');
+setBusy(t.composer.creating);
 const body: CreateTranscription = {
   inputs: [{ asset_id: wetA.asset_id, role: 'wet' }, ...(diA ? [{ asset_id: diA.asset_id, role: 'di' as const }] : [])],
   analysis_options: { tone, mode: 'monophonic', segmenter: 'auto', string_model: 'auto', separate_source: separate, detect_techniques: true, use_video: false },
@@ -122,14 +124,14 @@ setProgress(null);
   };
 
   const summary = [
-    tuning.split(' (')[0],
-    capo ? `capo ${capo}` : null,
-    tempo ? `${tempo} BPM` : null,
-    separate === 'off' ? 'no separation' : separate === 'on' ? 'always separate' : null,
+    lookup(t.tunings, tuning).split(' (')[0],
+    capo ? t.composer.capoN(capo) : null,
+    tempo ? t.composer.bpm(tempo) : null,
+    separate === 'off' ? t.composer.noSeparation : separate === 'on' ? t.composer.alwaysSeparate : null,
   ].filter(Boolean).join(', ');
 
   return (
-    <form className={`composer${wet ? ' has' : ''}`} onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label="New tab">
+    <form className={`composer${wet ? ' has' : ''}`} onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label={t.composer.form}>
       <div
         className={`drop${over ? ' over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -138,18 +140,18 @@ setProgress(null);
       >
         <input id="wet" ref={input} type="file" accept={ACCEPT} onChange={(e) => choose(e.target.files?.[0] ?? null)} />
         <label htmlFor="wet" className="drop-label">
-          <span className="sr-only">Guitar recording</span>
+          <span className="sr-only">{t.composer.recording}</span>
           <span className="plus" aria-hidden="true">+</span>
-          <b>{over ? 'Let go to drop it' : 'Drop a recording'}</b>
-          {wet ? null : <span className="drop-sub">wav, mp3, flac, m4a, ogg<br />or a video: mp4, mov, webm<br /><u>click to choose a file</u></span>}
+          <b>{over ? t.composer.letGo : t.composer.drop}</b>
+          {wet ? null : <span className="drop-sub">{t.composer.formats[0]}<br />{t.composer.formats[1]}<br /><u>{t.composer.choose}</u></span>}
         </label>
         {wet ? (
           <div className="now-line">
             <div className="now-title">
-              <h2 className="track">{wet.name}</h2>
-              <button type="button" className="icon-btn small" aria-label="Remove file" onClick={() => choose(null)}><Icon name="close" size={16} /></button>
+              <h2 className="track" data-i18n="user">{wet.name}</h2>
+              <button type="button" className="icon-btn small" aria-label={t.composer.remove} onClick={() => choose(null)}><Icon name="close" size={16} /></button>
             </div>
-            <p className="facts-line">{wet.type.startsWith('video') ? 'Video' : 'Audio'}, {fmtBytes(wet.size)}</p>
+            <p className="facts-line">{wet.type.startsWith('video') ? t.composer.video : t.composer.audio}, {fmtBytes(wet.size)}</p>
             {peaks ? <Bars peaks={peaks} progress={progress ?? 0} /> : <div className="bars placeholder" aria-hidden="true" />}
           </div>
         ) : null}
@@ -159,48 +161,48 @@ setProgress(null);
         <div className="composer-extra">
           <input id="di" type="file" accept={ACCEPT} className="sr-only" onChange={(e) => setDi(e.target.files?.[0] ?? null)} />
           {di ? (
-            <p className="di-chosen"><span className="muted">DI track:</span> <strong>{di.name}</strong> <button type="button" className="text-btn" onClick={() => setDi(null)}>Remove DI track</button></p>
+            <p className="di-chosen"><span className="muted">{t.composer.diTrack}</span> <strong>{di.name}</strong> <button type="button" className="text-btn" onClick={() => setDi(null)}>{t.composer.removeDi}</button></p>
           ) : (
-            <label htmlFor="di" className="text-btn">+ Add a DI track <span className="muted">(optional, more accurate notes)</span></label>
+            <label htmlFor="di" className="text-btn">{t.composer.addDi} <span className="muted">{t.composer.addDiHint}</span></label>
           )}
           <details className="options">
-            <summary><span>Options: <span className="muted">{summary}</span></span></summary>
+            <summary><span>{t.composer.options} <span className="muted">{summary}</span></span></summary>
             <div className="grid">
-              <label className="field"><span>Tuning</span>
-                <select value={tuning} onChange={(e) => setTuning(e.target.value)}>{Object.keys(TUNING_PRESETS).map((k) => <option key={k}>{k}</option>)}</select>
+              <label className="field"><span>{t.composer.tuning}</span>
+                <select value={tuning} onChange={(e) => setTuning(e.target.value)}>{Object.keys(TUNING_PRESETS).map((k) => <option key={k} value={k}>{lookup(t.tunings, k)}</option>)}</select>
               </label>
-              <label className="field"><span>Capo</span>
+              <label className="field"><span>{t.composer.capo}</span>
                 <input type="number" name="capo" autoComplete="off" inputMode="numeric" min={0} max={12} value={capo} onChange={(e) => setCapo(Math.max(0, Math.min(12, Number(e.target.value) || 0)))} />
               </label>
-              <label className="field"><span>Tone</span>
+              <label className="field"><span>{t.composer.tone}</span>
                 <select value={tone} onChange={(e) => setTone(e.target.value as typeof tone)}>
-                  <option value="clean">Clean</option><option value="distortion_light">Light distortion</option><option value="high_gain">High gain</option>
+                  {(['clean', 'distortion_light', 'high_gain'] as const).map((k) => <option key={k} value={k}>{t.composer.tones[k]}</option>)}
                 </select>
               </label>
-              <label className="field"><span>Backing track</span>
+              <label className="field"><span>{t.composer.backing}</span>
                 <select value={separate} onChange={(e) => setSeparate(e.target.value as typeof separate)}>
-                  <option value="auto">Separate if there is one</option><option value="on">Always separate</option><option value="off">Never separate</option>
+                  {(['auto', 'on', 'off'] as const).map((k) => <option key={k} value={k}>{t.composer.separation[k]}</option>)}
                 </select>
               </label>
-              <label className="field"><span>Timing</span>
+              <label className="field"><span>{t.composer.timing}</span>
                 <select value={timing} onChange={(e) => setTiming(e.target.value as typeof timing)}>
-                  <option value="auto">Detect</option><option value="grid_from_hint">From the tempo below</option><option value="free">Free time (rubato)</option>
+                  {(['auto', 'grid_from_hint', 'free'] as const).map((k) => <option key={k} value={k}>{t.composer.timings[k]}</option>)}
                 </select>
               </label>
-              <label className="field"><span>Tempo (BPM)</span>
-                <input type="number" name="tempo" autoComplete="off" inputMode="decimal" min={30} max={300} step={0.5} placeholder="e.g. 120…" value={tempo} onChange={(e) => setTempo(e.target.value)} />
+              <label className="field"><span>{t.composer.tempo}</span>
+                <input type="number" name="tempo" autoComplete="off" inputMode="decimal" min={30} max={300} step={0.5} placeholder={t.composer.tempoPlaceholder} value={tempo} onChange={(e) => setTempo(e.target.value)} />
               </label>
-              <label className="field"><span>Run on</span>
+              <label className="field"><span>{t.composer.runOn}</span>
                 <select value={target} onChange={(e) => setTarget(e.target.value as typeof target)}>
-                  <option value="any">Any free worker</option><option value="local">This machine</option><option value="kaggle">Kaggle</option>
+                  {(['any', 'local', 'kaggle'] as const).map((k) => <option key={k} value={k}>{t.composer.targets[k]}</option>)}
                 </select>
               </label>
             </div>
           </details>
         </div>
       ) : null}
-      {error ? <p className="banner bad" role="alert"><Icon name="alert" /> <span>{error}</span></p> : null}
-      <button type="submit" className="btn primary block" disabled={!wet || !!busy} data-testid="submit">{busy ?? 'Transcribe'}</button>
+      {error ? <p className="banner bad" role="alert"><Icon name="alert" /> <span data-i18n="server">{error}</span></p> : null}
+      <button type="submit" className="btn primary block" disabled={!wet || !!busy} data-testid="submit">{busy ?? t.composer.transcribe}</button>
       {progress !== null ? <span className="pencil" aria-hidden="true" style={{ transform: `scaleX(${Math.max(progress, 0.02)})` }} /> : null}
     </form>
   );

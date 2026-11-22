@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import Shell from '../../components/Shell';
+import { useT } from '../../i18n';
 
-export const backLink = <Link to="/#lib" className="crumb"><Icon name="back" size={16} /> Tabs</Link>;
+/** The way back to the library, in the centre of the top rail. */
+export function BackLink() {
+  const t = useT();
+  return <Link to="/#lib" className="crumb"><Icon name="back" size={16} /> {t.shell.back}</Link>;
+}
 
 /** A full-page message (not found, failed, canceled) with the way back. */
 export function Message({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Shell center={backLink}>
+    <Shell center={<BackLink />}>
       <main id="content" className="page narrow">
         <div className="message">
           <h1 className="display-sm">{title}</h1>

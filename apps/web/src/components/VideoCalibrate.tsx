@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, urls } from '../api/client';
 import { fmtTime } from '../lib/format';
 import { calibrationBoardPoints, calibrationToImage, fretU, TAPER, type GuitarBody, type Pt } from '../lib/homography';
+import { type Messages, useT } from '../i18n';
 import Icon from './Icon';
 
 /**
@@ -19,10 +20,10 @@ interface Props {
 }
 
 type Body = Exclude<GuitarBody, 'parallel'>;
-const BODIES: { id: Body; label: string; maxFret: number }[] = [
-  { id: 'electric', label: 'Electric', maxFret: 24 },
-  { id: 'acoustic', label: 'Acoustic (steel strings)', maxFret: 20 },
-  { id: 'classical', label: 'Classical (nylon strings)', maxFret: 19 },
+const BODIES: { id: Body; maxFret: number }[] = [
+  { id: 'electric', maxFret: 24 },
+  { id: 'acoustic', maxFret: 20 },
+  { id: 'classical', maxFret: 19 },
 ];
 /** Easy-to-spot wires (next to the inlays) for each number of wires. */
 const DEFAULT_FRETS: Record<number, number[]> = { 2: [5, 12], 3: [3, 7, 12], 4: [3, 5, 9, 12], 5: [3, 5, 7, 9, 12] };
@@ -30,13 +31,12 @@ const WIRE_COUNTS = [2, 3, 4, 5];
 const OFF_PX = 6; // a click this far (frame pixels) from the fitted neck is probably misplaced
 const BODY_KEY = 'taber.guitarBody';
 
-const STRING_NAME = { 6: 'low E string (6)', 1: 'high e string (1)' } as const;
 /** Instruction for click i: the snake order A6 A1 B1 B6 C6 C1 ... */
-function stepText(frets: number[], i: number): string {
+function stepText(c: Messages['calibrate'], frets: number[], i: number): string {
   const wire = Math.floor(i / 2);
   const firstIs6 = wire % 2 === 0;
   const s = (i % 2 === 0) === firstIs6 ? 6 : 1;
-  return `Click the ${STRING_NAME[s]} right on fret ${frets[wire]}`;
+  return c.click(s === 6 ? c.lowE : c.highE, frets[wire]!);
 }
 
 function loadBody(): Body {
@@ -48,6 +48,8 @@ function loadBody(): Body {
 }
 
 export default function VideoCalibrate({ transcriptionId, videoAssetId, startTime, onClose, onStarted }: Props) {
+  const tt = useT();
+  const c = tt.calibrate;
   const ref = useRef<HTMLDialogElement>(null);
   const [t, setT] = useState(Math.max(0, Math.round(startTime * 10) / 10));
   const [body, setBody] = useState<Body>(loadBody);
@@ -122,41 +124,38 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
 
   const worst = preview && frets.length > 2 ? Math.max(...preview.off) : 0;
   const status = points.length < needed
-    ? `${points.length + 1}/${needed}. ${stepText(frets, points.length)}`
+    ? c.step(points.length + 1, needed, stepText(c, frets, points.length))
     : !preview
-      ? 'These points do not form a valid neck. Start over.'
+      ? c.invalid
       : worst > OFF_PX
-        ? `Point ${preview.off.indexOf(worst) + 1} (red) is ${worst.toFixed(0)} px off the fitted neck. Undo it or start over, or check the frets you picked.`
+        ? c.offPoint(preview.off.indexOf(worst) + 1, worst.toFixed(0))
         : frets.length > 2
-          ? `Check: do the lines sit on the frets and strings? Your clicks agree within ${worst.toFixed(1)} px.`
-          : 'Check: do the lines sit on the frets and strings?';
+          ? c.checkWithin(worst.toFixed(1))
+          : c.check;
   const keySet = new Set(frets);
 
   return (
     <dialog ref={ref} className="calibrate" aria-labelledby="cal-title">
       <div className="cal-head">
-        <h2 id="cal-title" className="display-sm">Show the app where the neck is</h2>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
+        <h2 id="cal-title" className="display-sm">{c.title}</h2>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label={tt.app.close}><Icon name="close" /></button>
       </div>
-      <p className="muted">
-        Pick a frame where the neck is clear, choose frets you can spot easily (next to the dots), then click both outer strings on each, in order.
-        More frets take a few more clicks and average out a sloppy one. A preview grid appears so you can check it.
-      </p>
+      <p className="muted">{c.intro}</p>
       <div className="cal-controls">
-        <label className="field inline-field"><span>Guitar</span>
+        <label className="field inline-field"><span>{c.guitar}</span>
           <select value={body} onChange={(e) => chooseBody(e.target.value as Body)} data-testid="cal-body">
-            {BODIES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+            {BODIES.map((b) => <option key={b.id} value={b.id}>{c.bodies[b.id]}</option>)}
           </select>
         </label>
-        <label className="field inline-field"><span>Frets to click</span>
+        <label className="field inline-field"><span>{c.count}</span>
           <select value={frets.length} onChange={(e) => chooseCount(Number(e.target.value))} data-testid="cal-count">
             {WIRE_COUNTS.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
         <span className="cal-frets">
           {frets.map((f, k) => (
-            <label key={k} className="field inline-field"><span>{k === 0 ? 'Frets' : <span className="sr-only">Fret {k + 1}</span>}</span>
-              <select value={f} onChange={(e) => chooseFret(k, Number(e.target.value))} aria-label={`Fret ${k + 1}`} data-testid={`cal-fret-${k}`}>
+            <label key={k} className="field inline-field"><span>{k === 0 ? c.frets : <span className="sr-only">{c.fretN(k + 1)}</span>}</span>
+              <select value={f} onChange={(e) => chooseFret(k, Number(e.target.value))} aria-label={c.fretN(k + 1)} data-testid={`cal-fret-${k}`}>
                 {Array.from({ length: maxFret }, (_, i) => i + 1)
                   .filter((n) => n > (frets[k - 1] ?? 0) && n < (frets[k + 1] ?? maxFret + 1))
                   .map((n) => <option key={n} value={n}>{n}</option>)}
@@ -165,9 +164,9 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
           ))}
         </span>
         <span className="cal-time">
-          <button type="button" className="icon-btn small" onClick={() => { setT((x) => Math.max(0, +(x - 1).toFixed(1))); setSize(null); }} aria-label="Back 1 second"><Icon name="left" size={16} /></button>
-          Frame at {fmtTime(t)}
-          <button type="button" className="icon-btn small" onClick={() => { setT((x) => +(x + 1).toFixed(1)); setSize(null); }} aria-label="Forward 1 second"><Icon name="right" size={16} /></button>
+          <button type="button" className="icon-btn small" onClick={() => { setT((x) => Math.max(0, +(x - 1).toFixed(1))); setSize(null); }} aria-label={c.back}><Icon name="left" size={16} /></button>
+          {c.frameAt(fmtTime(t))}
+          <button type="button" className="icon-btn small" onClick={() => { setT((x) => +(x + 1).toFixed(1)); setSize(null); }} aria-label={c.forward}><Icon name="right" size={16} /></button>
         </span>
       </div>
 
@@ -176,9 +175,9 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
       <div className={`cal-stage${loaded ? '' : ' loading'}`} onClick={onPick} data-testid="cal-stage" data-loaded={loaded}>
         <img
           src={urls.frame(videoAssetId, t)}
-          alt={`Video frame at ${fmtTime(t)}`}
+          alt={c.frameAlt(fmtTime(t))}
           onLoad={(e) => setSize([e.currentTarget.naturalWidth || 1, e.currentTarget.naturalHeight || 1])}
-          onError={() => setError('Could not get a frame at this time. Try another moment.')}
+          onError={() => setError(c.frameFailed)}
           draggable={false}
         />
         {loaded ? (
@@ -201,11 +200,11 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
       {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="row">
         <button type="button" className="btn primary" disabled={!preview || busy} onClick={() => void start()}>
-          {busy ? 'Sending…' : 'Re-analyze with video'}
+          {busy ? c.sending : c.start}
         </button>
-        <button type="button" className="btn" disabled={!points.length} onClick={() => setPoints((p) => p.slice(0, -1))}>Undo point</button>
-        <button type="button" className="btn" disabled={!points.length} onClick={() => setPoints([])}>Start over</button>
-        <button type="button" className="btn quiet" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn" disabled={!points.length} onClick={() => setPoints((p) => p.slice(0, -1))}>{c.undo}</button>
+        <button type="button" className="btn" disabled={!points.length} onClick={() => setPoints([])}>{c.startOver}</button>
+        <button type="button" className="btn quiet" onClick={onClose}>{c.cancel}</button>
       </div>
     </dialog>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { fmtTime } from '../lib/format';
+import { getT, useT } from '../i18n';
 import Icon from './Icon';
 
 interface Props {
@@ -28,11 +29,7 @@ export type StemRole = 'guitar' | 'backing';
 type Listen = 'original' | StemRole;
 
 const RATES = [0.5, 0.75, 1];
-const LISTEN: { id: Listen; label: string; title: string }[] = [
-  { id: 'original', label: 'Original', title: 'The recording as uploaded' },
-  { id: 'guitar', label: 'Guitar', title: 'The guitar alone, separated from the backing track' },
-  { id: 'backing', label: 'Backing', title: 'The backing track without the guitar, to play along' },
-];
+const LISTEN: Listen[] = ['original', 'guitar', 'backing'];
 const DRIFT_S = 0.12; // re-align the stem when it drifts this far from the clock
 
 export default function Transport({ src, audioRef, videoHost, poster, onTap, tapCount, loopOn, onLoopChange, loopLabel, onSkip, onPlayingChange, onRateChange, stems }: Props) {
@@ -40,6 +37,7 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
   const audioEl = useRef<HTMLAudioElement | null>(null);
   const stemEl = useRef<HTMLAudioElement | null>(null);
   const timeRef = useRef<HTMLSpanElement>(null); // updated imperatively: no re-render per frame
+  const t = useT();
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [rate, setRate] = useState(1);
@@ -147,7 +145,7 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
     const rateSync = () => { f.playbackRate = a.playbackRate; f.preservesPitch = true; };
     const onSeek = () => { f.currentTime = a.currentTime; };
     const onError = () => {
-      setStemError('Could not load the separated audio; playing the original.');
+      setStemError(getT().transport.stemFailed);
       setListen('original');
     };
     rateSync();
@@ -197,27 +195,27 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
 
   const ri = RATES.indexOf(rate);
   const heard: Listen = stems ? listen : 'original';
-  const li = LISTEN.findIndex((l) => l.id === heard);
+  const li = LISTEN.indexOf(heard);
   return (
     <div className="transport">
       {videoHost
-        ? createPortal(<video ref={setRefs as unknown as Ref<HTMLVideoElement>} preload="auto" playsInline poster={poster} className="take-video" aria-label="Recording video" />, videoHost)
+        ? createPortal(<video ref={setRefs as unknown as Ref<HTMLVideoElement>} preload="auto" playsInline poster={poster} className="take-video" aria-label={t.transport.video} />, videoHost)
         : <audio ref={setRefs} preload="auto" />}
       <audio ref={stemEl} preload="auto" data-testid="stem-audio" />
 
       <div className="scrub">
         <span className="time" ref={timeRef} data-testid="time">0:00</span>
-        <div ref={waveRef} className="wave" aria-label="Waveform, click or drag to seek" />
+        <div ref={waveRef} className="wave" aria-label={t.transport.waveform} />
         <span className="time muted">{fmtTime(duration)}</span>
       </div>
 
       <div className="controls">
         <button type="button" className={`ctl${loopOn ? ' on' : ''}`} aria-pressed={loopOn} disabled={!loopLabel}
-          onClick={() => onLoopChange(!loopOn)} aria-label={loopLabel ? `Loop ${loopLabel}` : 'Loop bar (select a note first)'} title={loopLabel ? `Loop ${loopLabel}` : 'Select a note to loop its bar'}>
+          onClick={() => onLoopChange(!loopOn)} aria-label={loopLabel ? t.transport.loop(loopLabel) : t.transport.loopNone} title={loopLabel ? t.transport.loop(loopLabel) : t.transport.loopHint}>
           <Icon name="repeat" size={20} />
         </button>
-        <button type="button" className="ctl" onClick={() => onSkip(-1)} aria-label="Previous bar" title="Previous bar"><Icon name="skipBack" size={22} /></button>
-        <button type="button" className={`play${playing ? ' is-playing' : ''}`} onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} data-testid="play">
+        <button type="button" className="ctl" onClick={() => onSkip(-1)} aria-label={t.transport.previousBar} title={t.transport.previousBar}><Icon name="skipBack" size={22} /></button>
+        <button type="button" className={`play${playing ? ' is-playing' : ''}`} onClick={toggle} aria-label={playing ? t.transport.pause : t.transport.play} data-testid="play">
           <svg viewBox="0 0 16 16" width="24" height="24" aria-hidden="true" className="play-icon i-play">
             <path d="M5 2.8v10.4a.6.6 0 0 0 .9.5l8.2-5.2a.6.6 0 0 0 0-1L5.9 2.3a.6.6 0 0 0-.9.5z" />
           </svg>
@@ -225,14 +223,14 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
             <path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" />
           </svg>
         </button>
-        <button type="button" className="ctl" onClick={() => onSkip(1)} aria-label="Next bar" title="Next bar"><Icon name="skipForward" size={22} /></button>
-        <button type="button" className="ctl" onClick={onTap} aria-label={`Tap tempo${tapCount ? `, ${tapCount} taps` : ''}`} title="Tap along with the beat while listening (T)">
+        <button type="button" className="ctl" onClick={() => onSkip(1)} aria-label={t.transport.nextBar} title={t.transport.nextBar}><Icon name="skipForward" size={22} /></button>
+        <button type="button" className="ctl" onClick={onTap} aria-label={t.transport.tap(tapCount)} title={t.transport.tapTitle}>
           <Icon name="tap" size={20} />
           {tapCount > 0 ? <span className="badge">{tapCount}</span> : null}
         </button>
       </div>
 
-      <div className="speed" role="group" aria-label="Playback speed">
+      <div className="speed" role="group" aria-label={t.transport.speed}>
         <span className="speed-pill" aria-hidden="true" style={{ transform: `translateX(${Math.max(ri, 0) * 100}%)` }} />
         {RATES.map((r) => (
           <button key={r} type="button" className={rate === r ? 'on' : ''} aria-pressed={rate === r} onClick={() => changeRate(r)}>
@@ -240,21 +238,21 @@ export default function Transport({ src, audioRef, videoHost, poster, onTap, tap
           </button>
         ))}
       </div>
-      <div className="speed listen" role="group" aria-label="What to hear">
+      <div className="speed listen" role="group" aria-label={t.transport.listen}>
         <span className="speed-pill" aria-hidden="true" style={{ transform: `translateX(${Math.max(li, 0) * 100}%)` }} />
         {LISTEN.map((l) => {
-          const off = l.id !== 'original' && !stems;
+          const off = l !== 'original' && !stems;
           return (
-            <button key={l.id} type="button" className={heard === l.id ? 'on' : ''} aria-pressed={heard === l.id} disabled={off}
-              title={off ? 'Available when the backing track was removed during analysis' : l.title}
-              onClick={() => { setStemError(null); setListen(l.id); }} data-testid={`listen-${l.id}`}>
-              {l.label}
+            <button key={l} type="button" className={heard === l ? 'on' : ''} aria-pressed={heard === l} disabled={off}
+              title={off ? t.transport.stemsOff : t.transport[`${l}Title`]}
+              onClick={() => { setStemError(null); setListen(l); }} data-testid={`listen-${l}`}>
+              {t.transport[l]}
             </button>
           );
         })}
       </div>
       {stemError ? <p className="muted small" role="status">{stemError}</p> : null}
-      {loadError ? <p className="muted small">Could not draw the waveform: {loadError}</p> : null}
+      {loadError ? <p className="muted small">{t.transport.waveFailed(loadError)}</p> : null}
     </div>
   );
 }
