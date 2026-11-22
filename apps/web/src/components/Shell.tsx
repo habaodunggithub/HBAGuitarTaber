@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWorkers } from '../api/hooks';
 import { LANGUAGES, lookup, type Messages, useLang, useT } from '../i18n';
-import { useDesktopInfo } from '../lib/desktop';
+import { desktop, useDesktopInfo } from '../lib/desktop';
 import { toggleTheme, useTheme } from '../lib/theme';
 import EngineDialog from './EngineDialog';
 import Icon from './Icon';
@@ -60,6 +60,7 @@ export default function Shell({ center, tools, children }: Props) {
             <span className="mode-glyph" aria-hidden="true" />
             {theme === 'night' ? t.shell.nightMode : t.shell.dayMode}
           </button>
+          <UpdateNotice />
           <LanguagePick />
           <WorkerLamp />
         </div>
@@ -67,6 +68,22 @@ export default function Shell({ center, tools, children }: Props) {
       <div className="frame-body">{children}</div>
       {keysOpen ? <ShortcutsDialog onClose={() => setKeysOpen(false)} /> : null}
     </div>
+  );
+}
+
+/** A newer version is out (desktop app only): a small note with the way to the download page; closing it lasts until the next version. */
+function UpdateNotice() {
+  const t = useT();
+  const info = useDesktopInfo();
+  if (!info?.update) return null;
+  return (
+    <p className="update-pill" role="status" data-testid="update">
+      <span>{t.update.available(info.update)}</span>
+      <button type="button" className="text-btn" onClick={() => desktop?.action('download-page')}>{t.update.download}</button>
+      <button type="button" className="icon-btn small" onClick={() => desktop?.action('update-dismiss')} aria-label={t.update.dismiss} title={t.update.dismiss}>
+        <Icon name="close" size={14} />
+      </button>
+    </p>
   );
 }
 

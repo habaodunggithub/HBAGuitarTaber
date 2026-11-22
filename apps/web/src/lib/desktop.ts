@@ -15,11 +15,16 @@ export interface DesktopInfo {
   api: string;
   worker: 'stopped' | 'starting' | 'running' | 'crashed' | string;
   workerEnabled: boolean;
+  /** a newer release to tell the user about (not dismissed), else null */
+  update?: string | null;
+  /** look for a newer release once a day */
+  checkUpdates?: boolean;
   paths: { data: string; runtime: string; cache: string; logs: string };
 }
 
 export type DesktopAction =
-  | 'restart-engine' | 'change-engine' | 'open-logs' | 'open-data' | 'check-updates' | 'report-problem' | 'download-page' | 'devtools';
+  | 'restart-engine' | 'change-engine' | 'open-logs' | 'open-data' | 'check-updates' | 'report-problem' | 'download-page' | 'devtools'
+  | 'update-dismiss';
 
 interface Bridge {
   /** the language the user picked, kept by the desktop app (settings.json); null: none picked yet */
@@ -29,6 +34,7 @@ interface Bridge {
   onState(cb: (info: DesktopInfo) => void): () => void;
   action(name: DesktopAction): void;
   setWorker(on: boolean): void;
+  setAutoUpdates?(on: boolean): void;
 }
 
 declare global {

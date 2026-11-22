@@ -98,6 +98,14 @@ export const en = {
     report: 'Report a problem',
     openData: 'Open the data folder',
     checkUpdates: 'Check for updates',
+    autoUpdates: 'Look for a new version every day',
+    autoUpdatesHint: 'Taber asks GitHub which version is the latest. Nothing about you, your takes or your tabs is sent.',
+  },
+
+  update: {
+    available: (version: string) => `Taber ${version} is out`,
+    download: 'Download',
+    dismiss: 'Hide until the next version',
   },
 
   home: {

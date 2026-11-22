@@ -16,6 +16,8 @@ export interface Settings {
   /** look for a newer release on GitHub once a day */
   checkUpdates: boolean;
   lastUpdateCheck?: number;
+  /** the newer version whose notice the user closed: no notice again until a newer one */
+  dismissedUpdate?: string;
   window?: { width: number; height: number; x?: number; y?: number; maximized?: boolean };
 }
 
