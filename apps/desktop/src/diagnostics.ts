@@ -16,16 +16,24 @@ export interface Entry {
   data: Buffer;
 }
 
-/** The home folder and the account name out of a text (paths in logs, settings, error messages). */
-export function redact(text: string, home = os.homedir(), user = os.userInfo().username): string {
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** A user's home folder anywhere in a path: Windows (also 8.3 short names, any case, as JSON escapes it), Linux, macOS. */
+const HOMES = /(?:[A-Za-z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/)|\/home\/|\/Users\/)[^\\/"'\s]+/gi;
+
+/**
+ * Out of a text (logs, settings, error messages): the home folder and every user home folder become ~, the account
+ * name <user> where it stands as a word of its own, the computer's name <computer>.
+ */
+export function redact(text: string, home = os.homedir(), user = os.userInfo().username, host = os.hostname()): string {
   let out = text;
   for (const h of new Set([home, home.replace(/\\/g, '/'), home.replace(/\\/g, '\\\\')])) {
-    if (h.length > 1) out = out.split(h).join('~');
+    if (h.length > 1) out = out.replace(new RegExp(`${esc(h)}(?=[\\\\/"'\\s]|$)`, /^[A-Za-z]:/.test(h) ? 'gim' : 'gm'), '~');
   }
-  if (user.length >= 3) {
-    const name = user.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(`(?<![\\w])${name}(?![\\w])`, 'gi'), '<user>');
-  }
+  out = out.replace(HOMES, '~');
+  const word = (w: string) => new RegExp(`(?<=^|[\\s"'=:@(\\[<>,;])${esc(w)}(?=$|[\\s"',;:.)\\]>])`, 'gim');
+  for (const h of new Set([host, host.split('.')[0] ?? ''])) if (h.length >= 3) out = out.replace(new RegExp(esc(h), 'gi'), '<computer>');
+  if (user.length >= 2) out = out.replace(word(user), '<user>');
   return out;
 }
 
@@ -58,12 +66,12 @@ about.json   app, engine and pipeline versions, the engine type, the computer (s
 logs/        the app's and the engine's logs (the end of each, at most 2 MB)
 
 There are no recordings and no tabs in here. Your home folder is written as ~ and your account name
-as <user>. Attach this file to your report yourself; the app sends nothing.
+as <user>, your computer's name as <computer>. Attach this file to your report yourself; the app sends nothing.
 `;
 
 /** The files of the bundle: about.json from `about`, the logs found in `logsDir`, a README. */
-export function bundleEntries(logsDir: string, about: Record<string, unknown>, home?: string, user?: string): Entry[] {
-  const r = (t: string) => redact(t, home, user);
+export function bundleEntries(logsDir: string, about: Record<string, unknown>, home?: string, user?: string, host?: string): Entry[] {
+  const r = (t: string) => redact(t, home, user, host);
   const entries: Entry[] = [
     { name: 'README.txt', data: Buffer.from(README) },
     { name: 'about.json', data: Buffer.from(r(JSON.stringify(about, null, 2))) },
@@ -82,7 +90,10 @@ export function bundleEntries(logsDir: string, about: Record<string, unknown>, h
       const n = Math.min(size, LOG_LIMIT);
       const buf = Buffer.alloc(n);
       fs.readSync(fd, buf, 0, n, size - n);
-      entries.push({ name: `logs/${f}`, data: Buffer.from(r(buf.toString('utf8'))) });
+      // a cut log starts at its next full line (not inside a line, nor inside a character)
+      const text = buf.toString('utf8');
+      const kept = n < size ? text.slice(text.indexOf('\n') + 1) : text;
+      entries.push({ name: `logs/${f}`, data: Buffer.from(r(kept)) });
     } finally {
       fs.closeSync(fd);
     }

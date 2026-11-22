@@ -422,15 +422,14 @@ async function exportDiagnostics() {
   }
   const about = {
     createdAt: new Date().toISOString(),
-    app: { name: APP_NAME, version: app.getVersion(), electron: process.versions.electron, platform: `${process.platform}-${process.arch}` },
+    ...desktopInfo(), // what the Engine panel shows: versions, engine, worker, folders
+    electron: process.versions.electron,
     engine: runtime ?? null,
     pipeline: health?.pipeline ?? null,
-    api: { state: backend?.apiState ?? 'stopped', health },
-    worker: backend?.workerState ?? 'stopped',
+    health,
     hardware,
     system: systemFacts(layout.data),
     settings,
-    paths: { data: layout.data, runtime: layout.runtime, cache: layout.cache, logs: layout.logs },
   };
   try {
     fs.writeFileSync(filePath, zip(bundleEntries(layout.logs, about)));

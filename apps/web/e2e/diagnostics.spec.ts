@@ -46,3 +46,12 @@ test('Windows paths are redacted too, also as JSON writes them', () => {
   expect(redact(JSON.stringify({ p: `${home}\\x` }), home, 'Bao Ha')).toBe('{"p":"~\\\\x"}');
   expect(redact('C:/Users/Bao Ha/x', home, 'Bao Ha')).toBe('~/x');
 });
+
+test('the edges of redaction: the computer name, a longer home, a user named like a word, short Windows paths', () => {
+  // the worker's id carries the computer's name (worker.py: location-hostname-pid)
+  expect(redact('worker local-Baos-MacBook-Pro.local-4242 polling', '/Users/bao', 'bao', 'Baos-MacBook-Pro.local')).toBe('worker local-<computer>-4242 polling');
+  expect(redact('/home/bao2/x and /home/bao/y', '/home/bao', 'bao', 'box1')).toBe('~/x and ~/y');
+  expect(redact('hba-guitar-taber started by guitar', '/home/guitar', 'guitar', 'pc1')).toBe('hba-guitar-taber started by <user>');
+  expect(redact('TEMP=C:\\Users\\THIENB~1\\AppData\\Local\\Temp', 'C:\\Users\\Thien Bao', 'Thien Bao', 'DESKTOP-1')).toBe('TEMP=~\\AppData\\Local\\Temp');
+  expect(redact('c:\\users\\thien bao\\x', 'C:\\Users\\Thien Bao', 'Thien Bao', 'DESKTOP-1')).toBe('~\\x');
+});
