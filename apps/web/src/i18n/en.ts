@@ -5,9 +5,6 @@
  * fill() so a translation can move them. Maps keyed by server values (stages, techniques…) are read with
  * lookup(), which falls back to the raw key for a value the catalog does not know yet.
  */
-/** Values the server sends with a code. */
-export type Params = Record<string, string | number>;
-
 export const en = {
   language: {
     name: 'English',
@@ -461,7 +458,7 @@ export const en = {
       onnx_missing: 'onnxruntime is not installed, so the onset model was not used. Run just setup to install it.',
       strings_need_torch: 'The string classifier needs torch (just setup); strings were chosen from hand movement only.',
       hand_model_missing: 'The hand model could not be downloaded (check the internet connection), so the video was not used. Try again later.',
-      /** `p.reason` arrives already translated (server.videoReasons) */
+      /** `p.reason` is the translated `reason_code` (server.videoReasons) */
       video_no_help: (p: Params) => `The video did not help: ${p.reason}. Check the 4 calibration points.`,
       video_hard_to_track: 'The guitar moved a lot or the light is low, so the neck was hard to track; video results are less reliable.',
       video_libs_missing: 'Video analysis libraries are not installed. Run just setup to install them.',
@@ -476,6 +473,18 @@ export const en = {
       no_fingertips: 'no fingertips seen on the fretboard around the notes',
       video_libs_missing: 'mediapipe/opencv is not installed (just setup)',
       video_unreadable: 'The video could not be read',
+    },
+    /** the worker's progress lines, recognized by their fixed English wording (services/api tests pin it) */
+    progress: {
+      download: (model: string, done: string, total: string) => `Downloading the ${model}, first time only: ${done} of ${total}`,
+      retrying: 'Temporary error, retrying',
+      requeued: 'Worker lost connection, re-queuing',
+    },
+    /** model names inside the download line, by the English name the worker sends */
+    models: {
+      'backing-track separation model': 'backing-track separation model',
+      'beat model': 'beat model',
+      'hand model': 'hand model',
     },
     errors: {
       not_media: 'Could not read the file: it is not a valid audio or video file',
@@ -504,3 +513,6 @@ export const en = {
 };
 
 export type Messages = typeof en;
+
+/** Values the server sends with a code. */
+export type Params = Record<string, string | number>;

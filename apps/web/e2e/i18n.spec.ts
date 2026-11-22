@@ -6,7 +6,8 @@ import { createTab, FIXTURE } from './helpers';
  * wrapped did not come from a catalog: a hard-coded string a translation would miss. Allowed without
  * brackets: numbers, times and symbols, note and string names, the user's own take names, whatever is
  * marked translate="no" (the brand, commands), data-i18n="as-is" (tab notation, 8va, the amp's name plate) or
- * data-i18n="user" (a file name), what alphaTab draws, and text the server wrote (data-i18n="server": analysis warnings, still in English).
+ * data-i18n="user" (a file name), what alphaTab draws, and server text the catalog cannot say (data-i18n="server":
+ * an error from the worker, a code an older app does not know).
  */
 const SYMBOLS = /^[\s\d.,:;%()[\]+\-–−—·|/\\↓↑←→…×#]*$/;
 const NOTE = /^([A-G][#b]?-?\d?|[a-g])$/; // A4, Eb, the string names in the lane
@@ -79,6 +80,8 @@ test.describe('every string comes from a catalog', () => {
   test('the editor: note details, tools, popovers and the shortcut sheet', async ({ page }) => {
     await createTab(page, 'box_techniques.wav', 'pseudo');
     await expect(page.getByTestId('save-state')).toContainText('⟦');
+    // a take with no band: the analysis warns it found no guitar to separate, by its code (server.notices)
+    await expect(page.locator('.banner.warn')).toContainText('⟦');
     expect(await untranslated(page)).toEqual([]);
 
     await page.keyboard.press('ArrowRight'); // a selected note

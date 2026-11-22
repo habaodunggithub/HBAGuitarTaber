@@ -120,7 +120,8 @@ class F0Track(BaseModel):
 
 
 class Notice(BaseModel):
-    """A warning the app shows, as a code it translates (apps/web/src/i18n/en.ts, server.notices) and its values."""
+    """A warning the app shows, as a code it translates (server.notices in the web catalog) and its values. A
+    `reason_code` value is itself a code (server.videoReasons). An empty code has no translation."""
 
     code: str
     params: dict[str, str | float] = Field(default_factory=dict)

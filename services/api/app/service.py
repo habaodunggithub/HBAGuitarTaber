@@ -25,9 +25,9 @@ class ServiceError(Exception):
     """An API error. `code` (with `params`) names the ones a user can meet, so the app can say them in its own language
     (apps/web/src/i18n/en.ts, server.errors); `detail` stays the English text."""
 
-    def __init__(self, status: int, detail: str, code: str | None = None, **params: str | float):
+    def __init__(self, status: int, detail: str, code: str | None = None, params: dict[str, str | float] | None = None):
         super().__init__(detail)
-        self.status, self.detail, self.code, self.params = status, detail, code, params
+        self.status, self.detail, self.code, self.params = status, detail, code, params or {}
 
 
 def compute_cache_key(inputs: list[tuple[str, str]], options: AnalysisOptions, pipeline_version: str) -> str:

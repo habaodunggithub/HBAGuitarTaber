@@ -58,7 +58,7 @@ async def upload(
             while chunk := await file.read(media.MB):
                 size += len(chunk)
                 if size > limit:
-                    raise ServiceError(413, f"File is larger than {settings.max_video_mb} MB", code="file_too_large", mb=settings.max_video_mb)
+                    raise ServiceError(413, f"File is larger than {settings.max_video_mb} MB", code="file_too_large", params={"mb": settings.max_video_mb})
                 h.update(chunk)
                 out.write(chunk)
         info = await asyncio.to_thread(media.inspect, path, size, settings)

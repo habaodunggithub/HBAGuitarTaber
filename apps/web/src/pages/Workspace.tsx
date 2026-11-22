@@ -15,7 +15,8 @@ import type { TabController } from '../components/TabView';
 import { toast } from '../components/Toaster';
 import Transport from '../components/Transport';
 import VideoCalibrate from '../components/VideoCalibrate';
-import { errorText, getT, lookup, serverText, useT } from '../i18n';
+import { getT, lookup, serverText, useT } from '../i18n';
+import { errorText } from '../lib/errors';
 import { fmtTime, keyLabel } from '../lib/format';
 import { cyclePosition, deleteNote, deleteNotes, getNote, insertNoteAt, measureRange, setFret, setLocked, setPosition, shiftPitch, stepLoc, type NoteLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
@@ -248,7 +249,7 @@ function Editor({ t }: { t: Transcription }) {
   }));
   const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast(m.workspace.truthRemoved), onError: (e) => setNotice(errorText(e)) });
 
-  const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(m.workspace.restored(n), 'history') }));
+  const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(m.workspace.restored(n), 'history'), onError: (e) => setNotice(errorText(e)) }));
 
   if (!score) return <Shell center={<BackLink />}><main id="content" className="page"><p className="muted" role="status">{m.workspace.opening}</p></main></Shell>;
 
@@ -400,7 +401,7 @@ type VideoQuality = NonNullable<NonNullable<Transcription['quality']>['video']>;
 function VideoStatus({ video }: { video: VideoQuality | null }) {
   const m = useT();
   if (!video) return <p className="muted small">{m.workspace.videoUnused}</p>;
-  if (!video.used) return <p className="muted small">{m.workspace.videoNoHelp(video.reason_code ? lookup(m.server.videoReasons, video.reason_code) : video.reason ?? '')}</p>;
+  if (!video.used) return <p className="muted small">{m.workspace.videoNoHelp(video.reason_code && Object.hasOwn(m.server.videoReasons, video.reason_code) ? lookup(m.server.videoReasons, video.reason_code) : video.reason ?? '')}</p>;
   return (
     <p className="muted small" data-testid="video-status">
       {m.workspace.videoUsed(Math.round((video.tracked_ratio ?? 0) * 100), Math.round((video.hands_ratio ?? 0) * 100), video.notes_with_evidence ?? 0)}

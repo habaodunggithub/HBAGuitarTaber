@@ -1,6 +1,5 @@
 import { Fragment, createElement, type ReactNode } from 'react';
 import { create } from 'zustand';
-import { ApiError } from '../api/http';
 import { en, type Messages, type Params } from './en';
 import { vi } from './vi';
 
@@ -120,14 +119,17 @@ export function serverText(t: Messages, kind: 'notices' | 'errors', code: string
   if (!code || !Object.hasOwn(map, code)) return null;
   const m = map[code]!;
   const p: Params = { ...params };
-  if (typeof p.reason === 'string' && p.reason) p.reason = lookup(t.server.videoReasons, p.reason); // a code inside a code
+  if (typeof p.reason_code === 'string' && p.reason_code) p.reason = lookup(t.server.videoReasons, p.reason_code); // a code inside a code
   return typeof m === 'function' ? m(p) : m;
 }
 
-/** The text to show for a failed request or action: the catalog's when the server sent a code it knows. */
-export function errorText(e: unknown): string {
-  if (e instanceof ApiError) return serverText(getT(), 'errors', e.code, e.params) ?? e.message;
-  return e instanceof Error ? e.message : String(e);
+/** A progress line from the worker in the app's language, or null for one the catalog does not know. */
+export function progressText(t: Messages, line: string): string | null {
+  const p = t.server.progress;
+  if (line === en.server.progress.retrying) return p.retrying;
+  if (line === en.server.progress.requeued) return p.requeued;
+  const m = /^Downloading the (.+), first time only: (.+) of (.+)$/.exec(line);
+  return m ? p.download(lookup(t.server.models, m[1]!), m[2]!, m[3]!) : null;
 }
 
 export type { Messages, Params };

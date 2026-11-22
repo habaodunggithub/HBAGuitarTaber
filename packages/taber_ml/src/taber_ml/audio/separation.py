@@ -35,7 +35,7 @@ log = logging.getLogger("taber.separation")
 
 MODEL = "htdemucs_6s"
 MODEL_SR = 44100
-DECISION_VERSION = 3  # bump when choose_stem() changes: cached decisions are keyed by it
+DECISION_VERSION = 4  # bump when choose_stem() changes: cached decisions are keyed by it (4: warning_code)
 SOLO_BACKING_DB = -14.0  # backing this far below the mix => treat the take as solo, keep the original
 EMPTY_GUITAR_DB = -30.0  # guitar stem this far below the mix => Demucs found no guitar
 PLAYBACK_ROLES = ("guitar", "backing")  # the stems the editor can play instead of the original

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, urls } from '../api/client';
 import { fmtTime } from '../lib/format';
 import { calibrationBoardPoints, calibrationToImage, fretU, TAPER, type GuitarBody, type Pt } from '../lib/homography';
-import { errorText, type Messages, useT } from '../i18n';
+import { type Messages, useT } from '../i18n';
+import { errorText } from '../lib/errors';
 import Icon from './Icon';
 
 /**

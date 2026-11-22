@@ -58,12 +58,12 @@ def inspect(path: Path, size: int, settings: Settings) -> MediaInfo:
         raise ServiceError(422, "The file has no audio stream", code="no_audio_stream")
     kind = "video" if has_video else "audio"
     if kind == "audio" and size > settings.max_audio_mb * MB:
-        raise ServiceError(413, f"Audio is larger than {settings.max_audio_mb} MB", code="audio_too_large", mb=settings.max_audio_mb)
+        raise ServiceError(413, f"Audio is larger than {settings.max_audio_mb} MB", code="audio_too_large", params={"mb": settings.max_audio_mb})
     duration = float(info.get("format", {}).get("duration") or 0.0)
     if duration > settings.max_duration_s:
         raise ServiceError(
             422, f"File is {duration:.0f}s long, the maximum is {settings.max_duration_s}s", code="too_long",
-            seconds=round(duration), max=settings.max_duration_s,
+            params={"seconds": round(duration), "max": settings.max_duration_s},
         )
     kept = {"format": info.get("format", {}).get("format_name"), "streams": [
         {k: s.get(k) for k in ("codec_type", "codec_name", "sample_rate", "channels", "width", "height")} for s in streams]}

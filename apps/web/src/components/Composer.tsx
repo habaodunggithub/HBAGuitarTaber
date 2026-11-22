@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api } from '../api/client';
 import type { CreateTranscription } from '../api/types';
-import { errorText, lookup, useT } from '../i18n';
+import { lookup, useT } from '../i18n';
+import { errorText } from '../lib/errors';
 import { fmtBytes } from '../lib/format';
 import { TUNING_PRESETS } from '../lib/tuning';
 import Icon from './Icon';

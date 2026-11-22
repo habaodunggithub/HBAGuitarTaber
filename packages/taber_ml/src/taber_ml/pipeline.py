@@ -155,7 +155,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
             stem_audio, info = separate_file(primary, sep, force=opts.separate_source == "on", key=key)
             separation = asdict(info)
             if info.warning:
-                warn(info.warning_code or "separation", info.warning)
+                warn(info.warning_code or "", info.warning)  # no code: the app shows the English text
             if stem_audio is not None:
                 seg_audio = stem_audio  # beat_audio keeps the original mix (drums help beat tracking)
                 separation["playback"] = _publish_stems(io, key)
@@ -243,7 +243,7 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
                 video_report = asdict(rep_)
                 video_track = video_report.pop("track")  # stored on its own, not in the quality summary
                 if not rep_.used:
-                    warn("video_no_help", "The video did not help: " + rep_.reason + ". Check the 4 calibration points.", reason=rep_.reason_code)
+                    warn("video_no_help", "The video did not help: " + rep_.reason + ". Check the 4 calibration points.", reason_code=rep_.reason_code)
                 elif rep_.tracked_ratio < 0.5:
                     warn("video_hard_to_track", "The guitar moved a lot or the light is low, so the neck was hard to track; video results are less reliable.")
             except ImportError:
