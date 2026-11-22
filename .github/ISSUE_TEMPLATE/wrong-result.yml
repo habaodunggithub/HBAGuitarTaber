@@ -1,0 +1,44 @@
+name: A tab came out wrong / Kết quả sai
+description: Taber transcribed a recording badly. Send it so the next version gets it right. / Taber chép sai một bản ghi. Gửi nó để bản sau chép đúng.
+title: "[Wrong result] "
+labels: [wrong-result, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        In the editor, **Report a wrong result** makes a `report.zip` (under 25 MB) with the recording, the tab and a diagnostics bundle. Drag it into the box below.
+        Trong editor, nút **Báo kết quả sai** tạo file `report.zip` (dưới 25 MB) gồm bản ghi, tab và gói chẩn đoán. Kéo nó vào ô bên dưới.
+
+        No GitHub account? Use the form on the download page instead. / Không có tài khoản GitHub? Dùng form trên trang tải.
+  - type: textarea
+    id: report
+    attributes:
+      label: report.zip
+      placeholder: Drag report.zip here / Kéo report.zip vào đây
+    validations:
+      required: true
+  - type: checkboxes
+    id: wrong
+    attributes:
+      label: What is wrong? / Sai ở đâu?
+      options:
+        - label: Missed notes / Thiếu nốt
+        - label: Extra notes / Thừa nốt
+        - label: Wrong pitch / Sai cao độ
+        - label: Wrong string or fret / Sai dây hoặc phím
+        - label: Wrong rhythm / Sai nhịp
+        - label: Wrong techniques (bend, slide…) / Sai kỹ thuật
+  - type: textarea
+    id: where
+    attributes:
+      label: Where, and what it should be / Ở đâu, và đúng ra là gì
+      description: Bar numbers or times help a lot. / Số ô nhịp hoặc thời điểm giúp rất nhiều.
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Your recording / Bản ghi của bạn
+      options:
+        - label: I agree that the recording in report.zip may be used to test and improve Taber. / Tôi đồng ý cho dùng bản ghi trong report.zip để kiểm thử và cải thiện Taber.
+          required: true
+        - label: I know that files attached here are public, and the recording is mine to share. / Tôi biết file đính kèm ở đây là công khai, và bản ghi là của tôi, tôi được phép chia sẻ.
+          required: true

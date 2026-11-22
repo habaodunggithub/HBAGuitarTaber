@@ -1,0 +1,6 @@
+# Only the two forms below: a blank issue skips the questions a fix needs.
+blank_issues_enabled: false
+contact_links:
+  - name: How to install / Cách cài đặt
+    url: https://habaodunggithub.github.io/HBAGuitarTaber/
+    about: Windows SmartScreen, macOS "Open Anyway", Linux .deb / AppImage. / Vượt cảnh báo SmartScreen, "Open Anyway" trên macOS, .deb / AppImage trên Linux.

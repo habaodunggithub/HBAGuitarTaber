@@ -1,0 +1,63 @@
+name: Something is broken / Báo lỗi
+description: The app crashes, does not install, or does something wrong. / App bị lỗi, không cài được, hoặc làm sai.
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Everything you attach here is **public**: anyone with the link can download it.
+        Cảm ơn bạn. Mọi thứ đính kèm ở đây đều **công khai**: ai có link cũng tải được.
+  - type: dropdown
+    id: os
+    attributes:
+      label: System / Hệ điều hành
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - Ubuntu / Debian
+        - Other Linux / Linux khác
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Taber version / Phiên bản Taber
+      description: The Engine panel shows it (the light in the top bar). / Xem trong bảng Engine (đèn trên thanh trên cùng).
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine
+      options:
+        - NVIDIA GPU
+        - Processor / Bộ xử lý
+        - Lite / Gọn nhẹ
+        - Not installed yet / Chưa cài được
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Chuyện gì xảy ra?
+      description: What you expected, and what the app did instead. / Bạn mong điều gì, và app đã làm gì.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps / Các bước
+      description: What you did just before, one step per line. / Bạn đã làm gì ngay trước đó, mỗi dòng một bước.
+      placeholder: |
+        1. Opened the app / Mở app
+        2. ...
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics bundle / Gói chẩn đoán
+      description: |
+        Engine panel → "Export diagnostics bundle", then drag `taber-diagnostics-….zip` here. It holds logs and facts about your computer, never your recordings or tabs; your name and your computer's name are taken out.
+        Bảng Engine → "Xuất gói chẩn đoán", rồi kéo file `taber-diagnostics-….zip` vào đây. Gói chỉ có log và thông tin máy, không có bản ghi hay tab; tên bạn và tên máy đã được che.
+      placeholder: Drag the .zip here / Kéo file .zip vào đây
