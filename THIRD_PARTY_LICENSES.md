@@ -38,7 +38,7 @@ service public (the app only imports these as unmodified libraries); `no` = must
 | @coderline/alphatab 1.9.0 (+ vite plugin) | MPL-2.0 | review | file-level copyleft: only matters if its source files are modified; Bravura and SONiVOX assets have their own licenses (shipped in the package) |
 | wavesurfer.js 7 | BSD-3-Clause | yes | |
 | react, zustand, @tanstack/react-query, react-router-dom | MIT | yes | |
-| Six Caps, IBM Plex Mono, Caveat (fonts, via @fontsource) | SIL OFL 1.1 | yes | bundled into the SPA; OFL allows embedding, the fonts may not be sold on their own |
+| Big Shoulders Display, IBM Plex Mono, Caveat, Sriracha (fonts, via @fontsource) | SIL OFL 1.1 | yes | bundled into the SPA and the desktop setup page; OFL allows embedding, the fonts may not be sold on their own |
 
 ## Datasets
 
@@ -67,4 +67,4 @@ the app's own copy of `uv` downloads them from PyPI (and torch from the PyTorch 
 
 | Component | License | Note |
 |---|---|---|
-| Six Caps, Caveat, IBM Plex Mono, Sriracha (fonts) | SIL OFL 1.1 | self-hosted in `site/fonts/`; Sriracha is used for the Vietnamese page |
+| Big Shoulders Display, Caveat, IBM Plex Mono, Sriracha (fonts) | SIL OFL 1.1 | self-hosted in `site/fonts/`; Sriracha is used for the Vietnamese page |

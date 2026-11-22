@@ -1,8 +1,5 @@
 /* The setup page wears the app's notebook (apps/web/src/styles.css tokens). */
-@font-face { font-family: 'Six Caps'; src: url('fonts/six-caps-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
-@font-face { font-family: 'Caveat'; src: url('fonts/caveat-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
-@font-face { font-family: 'IBM Plex Mono'; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
-@font-face { font-family: 'IBM Plex Mono'; src: url('fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; }
+/* The @font-face rules are in fonts.css, made from @fontsource by scripts/copy-static.mjs. */
 
 :root {
   --paper: #efe7d6;
@@ -16,12 +13,13 @@
   --staff: rgba(36, 87, 197, 0.1);
   --hl: #f7d54a;
   --signal: #b83218;
-  --display: 'Six Caps', 'Arial Narrow', sans-serif;
-  --hand: 'Caveat', 'Segoe Print', cursive;
+  --display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  --hand: 'Caveat', 'Sriracha', 'Segoe Print', cursive;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   color-scheme: light;
 }
+:root:lang(vi) { --hand: 'Sriracha', 'Segoe Print', cursive; }
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #161c2c;

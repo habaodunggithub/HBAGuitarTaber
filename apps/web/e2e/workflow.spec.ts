@@ -159,6 +159,18 @@ test.describe('re-assembling without a worker', () => {
   });
 });
 
+test.describe('editor tools', () => {
+  test('the settings stay inside a narrow window when the tools wrap onto their own line', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await createTab(page);
+    await page.getByText('Settings').click();
+    const box = (await page.locator('.pop[open] > .pop-body').boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(1000);
+    await expect(page.getByRole('button', { name: 'Apply' })).toBeInViewport();
+  });
+});
+
 test.describe('export and playback', () => {
   test('exports a real Guitar Pro file', async ({ page }) => {
     await createTab(page);
