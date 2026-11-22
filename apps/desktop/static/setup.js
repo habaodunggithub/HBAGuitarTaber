@@ -1,6 +1,12 @@
 // Renders the state the main process sends (src/main.ts SetupState) and sends the user's choice back.
 (() => {
   const $ = (id) => document.getElementById(id);
+  // the shell's catalog for this page (src/i18n.ts, setup); the English in setup.html is only what shows without it
+  const strings = (window.taber && window.taber.strings) || {};
+  const say = (key, values) => (strings[key] || key).replace(/\{(\w+)\}/g, (m, k) => (values && k in values ? values[k] : m));
+  document.documentElement.lang = (window.taber && window.taber.lang) || 'en';
+  for (const e of document.querySelectorAll('[data-t]')) if (strings[e.dataset.t]) e.textContent = strings[e.dataset.t];
+  for (const e of document.querySelectorAll('[data-t-label]')) if (strings[e.dataset.tLabel]) e.setAttribute('aria-label', strings[e.dataset.tLabel]);
   const screens = ['boot', 'choose', 'installing', 'starting', 'error'];
   let timer = null;
   let rendered = '';
@@ -29,7 +35,7 @@
         ...s.variants.map((v) => {
           const input = el('input', { type: 'radio', name: 'variant', value: v.id });
           if (v.id === (s.current || s.recommended)) input.checked = true;
-          const title = el('b', {}, v.title, v.id === s.recommended ? el('span', { class: 'pick' }, 'picked for this computer') : null);
+          const title = el('b', {}, v.title, v.id === s.recommended ? el('span', { class: 'pick' }, say('picked')) : null);
           return el('label', { class: 'variant' },
             input, title, el('span', { class: 'size' }, v.size),
             el('p', {}, v.detail),
@@ -39,7 +45,7 @@
     }
     const keep = $('keep');
     keep.hidden = !s.current;
-    if (s.current) keep.textContent = `Keep ${s.current}`;
+    if (s.current) keep.textContent = say('keep', { variant: (s.variants.find((v) => v.id === s.current) || { title: s.current }).title });
     keep.onclick = () => window.taber.install(s.current);
     $('install').onclick = () => {
       const v = new FormData($('variants')).get('variant');
@@ -50,13 +56,13 @@
     };
     $('install').disabled = false;
     // Windows / Linux have no menu bar: the engine commands sit behind the engine light in the app's top bar
-    if (!/Mac/.test(navigator.platform)) $('changeLater').textContent = 'you can change this later, from the engine light in the top bar';
+    $('changeLater').textContent = say(/Mac/.test(navigator.platform) ? 'changeLaterMenu' : 'changeLaterLight');
   }
 
   function renderInstalling(s) {
     $('phase').textContent = s.phase;
     $('written').textContent = s.written || '–';
-    $('writtenLabel').textContent = s.fraction !== undefined ? 'Downloaded' : 'On disk';
+    $('writtenLabel').textContent = say(s.fraction !== undefined ? 'downloaded' : 'onDisk');
     $('rate').textContent = s.rate || '–';
     const bar = $('bar');
     bar.hidden = s.fraction === undefined;
@@ -80,11 +86,11 @@
     show(s.screen);
     if (s.screen === 'choose') renderChoose(s);
     else if (s.screen === 'installing') renderInstalling(s);
-    else if (s.screen === 'starting') $('startMessage').textContent = `${s.message.toLowerCase()}…`;
+    else if (s.screen === 'starting') $('startMessage').textContent = s.message;
     else if (s.screen === 'error') {
       $('errTitle').textContent = s.title;
       $('errMessage').textContent = s.message;
-      $('errTail').textContent = s.logTail || '(nothing in the log)';
+      $('errTail').textContent = s.logTail || say('emptyLog');
       $('errLog').textContent = s.logPath;
     }
   }

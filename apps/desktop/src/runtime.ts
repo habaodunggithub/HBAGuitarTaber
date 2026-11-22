@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { cacheEnv, cleanEnv, type Layout } from './layout';
 import type { LogFile } from './log';
+import { t } from './i18n';
 
 export type Variant = 'gpu' | 'cpu' | 'lite';
 
@@ -291,13 +292,13 @@ export async function downloadResumable(
     } catch (e) {
       if (signal?.aborted) throw e;
       if ((e as NodeJS.ErrnoException).code === 'ENOSPC') {
-        throw new RuntimeError(`Not enough free disk space for ${path.basename(dest)} (in ${path.dirname(dest)}). Free some space and try again: the download continues where it stopped.`, log.tail());
+        throw new RuntimeError(t().install.noSpace(path.basename(dest), path.dirname(dest)), log.tail());
       }
       const now = fs.existsSync(part) ? fs.statSync(part).size : 0;
       stalled = now > before ? 0 : stalled + 1;
       log.line(`download ${path.basename(dest)} interrupted (${(e as Error).message}); ${stalled ? `attempt ${stalled} without progress` : 'resuming'}`);
       if (stalled >= MAX_STALLED_ATTEMPTS) {
-        throw new RuntimeError(`Could not download ${path.basename(dest)}: ${(e as Error).message}. Check the internet connection and try again: the download continues where it stopped.`, log.tail());
+        throw new RuntimeError(t().install.downloadFailed(path.basename(dest), (e as Error).message), log.tail());
       }
       await new Promise((r) => setTimeout(r, Math.min(2000 * 2 ** stalled, 30_000)));
     } finally {
@@ -309,7 +310,7 @@ export async function downloadResumable(
   log.line(`download ${path.basename(dest)}: checking`);
   if ((await sha256File(part)) !== sha256) {
     fs.rmSync(part, { force: true });
-    throw new RuntimeError(`${path.basename(dest)} arrived damaged (checksum mismatch). Try again: it is downloaded from the start.`, log.tail());
+    throw new RuntimeError(t().install.damaged(path.basename(dest)), log.tail());
   }
   fs.renameSync(part, dest);
 }
@@ -359,7 +360,7 @@ export async function provision(
   // 1. Python (uv downloads a standalone CPython build), and a venv on it
   const pythonChanged = previous ? !previous.python.startsWith(manifest.python) : false;
   if (!fs.existsSync(layout.python) || pythonChanged) {
-    onProgress({ phase: 'python', message: `Getting Python ${manifest.python}` });
+    onProgress({ phase: 'python', message: t().install.python(manifest.python) });
     await exec(uv, ['venv', layout.venv, '--python', manifest.python, '--managed-python', '--clear'], {
       env, log, signal, onLine: (l) => onProgress({ phase: 'python', message: l }),
     });
@@ -374,9 +375,9 @@ export async function provision(
   for (const w of req.big) {
     if (installedVersion(layout, manifest.python, w.name, w.version)) continue;
     const label = LABELS[w.name] ?? w.name;
-    onProgress({ phase: 'download', message: `Downloading ${label} ${w.version}`, bytes: 0 });
+    onProgress({ phase: 'download', message: t().install.wheel(label, w.version), bytes: 0 });
     await downloadResumable(w.url, w.file, w.sha256, log, (bytes, total, rate) => {
-      onProgress({ phase: 'download', message: `Downloading ${label} ${w.version}`, bytes, total, rate });
+      onProgress({ phase: 'download', message: t().install.wheel(label, w.version), bytes, total, rate });
     }, signal);
     fetched.push(w.file);
   }
@@ -384,7 +385,7 @@ export async function provision(
   // 2b. Exactly the locked packages for this variant (sync also removes what an older version installed)
   const cacheDir = env.UV_CACHE_DIR!;
   const before = await dirSize(cacheDir);
-  onProgress({ phase: 'packages', message: 'Downloading the analysis engine', bytes: 0 });
+  onProgress({ phase: 'packages', message: t().install.engine, bytes: 0 });
   let measuring = false;
   let syncing = true;
   const timer = setInterval(() => {
@@ -408,7 +409,7 @@ export async function provision(
   for (const f of fetched) fs.rmSync(f, { force: true });
 
   // 3. Can the API and the pipeline import, and what does torch see?
-  onProgress({ phase: 'check', message: 'Checking the engine' });
+  onProgress({ phase: 'check', message: t().install.phases.check });
   const out = await exec(layout.python, [layout.res.launch, 'check'], {
     env: cleanEnv(cacheEnv(layout)), log, signal, cwd: layout.runtime,
   });
@@ -437,7 +438,7 @@ export async function provision(
           return;
         }
         if (m.model && m.done !== undefined) {
-          onProgress({ phase: 'models', message: `Downloading the ${m.model}`, bytes: m.done, total: m.total });
+          onProgress({ phase: 'models', message: t().install.model(m.model), bytes: m.done, total: m.total });
         }
       },
     });

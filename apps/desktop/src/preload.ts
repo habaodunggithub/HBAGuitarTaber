@@ -9,6 +9,8 @@ const { contextBridge, ipcRenderer } = require('electron') as typeof import('ele
 
 if (location.protocol === 'file:') {
   contextBridge.exposeInMainWorld('taber', {
+    lang: ipcRenderer.sendSync('setup:lang') as string,
+    strings: ipcRenderer.sendSync('setup:strings') as Record<string, string>,
     onState(cb: (state: unknown) => void) {
       ipcRenderer.on('setup:state', (_e, s) => cb(s));
       ipcRenderer.send('setup:ready');
@@ -21,6 +23,8 @@ if (location.protocol === 'file:') {
   });
 } else if (location.protocol === 'http:' && location.hostname === '127.0.0.1') {
   contextBridge.exposeInMainWorld('taberDesktop', {
+    lang: ipcRenderer.sendSync('desktop:lang') as string | null,
+    setLanguage: (lang: string) => ipcRenderer.send('desktop:action', 'language', String(lang)),
     info: () => ipcRenderer.invoke('desktop:info'),
     onState(cb: (info: unknown) => void) {
       const h = (_e: unknown, info: unknown) => cb(info);

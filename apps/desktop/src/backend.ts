@@ -10,6 +10,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { cacheEnv, cleanEnv, type Layout, prependPath } from './layout';
 import { LogFile } from './log';
+import { t } from './i18n';
 
 export type ProcState = 'stopped' | 'starting' | 'running' | 'crashed';
 
@@ -155,13 +156,13 @@ export class Backend extends EventEmitter {
       exited = `exit code ${code ?? sig}`;
       if (!this.stopping) {
         this.setApi('crashed');
-        this.emit('api-crashed', new BackendError(`The API stopped (${exited})`, this.apiLog!.path, this.apiLog!.tail()));
+        this.emit('api-crashed', new BackendError(t().errors.apiStopped(String(exited)), this.apiLog!.path, this.apiLog!.tail()));
       }
     });
     // first start on Windows can take a while: antivirus scans every new .pyd
     const deadline = Date.now() + 120_000;
     while (Date.now() < deadline) {
-      if (exited) throw new BackendError(`The API did not start (${exited})`, this.apiLog.path, this.apiLog.tail());
+      if (exited) throw new BackendError(t().errors.apiDidNotStart(String(exited)), this.apiLog.path, this.apiLog.tail());
       try {
         const r = await fetch(`${this.url}/api/v1/health`, { signal: AbortSignal.timeout(1500) });
         if (r.ok && (await r.json()).ok) {
@@ -174,7 +175,7 @@ export class Backend extends EventEmitter {
       await sleep(300);
     }
     await killTree(child);
-    throw new BackendError('The API did not answer within 2 minutes', this.apiLog.path, this.apiLog.tail());
+    throw new BackendError(t().errors.apiSilent, this.apiLog.path, this.apiLog.tail());
   }
 
   private spawnWorker(): void {
@@ -198,7 +199,7 @@ export class Backend extends EventEmitter {
       const n = this.workerCrashes.length;
       this.workerLog?.line(`worker exited (${code ?? sig}), crash ${n} in the last 5 minutes`);
       if (n >= 5) {
-        this.emit('worker-gave-up', new BackendError('The analysis worker keeps stopping', this.workerLog!.path, this.workerLog!.tail()));
+        this.emit('worker-gave-up', new BackendError(t().errors.workerGaveUp, this.workerLog!.path, this.workerLog!.tail()));
         return;
       }
       setTimeout(() => !this.stopping && this.spawnWorker(), [2000, 5000, 15000, 30000][n - 1] ?? 30000);

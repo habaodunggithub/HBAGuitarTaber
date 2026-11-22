@@ -1,5 +1,6 @@
 import { Fragment, createElement, type ReactNode } from 'react';
 import { create } from 'zustand';
+import { desktop } from '../lib/desktop';
 import { en, type Messages, type Params } from './en';
 import { vi } from './vi';
 
@@ -7,8 +8,8 @@ import { vi } from './vi';
  * The app's languages. Every string the UI shows comes from a catalog: `en` is the source, and each other
  * language must have the same keys (TypeScript checks it). A message with values in it is a function.
  *
- * The language is, in order: `?lang=` in the URL (tests), the one the user picked (remembered), the first of the
- * computer's languages the app has, English. `pseudo` wraps every message in ⟦ ⟧ so a test can find text that
+ * The language is, in order: `?lang=` in the URL (tests), the one the user picked (remembered by the desktop app, else
+ * in this browser), the first of the computer's languages the app has, English. `pseudo` wraps every message in ⟦ ⟧ so a test can find text that
  * does not come from a catalog; it is only reachable through the URL.
  */
 export type Lang = 'en' | 'vi';
@@ -68,7 +69,7 @@ interface LangState {
   setLang: (l: Lang) => void;
 }
 
-const startLang = typeof window === 'undefined' ? 'en' : initialLang(location.href, savedLang(), navigator.languages ?? [navigator.language]);
+const startLang = typeof window === 'undefined' ? 'en' : initialLang(location.href, desktop?.lang ?? savedLang(), navigator.languages ?? [navigator.language]);
 
 export const useLang = create<LangState>((set) => ({
   lang: startLang,
@@ -79,6 +80,7 @@ export const useLang = create<LangState>((set) => ({
     } catch {
       // private window: the choice lasts until the app closes
     }
+    desktop?.setLanguage?.(l); // the desktop shell keeps it in settings.json and speaks it too
     set({ lang: l, t: catalog(l) });
   },
 }));

@@ -16,54 +16,54 @@
 
       <section id="boot" class="screen">
         <div class="metronome" aria-hidden="true"><i></i></div>
-        <p class="hand big">opening the notebook…</p>
+        <p class="hand big" data-t="opening">opening the notebook…</p>
       </section>
 
       <section id="choose" class="screen" hidden>
-        <h1 class="display">Set up the engine</h1>
+        <h1 class="display" data-t="title">Set up the engine</h1>
         <p class="lede">
-          Taber listens with a few models: pitch, note onsets, beats, and which string you played. They run on this
-          computer. They are downloaded once, from PyPI and PyTorch, into <code id="installDir"></code>
+          <span data-t="lede">Taber listens with a few models: pitch, note onsets, beats, and which string you played. They run
+          on this computer. They are downloaded once, from PyPI and PyTorch, into</span> <code id="installDir"></code>
         </p>
         <form id="variants" class="variants"></form>
         <div class="actions">
-          <button id="install" class="btn primary" type="button">Install</button>
+          <button id="install" class="btn primary" type="button" data-t="install">Install</button>
           <button id="keep" class="btn" type="button" hidden></button>
           <span class="hand note" id="changeLater">you can change this later, from the Engine menu</span>
         </div>
       </section>
 
       <section id="installing" class="screen" hidden>
-        <h1 class="display">Setting up the engine</h1>
+        <h1 class="display" data-t="installing">Setting up the engine</h1>
         <div class="progress">
           <div class="metronome" aria-hidden="true"><i></i></div>
           <dl>
-            <dt>Step</dt><dd id="phase"></dd>
+            <dt data-t="step">Step</dt><dd id="phase"></dd>
             <dt id="writtenLabel">On disk</dt><dd id="written">–</dd>
-            <dt>Speed</dt><dd id="rate">–</dd>
-            <dt>Time</dt><dd id="elapsed">0:00</dd>
+            <dt data-t="speed">Speed</dt><dd id="rate">–</dd>
+            <dt data-t="time">Time</dt><dd id="elapsed">0:00</dd>
           </dl>
         </div>
-        <div class="bar" id="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" hidden><span id="barFill"></span></div>
+        <div class="bar" id="bar" role="progressbar" aria-label="Download progress" data-t-label="progress" aria-valuemin="0" aria-valuemax="100" hidden><span id="barFill"></span></div>
         <p class="log" id="message"></p>
-        <p class="hand note">This happens once. If the connection drops or you close the app, the download continues where it stopped next time.</p>
+        <p class="hand note" data-t="once">This happens once. If the connection drops or you close the app, the download continues where it stopped next time.</p>
       </section>
 
       <section id="starting" class="screen" hidden>
         <div class="metronome" aria-hidden="true"><i></i></div>
-        <p class="hand big" id="startMessage">opening the notebook…</p>
+        <p class="hand big" id="startMessage" data-t="opening">opening the notebook…</p>
       </section>
 
       <section id="error" class="screen" hidden>
         <h1 class="display" id="errTitle"></h1>
         <p class="lede" id="errMessage"></p>
         <pre class="tail" id="errTail"></pre>
-        <p class="muted">Full log: <code id="errLog"></code></p>
+        <p class="muted"><span data-t="fullLog">Full log:</span> <code id="errLog"></code></p>
         <div class="actions">
-          <button id="retry" class="btn primary" type="button">Try again</button>
-          <button id="change" class="btn" type="button">Change engine</button>
-          <button id="logs" class="btn" type="button">Open logs</button>
-          <button id="quit" class="btn" type="button">Quit</button>
+          <button id="retry" class="btn primary" type="button" data-t="retry">Try again</button>
+          <button id="change" class="btn" type="button" data-t="change">Change engine</button>
+          <button id="logs" class="btn" type="button" data-t="openLogs">Open logs</button>
+          <button id="quit" class="btn" type="button" data-t="quit">Quit</button>
         </div>
       </section>
     </main>

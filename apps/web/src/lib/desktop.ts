@@ -22,6 +22,9 @@ export type DesktopAction =
   | 'restart-engine' | 'change-engine' | 'open-logs' | 'open-data' | 'check-updates' | 'report-problem' | 'download-page' | 'devtools';
 
 interface Bridge {
+  /** the language the user picked, kept by the desktop app (settings.json); null: none picked yet */
+  lang?: string | null;
+  setLanguage?(lang: string): void;
   info(): Promise<DesktopInfo | null>;
   onState(cb: (info: DesktopInfo) => void): () => void;
   action(name: DesktopAction): void;

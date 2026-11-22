@@ -16,6 +16,7 @@ import {
   formatBytes, type Manifest, type Phase, provision, readManifest, RuntimeError, type RuntimeState, runtimeStatus, type Variant,
 } from './runtime';
 import { loadSettings, saveSettings, type Settings } from './settings';
+import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
 const SITE = 'https://habaodunggithub.github.io/HBAGuitarTaber/';
@@ -167,27 +168,25 @@ function variantCards(m: Manifest, hw: Hardware): VariantCard[] {
   const cards: Record<Variant, VariantCard> = {
     gpu: {
       id: 'gpu',
-      title: 'NVIDIA GPU',
-      detail: hw.nvidia
-        ? `Fastest. Runs the models on your ${hw.nvidia.name}.`
-        : 'Fastest, but needs an NVIDIA graphics card, and none was found.',
+      title: t().variants.gpu,
+      detail: hw.nvidia ? t().variants.gpuFound(hw.nvidia.name) : t().variants.gpuMissing,
       size: m.downloadEstimate.gpu,
       warning: hw.gpuTooOld
-        ? `Your ${hw.nvidia?.name} (compute ${hw.nvidia?.computeCap}) is too old for this GPU build, which needs ${MIN_COMPUTE_CAP} or newer (GTX 16 / RTX 20 series and up). The models would run on the processor after a large download: choose Processor.`
+        ? t().variants.gpuTooOld(String(hw.nvidia?.name), String(hw.nvidia?.computeCap), String(MIN_COMPUTE_CAP))
         : hw.driverTooOld
-          ? `Driver ${hw.nvidia?.driver} is older than ${MIN_DRIVER_MAJOR}: update it first, or the models run on the CPU.`
+          ? t().variants.driverOld(String(hw.nvidia?.driver), MIN_DRIVER_MAJOR)
           : undefined,
     },
     cpu: {
       id: 'cpu',
-      title: 'Processor',
-      detail: 'Every model, on the processor. Same tabs, slower analysis.',
+      title: t().variants.cpu,
+      detail: t().variants.cpuDetail,
       size: m.downloadEstimate.cpu,
     },
     lite: {
       id: 'lite',
-      title: 'Lite',
-      detail: 'Smallest. Lighter pitch tracker, no backing-track removal, no string classifier. Video still works.',
+      title: t().variants.lite,
+      detail: t().variants.liteDetail,
       size: m.downloadEstimate.lite,
     },
   };
@@ -235,17 +234,11 @@ function askVariant(m: Manifest, hw: Hardware, reason: string): Promise<Variant>
 async function install(variant: Variant): Promise<void> {
   const log = new LogFile(layout.logs, 'runtime');
   const startedAt = Date.now();
-  let phase = 'Getting ready';
+  let phase = t().install.gettingReady;
   let message = '';
   let written: string | undefined;
   let last: Phase | null = null;
-  const labels: Record<Phase, string> = {
-    python: 'Getting Python',
-    download: 'Downloading PyTorch',
-    packages: 'Installing the engine',
-    check: 'Checking the engine',
-    models: 'Downloading the models',
-  };
+  const labels: Record<Phase, string> = t().install.phases;
   try {
     runtime = await provision(layout, manifest!, variant, log, (p) => {
       if (p.phase !== last) {
@@ -258,10 +251,10 @@ async function install(variant: Variant): Promise<void> {
       let rate: string | undefined;
       if (p.bytes !== undefined && p.total) {
         fraction = Math.min(1, p.bytes / p.total);
-        written = `${formatBytes(p.bytes)} of ${formatBytes(p.total)}`;
+        written = t().install.of(formatBytes(p.bytes), formatBytes(p.total));
         if (p.rate && p.rate > 0) {
           const left = Math.max(0, (p.total - p.bytes) / p.rate);
-          rate = `${formatBytes(p.rate)}/s, about ${left < 90 ? `${Math.max(1, Math.round(left))} s` : `${Math.round(left / 60)} min`} left`;
+          rate = t().install.rate(formatBytes(p.rate), left < 90 ? t().install.seconds(Math.max(1, Math.round(left))) : t().install.minutes(Math.round(left / 60)));
         }
       } else if (p.bytes !== undefined) {
         written = formatBytes(p.bytes);
@@ -276,7 +269,7 @@ async function install(variant: Variant): Promise<void> {
 }
 
 async function startBackend(): Promise<void> {
-  sendSetup({ screen: 'starting', message: 'Opening the notebook' });
+  sendSetup({ screen: 'starting', message: t().setup.opening });
   backend = new Backend({ layout, port: settings.port, startWorker: settings.startWorker });
   backend.on('port', (p: number) => {
     if (settings.port !== p) {
@@ -284,13 +277,13 @@ async function startBackend(): Promise<void> {
       save();
     }
   });
-  backend.on('api-crashed', (e: BackendError) => void showError('The engine stopped', e));
+  backend.on('api-crashed', (e: BackendError) => void showError(t().errors.stopped, e));
   backend.on('worker-gave-up', (e: BackendError) => {
     void dialog.showMessageBox({
       type: 'warning',
-      message: 'The analysis worker keeps stopping',
-      detail: `New recordings will wait in the queue. The log is at:\n${e.logPath}\n\n${e.logTail.slice(-1200)}`,
-      buttons: ['OK', 'Open log'],
+      message: t().errors.workerGaveUp,
+      detail: t().errors.workerGaveUpDetail(e.logPath, e.logTail.slice(-1200)),
+      buttons: [t().errors.ok, t().errors.openLog],
     }).then((r) => r.response === 1 && shell.showItemInFolder(e.logPath));
   });
   backend.on('state', () => {
@@ -332,7 +325,7 @@ async function boot(forceChoose = false) {
     if (SELFTEST) await selftest();
     else setTimeout(() => void checkForUpdates(false), 8000);
   } catch (e) {
-    await showError(backend ? 'The engine did not start' : 'The engine could not be installed', e);
+    await showError(backend ? t().errors.didNotStart : t().errors.notInstalled, e);
   }
 }
 
@@ -387,18 +380,18 @@ async function checkForUpdates(manual: boolean) {
     if (newer(rel.tag_name, app.getVersion())) {
       const { response } = await dialog.showMessageBox({
         type: 'info',
-        message: `${APP_NAME} ${rel.tag_name.replace(/^v/, '')} is available`,
-        detail: `You have ${app.getVersion()}. Your tabs and the engine are kept when you install the new version.`,
-        buttons: ['Download', 'Later'],
+        message: t().updates.available(APP_NAME, rel.tag_name.replace(/^v/, '')),
+        detail: t().updates.availableDetail(app.getVersion()),
+        buttons: [t().updates.download, t().updates.later],
         defaultId: 0,
       });
       if (response === 0) void shell.openExternal(SITE);
     } else if (manual) {
-      void dialog.showMessageBox({ type: 'info', message: 'You have the latest version', detail: app.getVersion() });
+      void dialog.showMessageBox({ type: 'info', message: t().updates.latest, detail: app.getVersion() });
     }
   } catch (e) {
     desktopLog.line(`update check failed: ${(e as Error).message}`);
-    if (manual) void dialog.showMessageBox({ type: 'warning', message: 'Could not check for updates', detail: (e as Error).message });
+    if (manual) void dialog.showMessageBox({ type: 'warning', message: t().updates.failed, detail: (e as Error).message });
   }
 }
 
@@ -406,19 +399,20 @@ async function checkForUpdates(manual: boolean) {
 
 function engineInfo() {
   const r = runtime;
+  const i = t().engineInfo;
   const lines = [
-    `Engine: ${r?.variant ?? 'not installed'}`,
-    `Python ${r?.python ?? '?'}, torch ${r?.torch ?? 'not installed'}`,
-    `GPU: ${r?.cuda ? r.gpu : r?.gpuNote ? `not used (${r.gpuNote})` : 'not used'}`,
-    `API: ${backend?.apiState ?? 'stopped'} on ${backend?.url ?? '-'}`,
-    `Local worker: ${backend?.workerState ?? 'stopped'}`,
+    i.engine(r?.variant ?? i.notInstalled),
+    `Python ${r?.python ?? '?'}, torch ${r?.torch ?? i.notInstalled}`,
+    i.gpu(r?.cuda ? String(r.gpu) : r?.gpuNote ? i.gpuNotUsedWhy(r.gpuNote) : i.gpuNotUsed),
+    i.api(backend?.apiState ?? 'stopped', backend?.url ?? '-'),
+    i.worker(backend?.workerState ?? 'stopped'),
     '',
-    `Data: ${layout.data}`,
-    `Engine files: ${layout.runtime}`,
-    `Cache: ${layout.cache}`,
-    `Logs: ${layout.logs}`,
+    i.data(layout.data),
+    i.files(layout.runtime),
+    i.cache(layout.cache),
+    i.logs(layout.logs),
   ];
-  void dialog.showMessageBox({ type: 'info', message: 'Engine', detail: lines.join('\n') });
+  void dialog.showMessageBox({ type: 'info', message: i.title, detail: lines.join('\n') });
 }
 
 function buildMenu() {
@@ -429,17 +423,17 @@ function buildMenu() {
   const template: MenuItemConstructorOptions[] = [
     { role: 'appMenu' },
     {
-      label: 'File',
+      label: t().menu.file,
       submenu: [
-        { label: 'Open data folder', click: () => void shell.openPath(layout.data) },
-        { label: 'Open logs folder', click: () => void shell.openPath(layout.logs) },
+        { label: t().menu.openData, click: () => void shell.openPath(layout.data) },
+        { label: t().menu.openLogs, click: () => void shell.openPath(layout.logs) },
         { type: 'separator' },
         { role: 'close' },
       ],
     },
     { role: 'editMenu' }, // copy / paste in text fields on macOS needs it
     {
-      label: 'View',
+      label: t().menu.view,
       submenu: [
         { role: 'reload' },
         { role: 'toggleDevTools' },
@@ -452,10 +446,10 @@ function buildMenu() {
       ],
     },
     {
-      label: 'Engine',
+      label: t().menu.engine,
       submenu: [
         {
-          label: 'Local analysis worker',
+          label: t().menu.localWorker,
           type: 'checkbox',
           checked: settings.startWorker,
           click: (item) => {
@@ -464,18 +458,19 @@ function buildMenu() {
             void backend?.setWorkerEnabled(item.checked);
           },
         },
-        { label: 'Restart engine', click: () => void boot(false) },
-        { label: 'Change engine…', click: () => void boot(true) },
+        { label: t().menu.restart, click: () => void boot(false) },
+        { label: t().menu.change, click: () => void boot(true) },
         { type: 'separator' },
-        { label: 'Engine info', click: engineInfo },
+        { label: t().menu.info, click: engineInfo },
       ],
     },
     {
       role: 'help',
+      label: t().menu.help,
       submenu: [
-        { label: 'Download page', click: () => void shell.openExternal(SITE) },
-        { label: 'Check for updates…', click: () => void checkForUpdates(true) },
-        { label: 'Report a problem', click: () => void shell.openExternal(`https://github.com/${REPO}/issues`) },
+        { label: t().menu.downloadPage, click: () => void shell.openExternal(SITE) },
+        { label: t().menu.checkUpdates, click: () => void checkForUpdates(true) },
+        { label: t().menu.report, click: () => void shell.openExternal(`https://github.com/${REPO}/issues`) },
       ],
     },
   ];
@@ -538,6 +533,16 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
     case 'report-problem': void shell.openExternal(`https://github.com/${REPO}/issues`); break;
     case 'download-page': void shell.openExternal(SITE); break;
     case 'devtools': win?.webContents.toggleDevTools(); break;
+    case 'language': {
+      // the language picked in the app: kept in settings.json (the page's own storage follows the port), used here too
+      // any language the app knows of, even before the shell has its words (t() falls back to English)
+      if (!LANGS.includes(arg as Lang)) return;
+      settings.language = arg as Lang;
+      save();
+      setLang(pickLang(settings.language, app.getPreferredSystemLanguages()));
+      buildMenu();
+      break;
+    }
     case 'worker':
       if (typeof arg !== 'boolean') return;
       settings.startWorker = arg;
@@ -549,6 +554,20 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
 });
 
 // ───────────────────────────── setup page IPC ─────────────────────────────
+
+// both pages ask once, while they load, so their first paint is already in the right language. Like every call,
+// checked against the sender: the setup page (file://) or the app page.
+const fromSetup = (e: IpcMainEvent) => (e.senderFrame?.url ?? '').startsWith('file:');
+ipcMain.on('setup:lang', (e) => {
+  e.returnValue = fromSetup(e) ? lang() : null;
+});
+ipcMain.on('setup:strings', (e) => {
+  e.returnValue = fromSetup(e) ? t().setup : {};
+});
+// the app page gets the saved choice, not the shell's: the web app may have a language before the shell does
+ipcMain.on('desktop:lang', (e) => {
+  e.returnValue = fromApp(e) ? settings.language ?? null : null;
+});
 
 ipcMain.on('setup:ready', (e) => e.sender.send('setup:state', setupState));
 ipcMain.on('setup:install', (_e, v: Variant) => {
@@ -574,6 +593,7 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   fs.mkdirSync(layout.logs, { recursive: true });
   desktopLog = new LogFile(layout.logs, 'desktop');
+  setLang(pickLang(settings.language, app.getPreferredSystemLanguages()));
   desktopLog.line(`${APP_NAME} ${app.getVersion()} on ${process.platform}-${process.arch}, resources ${resources}`);
   app.setAboutPanelOptions({
     applicationName: APP_NAME,
