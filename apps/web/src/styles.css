@@ -219,6 +219,20 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .lamp { width: 7px; height: 7px; border-radius: 50%; border: 1.4px solid var(--signal); }
 .lamp-pill.on .lamp { border-color: var(--blue); background: var(--blue); animation: ping 2.4s infinite; }
 @keyframes ping { 0% { box-shadow: 0 0 0 0 var(--blue); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+.lamp-btn { background: none; border: 1.2px solid transparent; padding: 6px 8px; cursor: pointer; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--ink); transition: border-color 150ms ease, color 150ms ease; }
+@media (hover: hover) and (pointer: fine) { .lamp-btn:hover { border-color: var(--ink); color: var(--blue); } }
+
+/* the desktop app's engine panel (EngineDialog) */
+.engine-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 14px 0 18px; font-size: 13px; }
+.engine-facts dt { color: var(--ink-2); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 1px; }
+.engine-facts dd { margin: 0; overflow-wrap: anywhere; }
+.warn-text { color: var(--signal); }
+.engine-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-top: 1.2px dashed var(--rule); border-bottom: 1.2px dashed var(--rule); font-size: 13px; cursor: pointer; }
+.engine-toggle input { margin-top: 3px; accent-color: var(--blue); }
+.engine-toggle small { display: block; color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+.engine-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 20px; }
+.engine-sub { margin-bottom: 6px; }
+.engine-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 
 .page { margin: 0 auto; padding: 40px 24px 80px; max-width: 760px; }
 .page.narrow { max-width: 620px; }
@@ -352,6 +366,9 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .progress { height: 2px; background: var(--rule); overflow: hidden; }
 .progress span { display: block; height: 100%; background: var(--blue); transform-origin: left; transition: transform 500ms var(--ease-out); }
 .stage-now { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); }
+.stage-time { font-family: var(--mono); font-size: 12px; font-weight: 400; letter-spacing: 0.06em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.stage-detail { margin-top: -10px; font-size: 12.5px; letter-spacing: 0.04em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.row.tight { margin-top: 10px; }
 .tracklist { list-style: none; padding: 0; margin: 6px 0 0; display: grid; position: relative; }
 .tracklist::before { content: ''; position: absolute; left: 15px; top: 18px; bottom: 18px; border-left: 1.2px dashed var(--ink-3); }
 .tracklist li { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr) 28px; gap: 12px; align-items: center; min-height: 40px; color: var(--ink-3); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -489,6 +506,12 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .lane-note.is-selected .lane-knock { fill: color-mix(in srgb, var(--blue) 16%, var(--paper-3)); }
 .lane-note.is-selected .lane-fret { fill: var(--blue); font-weight: 700; }
 .lane-note.is-now .lane-fret { fill: var(--blue); font-weight: 700; }
+/* picked together (box / Shift+click): a solid highlighter marker, readable when the note is past and at night
+   (the marker stays light in both themes, so its number is always the dark ink, not --ink) */
+.lane-note.is-picked, .lane-note.is-picked.is-past { opacity: 1; }
+.lane-note.is-picked .lane-knock { fill: var(--hl); stroke: var(--hl-ink); stroke-width: 1.4; }
+.lane-note.is-picked .lane-fret { fill: #1d1b18; font-weight: 700; }
+.lane-box { fill: color-mix(in srgb, var(--hl) 18%, transparent); stroke: var(--hl-ink); stroke-width: 1.2; stroke-dasharray: 4 3; pointer-events: none; }
 .lane-note.is-now .lane-fill { opacity: 0.8; }
 .lane-note.is-now .lane-pill { animation: note-pop 260ms var(--ease-out); }
 @keyframes note-pop { from { transform: scale(1.35); } }
@@ -509,6 +532,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .panel-sub { font-size: 11.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); margin: 22px 0 10px; }
 .inspector .row { margin-top: 20px; }
+.edit-tips { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .inspector .pitch-row { margin-top: 0; gap: 6px; }
 .inspector .pitch-row .btn { padding-inline: 10px; }
 .truth-pop { display: grid; gap: 10px; }

@@ -16,7 +16,7 @@ import { toast } from '../components/Toaster';
 import Transport from '../components/Transport';
 import VideoCalibrate from '../components/VideoCalibrate';
 import { fmtTime, keyLabel } from '../lib/format';
-import { cyclePosition, deleteNote, getNote, insertNoteAt, measureRange, setLocked, setPosition, shiftPitch, stepLoc } from '../lib/scoreOps';
+import { cyclePosition, deleteNote, deleteNotes, getNote, insertNoteAt, measureRange, setFret, setLocked, setPosition, shiftPitch, stepLoc, type NoteLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
 import { useEditor } from '../stores/editor';
 import { backLink, Message } from './workspace/common';
@@ -64,6 +64,7 @@ function Editor({ t }: { t: Transcription }) {
   const qc = useQueryClient();
   const score = useEditor((s) => s.score);
   const selection = useEditor((s) => s.selection);
+  const picked = useEditor((s) => s.picked);
   const select = useEditor((s) => s.select);
   const reassemble = useReassemble(t.id);
   const restore = useRestore(t.id);
@@ -148,7 +149,13 @@ function Editor({ t }: { t: Transcription }) {
   }, []);
 
   const deleteSel = useCallback(() => {
-    const { score: sc, selection: sel } = useEditor.getState();
+    const { score: sc, selection: sel, picked } = useEditor.getState();
+    if (sc && picked.length) { // the notes picked together go in one step (one undo)
+      useEditor.getState().edit((s) => deleteNotes(s, picked));
+      useEditor.getState().select(null);
+      toast(`Deleted ${picked.length} note${picked.length > 1 ? 's' : ''}. Ctrl+Z brings them back.`);
+      return;
+    }
     if (!sc || !sel || !getNote(sc, sel)) return;
     const prev = stepLoc(sc, sel, -1);
     useEditor.getState().edit((s) => deleteNote(s, sel));
@@ -165,7 +172,36 @@ function Editor({ t }: { t: Transcription }) {
     useEditor.getState().select(r.loc);
   }, [getTime]);
 
-  useEditorKeys({ togglePlay, cycle, toggleLock, tap, shiftPitch: shiftSel, addNote, deleteNote: deleteSel });
+  /** Double-click on a string in the lane: a note right there, on that string. */
+  const addAt = useCallback((time: number, string: number) => {
+    const sc = useEditor.getState().score;
+    if (!sc) return;
+    const r = insertNoteAt(sc, time, string);
+    if (!r) { setNotice('Add notes inside the tab (between its first and last bar).'); return; }
+    if (r.added) useEditor.getState().edit(() => r.score);
+    else toast('A note already starts here on this string. Change that one instead.');
+    useEditor.getState().select(r.loc);
+  }, []);
+
+  /** Notes picked together in the lane (a box, Shift+click). One note alone is just selected. */
+  const pickMany = useCallback((locs: NoteLoc[], add: boolean) => {
+    const st = useEditor.getState();
+    const key = (l: NoteLoc) => `${l.m}.${l.s}.${l.n}`;
+    const all = add ? [...new Map([...st.picked, ...locs].map((l) => [key(l), l])).values()] : locs;
+    if (all.length === 1) { st.setPicked([]); st.select(all[0]!); return; }
+    st.setPicked(all);
+  }, []);
+
+  /** Type the fret on the selected note's string (0-24): its pitch follows. */
+  const typeFret = useCallback((fret: number) => {
+    const { score: sc, selection: sel } = useEditor.getState();
+    if (!sc || !sel) return;
+    const next = setFret(sc, sel, fret);
+    if (next) useEditor.getState().edit(() => next);
+    else setNotice(`Fret ${fret} is off the neck.`);
+  }, []);
+
+  useEditorKeys({ togglePlay, cycle, toggleLock, tap, shiftPitch: shiftSel, addNote, deleteNote: deleteSel, typeFret });
 
   // ── server-side actions: save local edits first, the server recomputes from its copy ──
   const recompute = useCallback(async (body: ReassembleIn, done: () => void) => {
@@ -291,13 +327,13 @@ function Editor({ t }: { t: Transcription }) {
           <section className="panel lane-panel" aria-labelledby="lane-h">
             <h2 id="lane-h" className="pixel-h">Play-along</h2>
             <div className="screen">
-              <Lane score={score} selection={selection} onSelect={select} getTime={getTime} onSeek={seek} />
+              <Lane score={score} selection={selection} onSelect={select} getTime={getTime} onSeek={seek} picked={picked} onPickMany={pickMany} onAddAt={addAt} />
             </div>
           </section>
 
           <div className={`pair${videoAsset ? ' with-video' : ''}`}>
             <div className="panel">
-              <Inspector score={score} selection={selection} onPick={pick} onToggleLock={toggleLock} onRefingerMeasure={refingerMeasure} onShiftPitch={shiftSel} onDelete={deleteSel} onAddNote={addNote} busy={busy} />
+              <Inspector score={score} selection={selection} picked={picked.length} onClearPicked={() => useEditor.getState().setPicked([])} onPick={pick} onToggleLock={toggleLock} onRefingerMeasure={refingerMeasure} onShiftPitch={shiftSel} onDelete={deleteSel} onAddNote={addNote} busy={busy} />
             </div>
             {videoAsset ? (
               <section className="panel video-panel" aria-label="Video">

@@ -117,7 +117,8 @@ def test_progress_and_cancel(tmp_path):
     spec = JobSpec(inputs={"wet": str(path)}, tracker="pyin")
     io = LocalDirIO(spec.inputs, on_progress=lambda s, p, m: seen.append(s))
     run_analysis(spec, io)
-    assert seen[:7] == ["ingest", "separation", "beats", "f0", "segment", "video", "quality"] and seen[-1] == "done"
+    stages = [s for i, s in enumerate(seen) if i == 0 or s != seen[i - 1]]  # a first-use download reports its stage again
+    assert stages[:7] == ["ingest", "separation", "beats", "f0", "segment", "video", "quality"] and stages[-1] == "done"
 
     class Cancel(LocalDirIO):
         def is_canceled(self):

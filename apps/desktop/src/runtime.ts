@@ -4,9 +4,10 @@
  * No Electron import: the smoke test drives this from plain Node.
  */
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { cleanEnv, type Layout } from './layout';
+import { cacheEnv, cleanEnv, type Layout } from './layout';
 import type { LogFile } from './log';
 
 export type Variant = 'gpu' | 'cpu' | 'lite';
@@ -33,16 +34,22 @@ export interface RuntimeState {
   torch: string | null;
   cuda: boolean;
   gpu: string | null;
+  /** why a GPU that is there is not used (too old for this build, test kernel failed) */
+  gpuNote?: string | null;
   installedAt: string;
 }
 
-export type Phase = 'python' | 'packages' | 'check';
+export type Phase = 'python' | 'download' | 'packages' | 'check' | 'models';
 
 export interface Progress {
   phase: Phase;
   message: string;
-  /** bytes uv has written into its cache so far (downloads + unpacked wheels) */
+  /** 'download' / 'models': bytes of the current file so far; 'packages': bytes uv has written into its cache */
   bytes?: number;
+  /** size of the current file, when known: the setup page shows a percentage and the time left */
+  total?: number;
+  /** bytes per second over the last few seconds */
+  rate?: number;
 }
 
 export class RuntimeError extends Error {
@@ -87,6 +94,9 @@ function uvEnv(layout: Layout): NodeJS.ProcessEnv {
     UV_CACHE_DIR: process.env.TABER_DESKTOP_UV_CACHE || path.join(layout.cache, 'uv'),
     UV_PYTHON_INSTALL_DIR: path.join(layout.runtime, 'python'), // `uv venv --managed-python`: never a system or conda Python
     UV_NO_CONFIG: '1', // ignore the user's uv.toml / pip.conf-like settings
+    // slow or flaky links (the default 30 s read timeout and 3 retries give up on them)
+    UV_HTTP_TIMEOUT: '120',
+    UV_HTTP_RETRIES: '8',
     NO_COLOR: '1',
   });
 }
@@ -120,35 +130,192 @@ function exec(
   });
 }
 
-/** Size of a directory tree, best effort (files can vanish while uv works). */
-function dirSize(dir: string): number {
+/**
+ * Size of a directory tree, best effort (files can vanish while uv works). Asynchronous: the unpacked torch alone
+ * is tens of thousands of files, and walking them synchronously every few seconds froze the window on Windows.
+ */
+async function dirSize(dir: string): Promise<number> {
   let total = 0;
   const stack = [dir];
   while (stack.length) {
     const d = stack.pop()!;
     let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(d, { withFileTypes: true });
+      entries = await fs.promises.readdir(d, { withFileTypes: true });
     } catch {
       continue;
     }
+    const files: string[] = [];
     for (const e of entries) {
       const p = path.join(d, e.name);
       if (e.isDirectory()) stack.push(p);
-      else if (e.isFile()) {
-        try {
-          total += fs.statSync(p).size;
-        } catch {
-          /* gone */
-        }
-      }
+      else if (e.isFile()) files.push(p);
+    }
+    for (let i = 0; i < files.length; i += 64) {
+      const sizes = await Promise.all(files.slice(i, i + 64).map((f) => fs.promises.stat(f).then((s) => s.size, () => 0)));
+      for (const n of sizes) total += n;
     }
   }
   return total;
 }
 
+/** A requirement pinned to a file URL (the CUDA torch wheel: 2 GB on Windows): fetched by us, resumably. */
+interface BigWheel {
+  name: string;
+  version: string;
+  url: string;
+  sha256: string;
+  file: string;
+}
+
+/** `torch @ https://…/torch-2.15.0%2Bcu132-…whl \` + `--hash=sha256:…` -> what to fetch, and the pin to write instead. */
+export function directWheels(text: string): { wheels: Omit<BigWheel, 'file'>[]; text: string } {
+  const lines = text.split(/\r?\n/);
+  const wheels: Omit<BigWheel, 'file'>[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^([A-Za-z0-9._-]+) @ (https?:\/\/\S+\.whl)\s*\\$/);
+    const h = lines[i + 1]?.match(/^\s+--hash=sha256:([0-9a-f]{64})/);
+    if (!m || !h) continue;
+    const fname = decodeURIComponent(m[2].split('/').pop()!);
+    const version = fname.split('-')[1];
+    wheels.push({ name: m[1], version, url: m[2], sha256: h[1] });
+    // a version pin + --find-links: installed from the downloaded file, and still satisfied once it is deleted
+    lines[i] = `${m[1]}==${version} \\`;
+  }
+  return { wheels, text: lines.join('\n') };
+}
+
+function sitePackages(layout: Layout, python: string): string {
+  return process.platform === 'win32'
+    ? path.join(layout.venv, 'Lib', 'site-packages')
+    : path.join(layout.venv, 'lib', `python${python}`, 'site-packages');
+}
+
+/** Is `name==version` in the venv already (its .dist-info folder)? Then its wheel is not needed. */
+function installedVersion(layout: Layout, python: string, name: string, version: string): boolean {
+  const want = `${name.replace(/[-.]+/g, '_')}-${version}.dist-info`.toLowerCase();
+  try {
+    return fs.readdirSync(sitePackages(layout, python)).some((d) => d.toLowerCase() === want);
+  } catch {
+    return false;
+  }
+}
+
+const IDLE_TIMEOUT_MS = 60_000; // no byte for this long: drop the connection and resume
+const MAX_STALLED_ATTEMPTS = 8; // attempts in a row that brought nothing new
+
+async function sha256File(file: string): Promise<string> {
+  const h = crypto.createHash('sha256');
+  for await (const chunk of fs.createReadStream(file, { highWaterMark: 1 << 20 })) h.update(chunk as Buffer);
+  return h.digest('hex');
+}
+
+/**
+ * Download `url` to `dest` through `dest.part`: Range requests resume after a dropped link, a stall, or the app
+ * being closed halfway (the next launch continues from the part file). Checked against `sha256` at the end.
+ */
+export async function downloadResumable(
+  url: string,
+  dest: string,
+  sha256: string,
+  log: LogFile,
+  onBytes: (done: number, total: number | undefined, rate: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (fs.existsSync(dest)) return;
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const part = `${dest}.part`;
+  let stalled = 0;
+  let total: number | undefined;
+  const window: [number, number][] = []; // (time, bytes) over the last 5 s, for the rate
+  for (;;) {
+    signal?.throwIfAborted();
+    let have = fs.existsSync(part) ? fs.statSync(part).size : 0;
+    if (total !== undefined && have >= total) break;
+    const before = have;
+    const ctl = new AbortController();
+    const onAbort = () => ctl.abort();
+    signal?.addEventListener('abort', onAbort);
+    let idle = setTimeout(() => ctl.abort(), IDLE_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { headers: have ? { Range: `bytes=${have}-` } : {}, signal: ctl.signal });
+      if (res.status === 416) {
+        // nothing left to send: the part file is the whole thing (checked below), or garbage
+        const whole = Number(res.headers.get('content-range')?.split('/').pop());
+        if (whole === have) {
+          total = have;
+          break;
+        }
+        fs.rmSync(part, { force: true });
+        continue;
+      }
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      if (have && res.status !== 206) have = 0; // the server ignored the range: start over
+      const len = Number(res.headers.get('content-length'));
+      if (Number.isFinite(len) && len > 0) total = have + len;
+      log.line(`download ${path.basename(dest)}: from ${have} of ${total ?? '?'} bytes`);
+      const out = fs.createWriteStream(part, { flags: have ? 'a' : 'w' });
+      const closed = new Promise<void>((resolve, reject) => {
+        out.on('close', resolve);
+        out.on('error', reject);
+      });
+      let done = have;
+      let lastReport = 0;
+      try {
+        const reader = res.body.getReader();
+        for (;;) {
+          const { done: end, value } = await reader.read();
+          if (end) break;
+          clearTimeout(idle);
+          idle = setTimeout(() => ctl.abort(), IDLE_TIMEOUT_MS);
+          if (!out.write(value)) await new Promise<void>((r) => out.once('drain', () => r()));
+          done += value.length;
+          const now = Date.now();
+          if (now - lastReport >= 500) {
+            lastReport = now;
+            window.push([now, done]);
+            while (window.length > 1 && now - window[0][0] > 5000) window.shift();
+            const [t0, b0] = window[0];
+            onBytes(done, total, now > t0 ? ((done - b0) * 1000) / (now - t0) : 0);
+          }
+        }
+      } finally {
+        out.end();
+        await closed;
+      }
+      if (total === undefined || done >= total) {
+        total = done;
+        break;
+      }
+      throw new Error(`the connection closed at ${done} of ${total} bytes`);
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      if ((e as NodeJS.ErrnoException).code === 'ENOSPC') {
+        throw new RuntimeError(`Not enough free disk space for ${path.basename(dest)} (in ${path.dirname(dest)}). Free some space and try again: the download continues where it stopped.`, log.tail());
+      }
+      const now = fs.existsSync(part) ? fs.statSync(part).size : 0;
+      stalled = now > before ? 0 : stalled + 1;
+      log.line(`download ${path.basename(dest)} interrupted (${(e as Error).message}); ${stalled ? `attempt ${stalled} without progress` : 'resuming'}`);
+      if (stalled >= MAX_STALLED_ATTEMPTS) {
+        throw new RuntimeError(`Could not download ${path.basename(dest)}: ${(e as Error).message}. Check the internet connection and try again: the download continues where it stopped.`, log.tail());
+      }
+      await new Promise((r) => setTimeout(r, Math.min(2000 * 2 ** stalled, 30_000)));
+    } finally {
+      clearTimeout(idle);
+      signal?.removeEventListener('abort', onAbort);
+    }
+  }
+  onBytes(total ?? 0, total, 0);
+  log.line(`download ${path.basename(dest)}: checking`);
+  if ((await sha256File(part)) !== sha256) {
+    fs.rmSync(part, { force: true });
+    throw new RuntimeError(`${path.basename(dest)} arrived damaged (checksum mismatch). Try again: it is downloaded from the start.`, log.tail());
+  }
+  fs.renameSync(part, dest);
+}
+
 /** The requirements for this install: the shipped variant file + the project wheels, copied to a stable path. */
-function writeRequirements(layout: Layout, manifest: Manifest, variant: Variant): string {
+function writeRequirements(layout: Layout, manifest: Manifest, variant: Variant): { file: string; big: BigWheel[] } {
   const wheelDir = path.join(layout.runtime, 'wheels');
   fs.rmSync(wheelDir, { recursive: true, force: true });
   fs.mkdirSync(wheelDir, { recursive: true });
@@ -158,11 +325,20 @@ function writeRequirements(layout: Layout, manifest: Manifest, variant: Variant)
     fs.copyFileSync(path.join(layout.res.python, 'wheels', w), dst);
     lines.push(dst);
   }
-  const base = fs.readFileSync(path.join(layout.res.python, `requirements-${variant}.txt`), 'utf8');
+  const shipped = fs.readFileSync(path.join(layout.res.python, `requirements-${variant}.txt`), 'utf8');
+  const { wheels, text: base } = directWheels(shipped);
+  const dl = downloadsDir(layout);
+  const big = wheels.map((w) => ({ ...w, file: path.join(dl, decodeURIComponent(w.url.split('/').pop()!)) }));
   const out = path.join(layout.runtime, 'requirements.txt');
   fs.writeFileSync(out, `${base.trimEnd()}\n\n# this app's own packages\n${lines.join('\n')}\n`);
-  return out;
+  return { file: out, big };
 }
+
+function downloadsDir(layout: Layout): string {
+  return path.join(layout.cache, 'downloads');
+}
+
+const LABELS: Record<string, string> = { torch: 'PyTorch' };
 
 export async function provision(
   layout: Layout,
@@ -189,26 +365,52 @@ export async function provision(
     });
   }
 
-  // 2. Exactly the locked packages for this variant (sync also removes what an older version installed)
+  // 2a. The one huge wheel (CUDA torch, 2 GB on Windows) is ours to fetch: uv starts a dropped download from zero,
+  //     and on a slow link that can mean hours. Ours resumes, also across launches. Skipped once it is installed.
   const req = writeRequirements(layout, manifest, variant);
+  const dl = downloadsDir(layout);
+  fs.mkdirSync(dl, { recursive: true });
+  const fetched: string[] = [];
+  for (const w of req.big) {
+    if (installedVersion(layout, manifest.python, w.name, w.version)) continue;
+    const label = LABELS[w.name] ?? w.name;
+    onProgress({ phase: 'download', message: `Downloading ${label} ${w.version}`, bytes: 0 });
+    await downloadResumable(w.url, w.file, w.sha256, log, (bytes, total, rate) => {
+      onProgress({ phase: 'download', message: `Downloading ${label} ${w.version}`, bytes, total, rate });
+    }, signal);
+    fetched.push(w.file);
+  }
+
+  // 2b. Exactly the locked packages for this variant (sync also removes what an older version installed)
   const cacheDir = env.UV_CACHE_DIR!;
-  const before = dirSize(cacheDir);
+  const before = await dirSize(cacheDir);
   onProgress({ phase: 'packages', message: 'Downloading the analysis engine', bytes: 0 });
-  const timer = setInterval(() => onProgress({ phase: 'packages', message: '', bytes: Math.max(0, dirSize(cacheDir) - before) }), 2000);
+  let measuring = false;
+  let syncing = true;
+  const timer = setInterval(() => {
+    if (measuring) return; // one walk at a time
+    measuring = true;
+    void dirSize(cacheDir)
+      .then((n) => syncing && onProgress({ phase: 'packages', message: '', bytes: Math.max(0, n - before) }))
+      .finally(() => (measuring = false));
+  }, 3000);
   try {
     const reinstall = manifest.workspacePackages.flatMap((p) => ['--reinstall-package', p]);
-    await exec(uv, ['pip', 'sync', req, '--python', layout.python, ...reinstall], {
+    await exec(uv, ['pip', 'sync', req.file, '--python', layout.python, '--find-links', dl, ...reinstall], {
       env, log, signal, onLine: (l) => onProgress({ phase: 'packages', message: l }),
     });
     await exec(uv, ['pip', 'check', '--python', layout.python], { env, log, signal });
   } finally {
+    syncing = false;
     clearInterval(timer);
   }
+  // installed: the wheel is in uv's cache now, and the version pin stays satisfied without the file
+  for (const f of fetched) fs.rmSync(f, { force: true });
 
   // 3. Can the API and the pipeline import, and what does torch see?
   onProgress({ phase: 'check', message: 'Checking the engine' });
   const out = await exec(layout.python, [layout.res.launch, 'check'], {
-    env: cleanEnv(), log, signal, cwd: layout.runtime,
+    env: cleanEnv(cacheEnv(layout)), log, signal, cwd: layout.runtime,
   });
   const info = JSON.parse(out.trim().split(/\r?\n/).pop() || '{}') as Partial<RuntimeState>;
   const state: RuntimeState = {
@@ -218,8 +420,32 @@ export async function provision(
     torch: info.torch ?? null,
     cuda: Boolean(info.cuda),
     gpu: info.gpu ?? null,
+    gpuNote: info.gpuNote ?? null,
     installedAt: new Date().toISOString(),
   };
+
+  // 4. The model files (separation, beats, hands): fetched now, where the wait is on screen, not during the first
+  //    analysis. Best effort: offline, the worker fetches them on first use (and falls back without them).
+  try {
+    await exec(layout.python, [layout.res.launch, 'fetch-models'], {
+      env: cleanEnv(cacheEnv(layout)), log, signal, cwd: layout.runtime,
+      onLine: (l) => {
+        let m: { model?: string; done?: number; total?: number; error?: string };
+        try {
+          m = JSON.parse(l);
+        } catch {
+          return;
+        }
+        if (m.model && m.done !== undefined) {
+          onProgress({ phase: 'models', message: `Downloading the ${m.model}`, bytes: m.done, total: m.total });
+        }
+      },
+    });
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    log.line(`model files not fetched now (the first analysis fetches them): ${(e as Error).message}`);
+  }
+
   fs.writeFileSync(stateFile(layout), JSON.stringify(state, null, 2));
   log.line(`runtime ready: ${JSON.stringify(state)}`);
   return state;

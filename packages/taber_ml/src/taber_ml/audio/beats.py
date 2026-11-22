@@ -84,11 +84,15 @@ class BeatThisTracker:
     max_cv = 0.20  # after fill_gaps; on GuitarSet solos: 80% of takes get a grid (beat F 0.65 on those)
 
     def __init__(self, device: str | None = None, checkpoint: str = "final0"):
-        import torch
         from beat_this.inference import Audio2Beats
 
-        dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.a2b = Audio2Beats(checkpoint_path=checkpoint, device=dev, dbn=False)
+        from ..device import torch_device
+        from ..weights import WEIGHTS
+
+        local = WEIGHTS["beat_this"].path  # fetched by weights.ensure(): no download inside beat_this
+        if checkpoint == "final0" and local.exists():
+            checkpoint = str(local)
+        self.a2b = Audio2Beats(checkpoint_path=checkpoint, device=device or torch_device(), dbn=False)
 
     def track(self, audio: Audio, tempo_hint: float | None = None, beats_per_bar: int = 4) -> BeatGrid:
         beats, downbeats = self.a2b(np.asarray(audio.y, dtype=np.float32), audio.sr)

@@ -68,6 +68,32 @@ def _publish_stems(io: JobIO, key: str) -> list[str]:
     return done
 
 
+def _fetch_weight(io: JobIO, stage: str, i: int, key: str) -> str | None:
+    """Download model file ``key`` the first time it is needed, with the bytes on the job's progress line.
+
+    Returns why it failed (the caller falls back to something that needs no download), or None.
+    A cancel during the download stops it; the part already downloaded is kept for the next try.
+    """
+    from . import weights
+
+    w = weights.WEIGHTS[key]
+    if not w.installed() or w.path.exists():
+        return None
+
+    def tick(done: int, total: int) -> None:
+        if io.is_canceled():
+            raise Canceled()
+        io.report(stage, i / len(STAGES), f"Downloading the {w.label}, first time only: {weights.mb(done)} of {weights.mb(total)}")
+
+    try:
+        weights.ensure(key, tick)
+    except weights.WeightsError as e:
+        log.warning("%s", e)
+        return str(e)
+    io.report(stage, i / len(STAGES), "")
+    return None
+
+
 def _f0_preview(f0: F0Result, step_s: float = 0.02) -> F0Track:
     """Down-sampled pitch contour for the UI (nearest frame, None where unvoiced)."""
     if not len(f0):
@@ -112,6 +138,10 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
         separation = {"used": False, "stem": "original", "reason": "Backing-track separation is off"}
     elif di_path is not None:
         separation = {"used": False, "stem": "original", "reason": "A clean DI track is available, no separation needed"}
+    elif _fetch_weight(io, "separation", 1, "demucs"):
+        separation = {"used": False, "stem": "original", "reason": "The separation model could not be downloaded"}
+        warnings.append("The backing-track separation model could not be downloaded (check the internet connection), "
+                        "so notes were read from the full mix. The next analysis tries the download again.")
     else:
         try:
             sep = models.get_separator()
@@ -133,10 +163,14 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
 
     # ── 2. beats ──
     t0 = stage("beats", 2, "Detecting the beat")
-    beat_tracker = models.get(f"beats:{spec.beat_tracker}", lambda: get_beat_tracker(spec.beat_tracker))
+    beats_name = spec.beat_tracker
+    if beats_name in ("auto", "beat_this") and _fetch_weight(io, "beats", 2, "beat_this"):
+        beats_name = "librosa"
+        warnings.append("The beat model could not be downloaded (check the internet connection), so a simpler beat tracker was used.")
+    beat_tracker = models.get(f"beats:{beats_name}", lambda: get_beat_tracker(beats_name))
     grid = beat_tracker.track(beat_audio, spec.tempo_hint_bpm)
     if models.small_gpu:
-        models.release(f"beats:{spec.beat_tracker}")
+        models.release(f"beats:{beats_name}")
     if not grid.beats_s:
         warnings.append("No steady beat found; enter a tempo or tap the beat.")
     timings["beats"] = time.perf_counter() - t0
@@ -192,6 +226,9 @@ def run_analysis(spec: JobSpec, io: JobIO, models: ModelRegistry | None = None) 
             video_report = {"used": False, "reason": "The fretboard has not been calibrated on the video"}
         elif vpath is None:
             video_report = {"used": False, "reason": "No video"}
+        elif _fetch_weight(io, "video", 5, "hands"):
+            video_report = {"used": False, "reason": "The hand model could not be downloaded"}
+            warnings.append("The hand model could not be downloaded (check the internet connection), so the video was not used. Try again later.")
         else:
             try:
                 from .video.stage import analyze_video

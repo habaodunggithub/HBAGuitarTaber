@@ -274,10 +274,14 @@ def cmd_truth_eval(a: argparse.Namespace) -> int:
 def cmd_worker(a: argparse.Namespace) -> int:
     import logging
     import os
+    import socket
 
     from .worker import PullWorker
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    # Libraries that download on their own (torch.hub, urllib) set no timeout: on a stalled link a job would
+    # wait forever while the heartbeat keeps its lease alive. httpx sets its own timeouts and is not affected.
+    socket.setdefaulttimeout(120)
     token = a.token or os.environ.get("TABER_WORKER_TOKEN")
     if not token and a.token_file and Path(a.token_file).exists():
         token = Path(a.token_file).read_text().strip()

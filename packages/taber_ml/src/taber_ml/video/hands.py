@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import os
-import urllib.request
 from pathlib import Path
 from typing import Protocol
 
 import numpy as np
-
-MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 
 
 class HandTracker(Protocol):
@@ -21,14 +17,10 @@ class HandTracker(Protocol):
 
 
 def model_path() -> Path:
-    d = Path(os.environ.get("TABER_CACHE_DIR", "~/.cache/taber")).expanduser() / "models"
-    p = d / "hand_landmarker.task"
-    if not p.exists():
-        d.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(".part")
-        urllib.request.urlretrieve(MODEL_URL, tmp)  # ~7.5 MB, once
-        tmp.replace(p)
-    return p
+    """The Hand Landmarker file (~7.8 MB), downloaded once (timeouts, retries: taber_ml.weights)."""
+    from ..weights import ensure
+
+    return ensure("hands")
 
 
 class MediaPipeHands:
