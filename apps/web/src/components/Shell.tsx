@@ -96,7 +96,8 @@ function LanguagePick() {
   return (
     <div className="lang-pick" role="group" aria-label={t.language.pick}>
       {LANGUAGES.map((l) => (
-        <button key={l.lang} type="button" lang={l.lang} aria-pressed={lang === l.lang} onClick={() => setLang(l.lang)} title={l.name}>
+        // each language is named in itself, whatever the app speaks
+        <button key={l.lang} type="button" lang={l.lang} aria-pressed={lang === l.lang} onClick={() => setLang(l.lang)} title={l.name} data-i18n="as-is">
           {l.lang.toUpperCase()}
         </button>
       ))}
