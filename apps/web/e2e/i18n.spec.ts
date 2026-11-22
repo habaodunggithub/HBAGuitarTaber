@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { FIXTURE } from './helpers';
+import { createTab, FIXTURE } from './helpers';
 
 /**
  * In the pseudo language (?lang=pseudo) every catalog message is wrapped in ⟦ ⟧. Text on screen that is not
@@ -8,22 +8,25 @@ import { FIXTURE } from './helpers';
  * marked translate="no" (the brand, commands), data-i18n="as-is" (tab notation, 8va, the amp's name plate) or
  * data-i18n="user" (a file name), what alphaTab draws, and text the server wrote (data-i18n="server": analysis warnings, still in English).
  */
-const SYMBOLS = /^[\s\d.,:;%()[\]+\-–−—·|/\\↓↑←→…×#?'"!~<>=_*]*$/;
+const SYMBOLS = /^[\s\d.,:;%()[\]+\-–−—·|/\\↓↑←→…×#]*$/;
 const NOTE = /^([A-G][#b]?-?\d?|[a-g])$/; // A4, Eb, the string names in the lane
-const KEYCAP = /^[A-Z0-9?]$/; // single keys in the shortcut list: L, N, T, Z
+const KEYCAP = /^[A-Z0-9?]$/; // a single key in a <kbd>: L, N, T, Z, ?
 const SIZE = /^[\d.,]+\s?(B|KB|MB|GB)$/; // file sizes
 
 async function untranslated(page: Page): Promise<string[]> {
   const titles: string[] = await (await page.request.get('/api/v1/transcriptions')).json().then((l: { title: string }[]) => l.map((t) => t.title));
   return page.evaluate(
     ({ titles, symbols, note, keycap, size }) => {
-      const ok = (s: string) => {
+      const ok = (s: string, el?: Element) => {
         const v = s.trim();
-        return !v || v.includes('⟦') || new RegExp(symbols).test(v) || new RegExp(note).test(v) || new RegExp(keycap).test(v) || new RegExp(size).test(v)
+        return !v || v.includes('⟦') || v.includes('⟧') || // a sentence filled with markup is split into pieces
+           new RegExp(symbols).test(v) || new RegExp(note).test(v) || new RegExp(size).test(v)
+          || (!!el?.closest('kbd') && new RegExp(keycap).test(v))
           || titles.includes(v) || titles.some((t) => v.startsWith(t + '.'));
       };
-      const skip = (el: Element | null) => !!el?.closest('[translate="no"], [data-i18n], code, .at-surface, .tab-skeleton, [hidden], [aria-hidden="true"]:not(svg *)');
-      const visible = (el: Element) => {
+      const skip = (el: Element | null) => !!el?.closest('[translate="no"], [data-i18n="as-is"], [data-i18n="user"], [data-i18n="server"], code, .at-surface, .tab-skeleton, [hidden], [aria-hidden="true"]:not(svg *)');
+      const visible = (el: Element): boolean => {
+        if (el.tagName === 'OPTION') return visible(el.closest('select')!); // options have no box of their own
         const r = el.getBoundingClientRect();
         const cs = getComputedStyle(el);
         return (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden') || el.closest('.sr-only, dialog[open]') !== null;
@@ -33,7 +36,7 @@ async function untranslated(page: Page): Promise<string[]> {
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const el = n.parentElement;
         if (!el || skip(el) || el.closest('script, style') || !visible(el)) continue;
-        if (!ok(n.textContent ?? '')) bad.add(`text: ${n.textContent!.trim()}`);
+        if (!ok(n.textContent ?? '', el)) bad.add(`text: ${n.textContent!.trim()}`);
       }
       for (const el of document.querySelectorAll('[aria-label], [title], [placeholder], img[alt]')) {
         if (skip(el)) continue;
@@ -67,11 +70,7 @@ test.describe('every string comes from a catalog', () => {
   });
 
   test('the editor: note details, tools, popovers and the shortcut sheet', async ({ page }) => {
-    await page.goto('/?lang=pseudo');
-    await page.locator('#wet').setInputFiles(FIXTURE('box_techniques.wav'));
-    await page.getByTestId('submit').click();
-    await expect(page).toHaveURL(/\/t\/[0-9a-f]{32}/);
-    await expect(page.locator('.at-surface svg').first()).toBeVisible({ timeout: 60_000 });
+    await createTab(page, 'box_techniques.wav', 'pseudo');
     await expect(page.getByTestId('save-state')).toContainText('⟦');
     expect(await untranslated(page)).toEqual([]);
 
@@ -92,10 +91,7 @@ test.describe('every string comes from a catalog', () => {
   });
 
   test('a video take: the video panel and the neck calibration', async ({ page }) => {
-    await page.goto('/?lang=pseudo');
-    await page.locator('#wet').setInputFiles(FIXTURE('box_techniques.mp4'));
-    await page.getByTestId('submit').click();
-    await expect(page.locator('.at-surface svg').first()).toBeVisible({ timeout: 60_000 });
+    await createTab(page, 'box_techniques.mp4', 'pseudo');
     await expect(page.locator('video.take-video')).toBeVisible();
     expect(await untranslated(page)).toEqual([]);
 

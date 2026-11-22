@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useT } from '../i18n';
+import { lookup, useT } from '../i18n';
 import { desktop, diagnostics, type DesktopAction, type DesktopInfo } from '../lib/desktop';
 import Icon from './Icon';
 import { toast } from './Toaster';
@@ -40,10 +40,10 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
       </div>
       <dl className="engine-facts">
         <dt>{t.engine.runsOn}</dt>
-        <dd>{info.variant ? t.engine.variants[info.variant] ?? info.variant : t.engine.notInstalled}{info.gpu ? `: ${info.gpu}` : ''}</dd>
+        <dd>{info.variant ? lookup(t.engine.variants, info.variant) : t.engine.notInstalled}{info.gpu ? `: ${info.gpu}` : ''}</dd>
         {info.gpuNote ? (<><dt>{t.engine.gpu}</dt><dd className="warn-text">{t.engine.gpuNotUsed(info.gpuNote)}</dd></>) : null}
         <dt>{t.engine.analysis}</dt>
-        <dd>{t.engine.workerState[info.worker] ?? info.worker}</dd>
+        <dd>{lookup(t.engine.workerState, info.worker)}</dd>
         <dt>{t.engine.version}</dt>
         <dd>{info.version}{info.torch ? `, PyTorch ${info.torch}` : ''}</dd>
       </dl>

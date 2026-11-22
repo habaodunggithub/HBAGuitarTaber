@@ -8,8 +8,8 @@ import Icon from '../../components/Icon';
 import Metronome from '../../components/Metronome';
 import Shell from '../../components/Shell';
 import { desktop, type DesktopInfo, useDesktopInfo } from '../../lib/desktop';
-import { useT } from '../../i18n';
-import { backLink } from './common';
+import { fill, lookup, useT } from '../../i18n';
+import { BackLink } from './common';
 
 const jobBeat = () => performance.now() / 1000;
 const ORDER = ['ingest', 'separation', 'beats', 'f0', 'segment', 'video', 'quality'];
@@ -77,7 +77,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
   const noWorker = (workers.data?.length ?? 0) === 0;
   const waiting = p.status === 'connecting' || p.status === 'queued' || (p.status === 'running' && p.stage === '');
   const failed = p.status === 'failed' || p.status === 'canceled';
-  const label = waiting ? (noWorker ? t.job.waitingNoWorker : t.job.waitingPickup) : t.stages[p.stage] ?? t.job.analyzing;
+  const label = waiting ? (noWorker ? t.job.waitingNoWorker : t.job.waitingPickup) : (Object.hasOwn(t.stages, p.stage) ? lookup(t.stages, p.stage) : t.job.analyzing);
   const pct = Math.round(p.progress * 100);
   const running = !waiting && !failed;
   // the worker's own line, when it says more than the step name: a first-use model download, a retry
@@ -89,7 +89,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
   };
 
   return (
-    <Shell center={backLink}>
+    <Shell center={<BackLink />}>
       <main id="content" className="job">
         <div className="job-deck">
           {/* while the worker listens, the metronome keeps a slow 60 BPM */}
@@ -115,7 +115,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
               return (
                 <li key={s} className={state}>
                   <span className="track-no">{String(i + 1).padStart(2, '0')}</span>
-                  <span className="track-name">{t.stages[s] ?? s}</span>
+                  <span className="track-name">{lookup(t.stages, s)}</span>
                   <span className="track-state" aria-hidden="true">
                     {state === 'done' ? <Icon name="check" size={16} /> : state === 'now' ? <span className="eq"><i /><i /><i /></span> : null}
                   </span>
@@ -128,7 +128,7 @@ export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone:
           {waiting && noWorker && !desktop ? (
             <p className="banner warn" role="status">
               <Icon name="alert" />
-              <span>{t.job.noWorkerBefore} <code translate="no">just worker</code>{t.job.noWorkerAfter}</span>
+              <span>{fill(t.job.noWorker, { cmd: <code translate="no">just worker</code> })}</span>
             </p>
           ) : null}
           {running && onStep >= LONG_STEP_S ? (

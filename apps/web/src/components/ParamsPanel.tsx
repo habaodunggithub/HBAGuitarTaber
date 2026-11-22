@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AssemblyParams } from '../api/types';
-import { useT } from '../i18n';
+import { lookup, useT } from '../i18n';
 import { presetName, TUNING_PRESETS } from '../lib/tuning';
 
 interface Props {
@@ -40,7 +40,7 @@ export default function ParamsPanel({ params, onApply, busy, tapBpm, tapCount, o
             if (p) setDraft({ ...draft, tuning: { ...tuning, name: e.target.value, open_pitches: [...p] } });
           }}
         >
-          {Object.keys(TUNING_PRESETS).map((k) => <option key={k} value={k}>{t.tunings[k] ?? k}</option>)}
+          {Object.keys(TUNING_PRESETS).map((k) => <option key={k} value={k}>{lookup(t.tunings, k)}</option>)}
           {presetName(tuning) === 'Custom' ? <option value="Custom">{t.tunings.Custom}</option> : null}
         </select>
       </label>

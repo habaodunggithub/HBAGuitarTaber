@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api } from '../api/client';
 import type { CreateTranscription } from '../api/types';
-import { useT } from '../i18n';
+import { lookup, useT } from '../i18n';
 import { fmtBytes } from '../lib/format';
 import { TUNING_PRESETS } from '../lib/tuning';
 import Icon from './Icon';
@@ -124,7 +124,7 @@ setProgress(null);
   };
 
   const summary = [
-    (t.tunings[tuning] ?? tuning).split(' (')[0],
+    lookup(t.tunings, tuning).split(' (')[0],
     capo ? t.composer.capoN(capo) : null,
     tempo ? t.composer.bpm(tempo) : null,
     separate === 'off' ? t.composer.noSeparation : separate === 'on' ? t.composer.alwaysSeparate : null,
@@ -169,7 +169,7 @@ setProgress(null);
             <summary><span>{t.composer.options} <span className="muted">{summary}</span></span></summary>
             <div className="grid">
               <label className="field"><span>{t.composer.tuning}</span>
-                <select value={tuning} onChange={(e) => setTuning(e.target.value)}>{Object.keys(TUNING_PRESETS).map((k) => <option key={k} value={k}>{t.tunings[k] ?? k}</option>)}</select>
+                <select value={tuning} onChange={(e) => setTuning(e.target.value)}>{Object.keys(TUNING_PRESETS).map((k) => <option key={k} value={k}>{lookup(t.tunings, k)}</option>)}</select>
               </label>
               <label className="field"><span>{t.composer.capo}</span>
                 <input type="number" name="capo" autoComplete="off" inputMode="numeric" min={0} max={12} value={capo} onChange={(e) => setCapo(Math.max(0, Math.min(12, Number(e.target.value) || 0)))} />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, urls } from '../api/client';
 import { fmtTime } from '../lib/format';
 import { calibrationBoardPoints, calibrationToImage, fretU, TAPER, type GuitarBody, type Pt } from '../lib/homography';
-import { getT, useT } from '../i18n';
+import { type Messages, useT } from '../i18n';
 import Icon from './Icon';
 
 /**
@@ -32,11 +32,10 @@ const OFF_PX = 6; // a click this far (frame pixels) from the fitted neck is pro
 const BODY_KEY = 'taber.guitarBody';
 
 /** Instruction for click i: the snake order A6 A1 B1 B6 C6 C1 ... */
-function stepText(frets: number[], i: number): string {
+function stepText(c: Messages['calibrate'], frets: number[], i: number): string {
   const wire = Math.floor(i / 2);
   const firstIs6 = wire % 2 === 0;
   const s = (i % 2 === 0) === firstIs6 ? 6 : 1;
-  const c = getT().calibrate;
   return c.click(s === 6 ? c.lowE : c.highE, frets[wire]!);
 }
 
@@ -125,7 +124,7 @@ export default function VideoCalibrate({ transcriptionId, videoAssetId, startTim
 
   const worst = preview && frets.length > 2 ? Math.max(...preview.off) : 0;
   const status = points.length < needed
-    ? c.step(points.length + 1, needed, stepText(frets, points.length))
+    ? c.step(points.length + 1, needed, stepText(c, frets, points.length))
     : !preview
       ? c.invalid
       : worst > OFF_PX

@@ -1,6 +1,6 @@
 import type { Score } from '../api/types';
 import { altPositions, getNote, type NoteLoc } from '../lib/scoreOps';
-import { useT } from '../i18n';
+import { lookup, useT } from '../i18n';
 import { noteName } from '../lib/tuning';
 import Icon from './Icon';
 import { KeyList } from './Shell';
@@ -117,7 +117,7 @@ export default function Inspector({ score, selection, picked = 0, onClearPicked,
         <dd>
           {note.techniques.length ? note.techniques.map((x) => (
             <span key={x.type} className="chip" title={i.confidence(Math.round((x.confidence ?? 1) * 100))}>
-              {i.techniques[x.type] ?? x.type}
+              {lookup(i.techniques, x.type)}
               {x.value != null ? ` ${x.value}` : ''}
             </span>
           )) : i.none}

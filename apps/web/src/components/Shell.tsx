@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWorkers } from '../api/hooks';
-import { LANGUAGES, type Messages, useLang, useT } from '../i18n';
+import { LANGUAGES, lookup, type Messages, useLang, useT } from '../i18n';
 import { useDesktopInfo } from '../lib/desktop';
 import { toggleTheme, useTheme } from '../lib/theme';
 import EngineDialog from './EngineDialog';
@@ -104,7 +104,7 @@ function WorkerLamp() {
     );
   }
   // in the desktop app the light opens the engine panel (the app has no menu bar on Windows / Linux)
-  const label = info.worker === 'running' && online ? t.shell.engineRuns(t.engine.variants[info.variant ?? ''] ?? t.shell.engineReady)
+  const label = info.worker === 'running' && online ? t.shell.engineRuns(info.variant ? lookup(t.engine.variants, info.variant) : t.shell.engineReady)
     : online ? text
       : info.worker === 'starting' || info.worker === 'running' ? t.shell.engineStarting
         : t.shell.engineOff;

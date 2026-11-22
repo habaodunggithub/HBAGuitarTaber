@@ -1,7 +1,7 @@
 import type { AssemblyParams, RevisionInfo, TruthInfo } from '../../api/types';
 import Icon from '../../components/Icon';
 import ParamsPanel from '../../components/ParamsPanel';
-import { useT } from '../../i18n';
+import { fill, lookup, useT } from '../../i18n';
 import { useCanRedo, useCanUndo, useEditor } from '../../stores/editor';
 import type { SaveState } from './useAutosave';
 
@@ -85,7 +85,7 @@ export default function EditorTools(p: Props) {
             <p className="small">{t.tools.truthHint}</p>
           )}
           <p className="muted small">
-            {t.tools.truthWhereBefore} <code translate="no">just truth-eval</code> {t.tools.truthWhereAfter}
+            {fill(t.tools.truthWhere, { cmd: <code translate="no">just truth-eval</code> })}
           </p>
           <div className="row">
             <button type="button" className="btn" disabled={p.truthBusy} onClick={p.onSaveTruth} data-testid="truth-save">
@@ -107,7 +107,7 @@ export default function EditorTools(p: Props) {
             }}
           >
             {p.revisions.map((r) => (
-              <option key={r.number} value={r.number}>{t.tools.versionOption(r.number, t.tools.sources[r.source] ?? t.tools.recomputed)}</option>
+              <option key={r.number} value={r.number}>{t.tools.versionOption(r.number, Object.hasOwn(t.tools.sources, r.source) ? lookup(t.tools.sources, r.source) : t.tools.recomputed)}</option>
             ))}
           </select>
         </label>

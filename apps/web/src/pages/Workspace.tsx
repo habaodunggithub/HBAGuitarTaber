@@ -20,7 +20,7 @@ import { fmtTime, keyLabel } from '../lib/format';
 import { cyclePosition, deleteNote, deleteNotes, getNote, insertNoteAt, measureRange, setFret, setLocked, setPosition, shiftPitch, stepLoc, type NoteLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
 import { useEditor } from '../stores/editor';
-import { backLink, Message } from './workspace/common';
+import { BackLink, Message } from './workspace/common';
 import EditorTools from './workspace/EditorTools';
 import JobPanel from './workspace/JobPanel';
 import { useAlphaTex } from './workspace/useAlphaTex';
@@ -39,7 +39,7 @@ export default function Workspace() {
   const t = q.data;
   const m = useT();
 
-  if (q.isPending) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">{m.app.loading}</p></main></Shell>;
+  if (q.isPending) return <Shell center={<BackLink />}><main id="content" className="page"><p className="muted" role="status">{m.app.loading}</p></main></Shell>;
   if (q.error || !t) {
     const missing = q.error instanceof ApiError && q.error.status === 404;
     return (
@@ -63,6 +63,7 @@ export default function Workspace() {
 
 // ───────────────────────────── editor ─────────────────────────────
 function Editor({ t }: { t: Transcription }) {
+  // `m` is the catalog (`t` is the tab here); callbacks memoized once read getT() so a language change reaches them
   const m = useT();
   const qc = useQueryClient();
   const score = useEditor((s) => s.score);
@@ -118,8 +119,8 @@ function Editor({ t }: { t: Transcription }) {
     if (!sel) return;
     try {
       useEditor.getState().edit((s) => setPosition(s, sel, string, fret));
-    } catch {
-      setNotice(getT().workspace.cannotMove);
+    } catch (e) {
+      setNotice(e instanceof RangeError ? getT().workspace.cannotMove : (e as Error).message);
     }
   }, []);
 
@@ -249,7 +250,7 @@ function Editor({ t }: { t: Transcription }) {
 
   const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(m.workspace.restored(n), 'history') }));
 
-  if (!score) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">{m.workspace.opening}</p></main></Shell>;
+  if (!score) return <Shell center={<BackLink />}><main id="content" className="page"><p className="muted" role="status">{m.workspace.opening}</p></main></Shell>;
 
   const busy = reassemble.isPending || restore.isPending;
   const warnings = t.quality?.warnings ?? [];
@@ -279,7 +280,7 @@ function Editor({ t }: { t: Transcription }) {
   );
 
   return (
-    <Shell center={backLink} tools={tools}>
+    <Shell center={<BackLink />} tools={tools}>
       <main id="content" className="editor">
         <section className="deck-col" aria-label={m.workspace.playback}>
           <div className="deck-wrap">

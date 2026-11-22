@@ -1,7 +1,9 @@
 /**
  * Every string the app shows, in English (the source language). Other catalogs copy this shape key for key.
  * Words from GLOSSARY.md keep their canonical names: take, tab, analysis engine. A message with values in it
- * is a function; one with emphasis is split into its parts so the page keeps its markup.
+ * is a function. A sentence with markup inside (a command, a bold word) has `{name}` placeholders, filled by
+ * fill() so a translation can move them. Maps keyed by server values (stages, techniques…) are read with
+ * lookup(), which falls back to the raw key for a value the catalog does not know yet.
  */
 export const en = {
   language: {
@@ -75,8 +77,8 @@ export const en = {
 
   engine: {
     title: 'Engine',
-    variants: { gpu: 'NVIDIA GPU', cpu: 'Processor', lite: 'Lite' } as Record<string, string>,
-    workerState: { running: 'running', starting: 'starting', crashed: 'stopped unexpectedly', stopped: 'off' } as Record<string, string>,
+    variants: { gpu: 'NVIDIA GPU', cpu: 'Processor', lite: 'Lite' },
+    workerState: { running: 'running', starting: 'starting', crashed: 'stopped unexpectedly', stopped: 'off' },
     runsOn: 'Runs on',
     notInstalled: 'not installed',
     gpu: 'GPU',
@@ -101,6 +103,7 @@ export const en = {
   home: {
     searchLabel: 'Search tabs',
     searchPlaceholder: 'Search tabs by name…',
+    /** the hero title in three hand-set pieces (the middle one small and highlighted); a piece may be empty */
     heroWrite: 'Write',
     heroThe: 'The',
     heroSolo: 'Solo',
@@ -167,8 +170,9 @@ export const en = {
     'Half step down (Eb)': 'Half step down (Eb)',
     'Whole step down (D)': 'Whole step down (D)',
     'Open G': 'Open G',
+    DADGAD: 'DADGAD',
     Custom: 'Custom',
-  } as Record<string, string>,
+  },
 
   params: {
     form: 'Tab settings',
@@ -180,7 +184,7 @@ export const en = {
       grid_from_hint: 'From the tempo I enter',
       user_tapped: 'From the beats I tapped',
       free: 'Free time (rubato)',
-    } as Record<string, string>,
+    },
     tempo: 'Tempo',
     tempoPlaceholder: 'e.g. 120…',
     timeSignature: 'Time signature',
@@ -200,7 +204,7 @@ export const en = {
     quality: 'Checking quality',
     retry: 'Retrying',
     done: 'Done',
-  } as Record<string, string>,
+  },
 
   music: {
     major: (tonic: string) => `${tonic} major`,
@@ -229,8 +233,7 @@ export const en = {
     steps: 'Analysis steps',
     stepDone: ' (done)',
     stepRunning: ' (running)',
-    noWorkerBefore: 'No worker is running, so the tab is waiting in the queue. Open a terminal and run',
-    noWorkerAfter: ', or start a worker on Kaggle.',
+    noWorker: 'No worker is running, so the tab is waiting in the queue. Open a terminal and run {cmd}, or start a worker on Kaggle.',
     longStep: (minutes: number, desktop: boolean) =>
       `This step has taken ${minutes} minutes. On the processor a long take can need that long. If the time keeps growing and nothing changes, ${desktop ? 'restart the engine (the analysis starts again) or send the logs.' : "check the worker's terminal."}`,
     backToTabs: 'Back to your tabs',
@@ -305,14 +308,13 @@ export const en = {
     truthState: (revision: number, notes: number, added: number) =>
       `Version ${revision} is in your test set: ${notes} notes${added ? `, ${added} of them added by you` : ''}.`,
     truthHint: 'When every note here is right (pitch, string and fret), add this tab to your test set.',
-    truthWhereBefore: 'The test set lives in data/truth on this computer. Running',
-    truthWhereAfter: 're-transcribes each take and shows where the app goes wrong: missed notes, extra notes, wrong pitches or wrong strings.',
+    truthWhere: 'The test set lives in data/truth on this computer. Running {cmd} re-transcribes each take and shows where the app goes wrong: missed notes, extra notes, wrong pitches or wrong strings.',
     truthReplace: 'Replace with this version',
     truthAdd: 'Add to my test set',
     truthRemove: 'Remove',
     version: 'Version',
     versionOption: (n: number, source: string) => `Version ${n}, ${source}`,
-    sources: { user: 'your edit', auto: 'automatic' } as Record<string, string>,
+    sources: { user: 'your edit', auto: 'automatic' },
     recomputed: 'recomputed',
     restoreConfirm: (n: number) => `Restore version ${n}? The current version stays in the history.`,
   },
@@ -349,7 +351,7 @@ export const en = {
       slide_in: 'Slide in', slide_out: 'Slide out', slide_legato: 'Slide', slide_shift: 'Shift slide',
       hammer_on: 'Hammer-on', pull_off: 'Pull-off', palm_mute: 'Palm mute', let_ring: 'Let ring',
       harmonic_natural: 'Harmonic', harmonic_pinch: 'Pinch harmonic', tap: 'Tapping', dead_note: 'Dead note',
-    } as Record<string, string>,
+    },
     wrongNote: 'Wrong note?',
     wrongNoteHint: 'type a fret number to put it there',
     changePitch: 'Change the pitch',
@@ -416,7 +418,7 @@ export const en = {
   calibrate: {
     title: 'Show the app where the neck is',
     intro: 'Pick a frame where the neck is clear, choose frets you can spot easily (next to the dots), then click both outer strings on each, in order. More frets take a few more clicks and average out a sloppy one. A preview grid appears so you can check it.',
-    bodies: { electric: 'Electric', acoustic: 'Acoustic (steel strings)', classical: 'Classical (nylon strings)' } as Record<string, string>,
+    bodies: { electric: 'Electric', acoustic: 'Acoustic (steel strings)', classical: 'Classical (nylon strings)' },
     guitar: 'Guitar',
     count: 'Frets to click',
     frets: 'Frets',

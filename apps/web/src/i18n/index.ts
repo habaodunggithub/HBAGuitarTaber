@@ -1,3 +1,4 @@
+import { Fragment, createElement, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { en, type Messages } from './en';
 import { vi } from './vi';
@@ -34,7 +35,7 @@ function isLang(l: unknown): l is Lang {
   return typeof l === 'string' && l in CATALOGS && CATALOGS[l as Lang] !== null;
 }
 
-function read(): string | null {
+function savedLang(): string | null {
   try {
     return localStorage.getItem(KEY);
   } catch {
@@ -67,11 +68,11 @@ interface LangState {
   setLang: (l: Lang) => void;
 }
 
-const start = typeof window === 'undefined' ? 'en' : initialLang(location.href, read(), navigator.languages ?? [navigator.language]);
+const startLang = typeof window === 'undefined' ? 'en' : initialLang(location.href, savedLang(), navigator.languages ?? [navigator.language]);
 
 export const useLang = create<LangState>((set) => ({
-  lang: start,
-  t: catalog(start),
+  lang: startLang,
+  t: catalog(startLang),
   setLang: (l) => {
     try {
       localStorage.setItem(KEY, l);
@@ -82,11 +83,12 @@ export const useLang = create<LangState>((set) => ({
   },
 }));
 
-function mark(l: AnyLang) {
+/** <html lang> follows the language: screen readers, and the Vietnamese fonts (styles.css :lang(vi)). */
+function setHtmlLang(l: AnyLang) {
   if (typeof document !== 'undefined') document.documentElement.lang = l === 'pseudo' ? 'en' : l;
 }
-mark(start);
-useLang.subscribe((s) => mark(s.lang));
+setHtmlLang(startLang);
+useLang.subscribe((s) => setHtmlLang(s.lang));
 
 /** The current language's messages, re-rendering when the language changes. */
 export function useT(): Messages {
@@ -96,6 +98,16 @@ export function useT(): Messages {
 /** The current messages outside React (callbacks, toasts, plain functions). */
 export function getT(): Messages {
   return useLang.getState().t;
+}
+
+/** A label from a catalog map keyed by a value the server sends (a stage, a technique): the raw value if unknown. */
+export function lookup(map: Record<string, string>, key: string): string {
+  return Object.hasOwn(map, key) ? map[key]! : key;
+}
+
+/** A sentence with `{name}` placeholders, filled with page markup (a <code>, a <b>) wherever the translation puts them. */
+export function fill(text: string, parts: Record<string, ReactNode>): ReactNode {
+  return text.split(/\{(\w+)\}/).map((piece, i) => createElement(Fragment, { key: i }, i % 2 ? parts[piece] ?? `{${piece}}` : piece));
 }
 
 export type { Messages };
