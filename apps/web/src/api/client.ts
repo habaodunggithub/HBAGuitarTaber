@@ -1,5 +1,6 @@
 import { ApiError, getJSON, sendJSON } from './http';
 import type { VideoTrack } from '../lib/neckTrack';
+import { getT } from '../i18n';
 import type { AssetInfo, CreateTranscription, ReassembleIn, RevisionInfo, Score, Transcription, TruthInfo, Worker } from './types';
 
 /** Every endpoint the SPA calls, in one place: components never build `/api/v1` URLs themselves. */
@@ -56,9 +57,9 @@ export const api = {
         let body: { detail?: string } & Partial<UploadedAsset> = {};
         try { body = JSON.parse(xhr.responseText); } catch { /* not json */ }
         if (xhr.status >= 200 && xhr.status < 300) resolve(body as UploadedAsset);
-        else reject(new ApiError(xhr.status, body.detail ?? `Upload failed (${xhr.status}). Try again, or choose another file.`));
+        else reject(new ApiError(xhr.status, body.detail ?? getT().errors.upload(xhr.status)));
       };
-      xhr.onerror = () => reject(new Error('Lost connection to the server. Check that just app is still running, then try again.'));
+      xhr.onerror = () => reject(new Error(getT().errors.connection));
       const fd = new FormData();
       fd.append('file', file);
       xhr.send(fd);

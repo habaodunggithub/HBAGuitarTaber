@@ -3,6 +3,7 @@ import type { Score } from '../api/types';
 import { laneModel, soundingAt, type LaneModel } from '../lib/lane';
 import type { NoteLoc } from '../lib/scoreOps';
 import { openPitch } from '../lib/tuning';
+import { useT } from '../i18n';
 import Icon from './Icon';
 
 /**
@@ -52,6 +53,7 @@ const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A�
 const PLUCK: Keyframe[] = [0, -2.2, 1.9, -1.6, 1.3, -1, 0.75, -0.5, 0.3, -0.15, 0].map((d) => ({ transform: `translateY(${d}px)` }));
 
 const MARK: Record<string, string> = {
+  // tab notation marks, the same in every language
   bend: '↗', prebend: '↑', release: '↘', vibrato: '∿', whammy: 'w', slide_legato: '⟋', slide_shift: '⟋',
   hammer_on: 'h', pull_off: 'p', palm_mute: 'pm', harmonic_natural: '◇', dead_note: '×',
 };
@@ -85,7 +87,7 @@ const Strip = memo(function Strip({ model, pps, height }: { model: LaneModel; pp
               <rect className="lane-knock" x={-2} y={-9} width={tw} height={18} rx={3} />
               <text className="lane-fret" x={tw / 2 - 2} y={5}>{label}</text>
             </g>
-            {marks ? <text className="lane-mark" x={0} y={-12}>{marks}</text> : null}
+            {marks ? <text className="lane-mark" x={0} y={-12} data-i18n="as-is">{marks}</text> : null}
           </g>
         );
       })}
@@ -94,6 +96,7 @@ const Strip = memo(function Strip({ model, pps, height }: { model: LaneModel; pp
 });
 
 export default function Lane({ score, selection, onSelect, getTime, onSeek, picked = [], onPickMany, onAddAt }: Props) {
+  const t = useT();
   const model = useMemo(() => laneModel(score), [score]);
   const [pps, setPps] = useState(() => fitPps(model)); // pixels per second
   const [width, setWidth] = useState(900);
@@ -283,7 +286,7 @@ export default function Lane({ score, selection, onSelect, getTime, onSeek, pick
         width="100%"
         height={height}
         role="img"
-        aria-label="Tab that scrolls with the audio. Click a note to select it, click empty space to seek there, double-click a string to add a note, drag to pick several notes."
+        aria-label={t.lane.label}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         onPointerDown={onPointerDown}
@@ -324,9 +327,9 @@ export default function Lane({ score, selection, onSelect, getTime, onSeek, pick
           ))}
         </g>
       </svg>
-      <div className="lane-zoom" role="group" aria-label="Lane zoom">
-        <button type="button" className="icon-btn small" onClick={() => setPps((p) => Math.max(60, Math.round(p / 1.4)))} aria-label="Zoom out" title="Zoom out"><Icon name="minus" size={16} /></button>
-        <button type="button" className="icon-btn small" onClick={() => setPps((p) => Math.min(480, Math.round(p * 1.4)))} aria-label="Zoom in" title="Zoom in"><Icon name="plus" size={16} /></button>
+      <div className="lane-zoom" role="group" aria-label={t.lane.zoom}>
+        <button type="button" className="icon-btn small" onClick={() => setPps((p) => Math.max(60, Math.round(p / 1.4)))} aria-label={t.lane.zoomOut} title={t.lane.zoomOut}><Icon name="minus" size={16} /></button>
+        <button type="button" className="icon-btn small" onClick={() => setPps((p) => Math.min(480, Math.round(p * 1.4)))} aria-label={t.lane.zoomIn} title={t.lane.zoomIn}><Icon name="plus" size={16} /></button>
       </div>
     </div>
   );

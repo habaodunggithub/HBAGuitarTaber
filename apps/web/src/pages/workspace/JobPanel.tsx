@@ -8,7 +8,7 @@ import Icon from '../../components/Icon';
 import Metronome from '../../components/Metronome';
 import Shell from '../../components/Shell';
 import { desktop, type DesktopInfo, useDesktopInfo } from '../../lib/desktop';
-import { STAGE_LABEL } from '../../lib/format';
+import { useT } from '../../i18n';
 import { backLink } from './common';
 
 const jobBeat = () => performance.now() / 1000;
@@ -31,13 +31,14 @@ function useSecondsSince(key: string): number {
 
 /** Why the tab is still queued, in the desktop app: the local engine's own state, with the fix next to it. */
 function DesktopWaiting({ info }: { info: DesktopInfo }) {
+  const t = useT();
   if (!info.workerEnabled) {
     return (
       <div className="banner warn" role="status">
         <Icon name="alert" />
         <div>
-          <p>Analysis on this computer is turned off, so the tab waits for a Kaggle worker.</p>
-          <div className="row tight"><button type="button" className="btn" onClick={() => desktop?.setWorker(true)}>Analyze on this computer</button></div>
+          <p>{t.job.localOff}</p>
+          <div className="row tight"><button type="button" className="btn" onClick={() => desktop?.setWorker(true)}>{t.job.analyzeHere}</button></div>
         </div>
       </div>
     );
@@ -46,10 +47,7 @@ function DesktopWaiting({ info }: { info: DesktopInfo }) {
     return (
       <p className="banner" role="status">
         <Icon name="refresh" />
-        <span>
-          The engine is starting. The first start after installing can take a minute or two
-          {info.platform === 'win32' ? ' while Windows checks the new files' : ''}.
-        </span>
+        <span>{t.job.starting(info.platform === 'win32')}</span>
       </p>
     );
   }
@@ -57,10 +55,10 @@ function DesktopWaiting({ info }: { info: DesktopInfo }) {
     <div className="banner bad" role="alert">
       <Icon name="alert" />
       <div>
-        <p>{info.worker === 'crashed' ? 'The analysis engine stopped unexpectedly.' : 'The analysis engine is not running.'} Restart it; if it stops again, the logs say why.</p>
+        <p>{info.worker === 'crashed' ? t.job.crashed : t.job.notRunning} {t.job.restartHint}</p>
         <div className="row tight">
-          <button type="button" className="btn" onClick={() => desktop?.action('restart-engine')}>Restart engine</button>
-          <button type="button" className="btn quiet" onClick={() => desktop?.action('open-logs')}>Open logs</button>
+          <button type="button" className="btn" onClick={() => desktop?.action('restart-engine')}>{t.job.restart}</button>
+          <button type="button" className="btn quiet" onClick={() => desktop?.action('open-logs')}>{t.job.openLogs}</button>
         </div>
       </div>
     </div>
@@ -68,8 +66,9 @@ function DesktopWaiting({ info }: { info: DesktopInfo }) {
 }
 
 /** The page while the worker analyses the take: live stage list over SSE, and cancel. */
-export default function JobPanel({ t, onDone }: { t: Transcription; onDone: () => void }) {
-  const p = useJobEvents(t.job?.id ?? null, onDone);
+export default function JobPanel({ t: tab, onDone }: { t: Transcription; onDone: () => void }) {
+  const t = useT();
+  const p = useJobEvents(tab.job?.id ?? null, onDone);
   const workers = useWorkers();
   const info = useDesktopInfo();
   const qc = useQueryClient();
@@ -78,15 +77,15 @@ export default function JobPanel({ t, onDone }: { t: Transcription; onDone: () =
   const noWorker = (workers.data?.length ?? 0) === 0;
   const waiting = p.status === 'connecting' || p.status === 'queued' || (p.status === 'running' && p.stage === '');
   const failed = p.status === 'failed' || p.status === 'canceled';
-  const label = waiting ? (noWorker ? 'Waiting for a worker' : 'Waiting for the worker to pick it up') : STAGE_LABEL[p.stage] ?? 'Analyzing';
+  const label = waiting ? (noWorker ? t.job.waitingNoWorker : t.job.waitingPickup) : t.stages[p.stage] ?? t.job.analyzing;
   const pct = Math.round(p.progress * 100);
   const running = !waiting && !failed;
   // the worker's own line, when it says more than the step name: a first-use model download, a retry
   const detail = running && p.message && (/^Downloading /.test(p.message) || p.stage === 'retry') ? p.message : '';
 
   const cancel = () => {
-    if (!t.job || !window.confirm('Cancel this analysis? You will need to upload the file again.')) return;
-    void api.cancelJob(t.job.id).then(() => qc.invalidateQueries({ queryKey: keys.transcription(t.id) }));
+    if (!tab.job || !window.confirm(t.job.cancelConfirm)) return;
+    void api.cancelJob(tab.job.id).then(() => qc.invalidateQueries({ queryKey: keys.transcription(tab.id) }));
   };
 
   return (
@@ -94,33 +93,33 @@ export default function JobPanel({ t, onDone }: { t: Transcription; onDone: () =
       <main id="content" className="job">
         <div className="job-deck">
           {/* while the worker listens, the metronome keeps a slow 60 BPM */}
-          <Metronome className="vt-deck" running={!waiting && !failed} beat={jobBeat} bpm={60} label={waiting ? 'waiting' : `listening ${pct}%`} />
+          <Metronome className="vt-deck" running={!waiting && !failed} beat={jobBeat} bpm={60} label={waiting ? t.job.metroWaiting : t.job.metroListening(pct)} />
         </div>
         <div className="job-side" aria-live="polite">
-          <h1 className="display">{t.title}</h1>
+          <h1 className="display">{tab.title}</h1>
           <div className="chips">
-            <span className={`chip solid${failed ? ' bad' : ''}`}>{failed ? 'Stopped' : waiting ? 'Queued' : 'Analyzing'}</span>
+            <span className={`chip solid${failed ? ' bad' : ''}`}>{failed ? t.job.stopped : waiting ? t.job.queued : t.job.analyzing}</span>
             {!waiting && !failed ? <span className="chip">{pct}%</span> : null}
           </div>
-          <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Analysis progress">
+          <div className="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t.job.progress}>
             <span style={{ transform: `scaleX(${Math.max(p.progress, 0.02)})` }} />
           </div>
           <p className="stage-now">
             {label}
             {running ? <span className="stage-time"> · {clock(onStep)}</span> : null}
           </p>
-          {detail ? <p className="stage-detail">{detail}</p> : null}
-          <ol className="tracklist" aria-label="Analysis steps">
+          {detail ? <p className="stage-detail" data-i18n="server">{detail}</p> : null}
+          <ol className="tracklist" aria-label={t.job.steps}>
             {ORDER.map((s, i) => {
               const state = i < idx ? 'done' : i === idx && !waiting && !failed ? 'now' : '';
               return (
                 <li key={s} className={state}>
                   <span className="track-no">{String(i + 1).padStart(2, '0')}</span>
-                  <span className="track-name">{STAGE_LABEL[s] ?? s}</span>
+                  <span className="track-name">{t.stages[s] ?? s}</span>
                   <span className="track-state" aria-hidden="true">
                     {state === 'done' ? <Icon name="check" size={16} /> : state === 'now' ? <span className="eq"><i /><i /><i /></span> : null}
                   </span>
-                  {state === 'done' ? <span className="sr-only"> (done)</span> : state === 'now' ? <span className="sr-only"> (running)</span> : null}
+                  {state === 'done' ? <span className="sr-only">{t.job.stepDone}</span> : state === 'now' ? <span className="sr-only">{t.job.stepRunning}</span> : null}
                 </li>
               );
             })}
@@ -129,29 +128,26 @@ export default function JobPanel({ t, onDone }: { t: Transcription; onDone: () =
           {waiting && noWorker && !desktop ? (
             <p className="banner warn" role="status">
               <Icon name="alert" />
-              <span>No worker is running, so the tab is waiting in the queue. Open a terminal and run <code translate="no">just worker</code>, or start a worker on Kaggle.</span>
+              <span>{t.job.noWorkerBefore} <code translate="no">just worker</code>{t.job.noWorkerAfter}</span>
             </p>
           ) : null}
           {running && onStep >= LONG_STEP_S ? (
             <div className="banner" role="status">
               <Icon name="alert" />
               <div>
-                <p>
-                  This step has taken {Math.floor(onStep / 60)} minutes. On the processor a long take can need that long. If the time keeps
-                  growing and nothing changes, {desktop ? 'restart the engine (the analysis starts again) or send the logs.' : 'check the worker\'s terminal.'}
-                </p>
+                <p>{t.job.longStep(Math.floor(onStep / 60), !!desktop)}</p>
                 {desktop ? (
                   <div className="row tight">
-                    <button type="button" className="btn quiet" onClick={() => desktop?.action('open-logs')}>Open logs</button>
+                    <button type="button" className="btn quiet" onClick={() => desktop?.action('open-logs')}>{t.job.openLogs}</button>
                   </div>
                 ) : null}
               </div>
             </div>
           ) : null}
-          {failed ? <p className="banner bad" role="alert"><Icon name="alert" /> <span>{p.error}</span></p> : null}
+          {failed ? <p className="banner bad" role="alert"><Icon name="alert" /> <span data-i18n="server">{p.error}</span></p> : null}
           <div className="row">
-            {failed ? <Link to="/" className="btn">Back to your tabs</Link> : (
-              <button type="button" className="btn" onClick={cancel}>Cancel analysis</button>
+            {failed ? <Link to="/" className="btn">{t.job.backToTabs}</Link> : (
+              <button type="button" className="btn" onClick={cancel}>{t.job.cancel}</button>
             )}
           </div>
         </div>

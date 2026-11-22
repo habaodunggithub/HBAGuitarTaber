@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../i18n';
 import Icon, { type IconName } from './Icon';
 
 /**
@@ -20,6 +21,7 @@ const SHOW_MS = 3200;
 const LEAVE_MS = 160;
 
 export default function Toaster() {
+  const t = useT();
   const [items, setItems] = useState<Toast[]>([]);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function Toaster() {
   }, [items]);
 
   return (
-    <ol className="toaster" aria-live="polite" aria-label="Notifications">
+    <ol className="toaster" aria-live="polite" aria-label={t.app.notifications}>
       {items.map((t) => (
         <li key={t.id} className={`toast${t.leaving ? ' leaving' : ''}`}>
           <Icon name={t.icon} size={16} />

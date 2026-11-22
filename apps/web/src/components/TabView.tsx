@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import type * as AT from '@coderline/alphatab';
 import type { Score } from '../api/types';
+import { useT } from '../i18n';
 import type { NoteLoc } from '../lib/scoreOps';
 
 export interface TabController {
@@ -36,6 +37,7 @@ function toLoc(score: Score, note: AT.model.Note): NoteLoc | null {
 }
 
 export default function TabView({ tex, score, selection, onSelect, showStaff, controllerRef, onError }: Props) {
+  const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<AT.AlphaTabApi | null>(null);
@@ -231,7 +233,7 @@ export default function TabView({ tex, score, selection, onSelect, showStaff, co
   }, [selection, score]);
 
   return (
-    <div ref={scrollRef} className="tab-scroll" role="region" aria-label="Tab sheet" tabIndex={-1}>
+    <div ref={scrollRef} className="tab-scroll" role="region" aria-label={t.tabView.region} tabIndex={-1}>
       <div ref={hostRef} className="tab-host" />
     </div>
   );

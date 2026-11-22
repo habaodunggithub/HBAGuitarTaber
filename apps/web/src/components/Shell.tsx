@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWorkers } from '../api/hooks';
-import { useDesktopInfo, VARIANT_LABEL } from '../lib/desktop';
+import { LANGUAGES, type Messages, useLang, useT } from '../i18n';
+import { useDesktopInfo } from '../lib/desktop';
 import { toggleTheme, useTheme } from '../lib/theme';
 import EngineDialog from './EngineDialog';
 import Icon from './Icon';
@@ -23,6 +24,7 @@ export default function Shell({ center, tools, children }: Props) {
   const loc = useLocation();
   const atHome = loc.pathname === '/';
   const theme = useTheme();
+  const t = useT();
 
   // "?" opens the shortcut sheet from anywhere (not while typing)
   useEffect(() => {
@@ -38,13 +40,13 @@ export default function Shell({ center, tools, children }: Props) {
   return (
     <div className="frame">
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="Taber, go to home" translate="no">Taber</Link>
-        <nav className="rail" aria-label="Main">
-          <Link to="/#lib" aria-current={atHome && loc.hash === '#lib' ? 'page' : undefined}>Library</Link>
+        <Link to="/" className="brand" aria-label={t.shell.home} translate="no">Taber</Link>
+        <nav className="rail" aria-label={t.shell.main}>
+          <Link to="/#lib" aria-current={atHome && loc.hash === '#lib' ? 'page' : undefined}>{t.shell.library}</Link>
           <span className="sep" aria-hidden="true">|</span>
-          <Link to="/" aria-current={atHome && !loc.hash ? 'page' : undefined}>New tab</Link>
+          <Link to="/" aria-current={atHome && !loc.hash ? 'page' : undefined}>{t.shell.newTab}</Link>
           <span className="sep" aria-hidden="true">|</span>
-          <button type="button" className="rail-btn" onClick={() => setKeysOpen(true)} title="Keyboard shortcuts (?)">Shortcuts</button>
+          <button type="button" className="rail-btn" onClick={() => setKeysOpen(true)} title={t.shell.shortcutsTitle}>{t.shell.shortcuts}</button>
         </nav>
         <div className="topbar-center">{center}</div>
         <div className="topbar-tools">
@@ -56,8 +58,9 @@ export default function Shell({ center, tools, children }: Props) {
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); toggleTheme({ x: r.left + r.width / 2, y: r.top + r.height / 2 }); }}
           >
             <span className="mode-glyph" aria-hidden="true" />
-            {theme === 'night' ? 'Night mode' : 'Day mode'}
+            {theme === 'night' ? t.shell.nightMode : t.shell.dayMode}
           </button>
+          <LanguagePick />
           <WorkerLamp />
         </div>
       </header>
@@ -67,13 +70,31 @@ export default function Shell({ center, tools, children }: Props) {
   );
 }
 
+/** The language switch: shown once the app has more than one language; the choice is remembered. */
+function LanguagePick() {
+  const t = useT();
+  const lang = useLang((s) => s.lang);
+  const setLang = useLang((s) => s.setLang);
+  if (LANGUAGES.length < 2) return null;
+  return (
+    <div className="lang-pick" role="group" aria-label={t.language.pick}>
+      {LANGUAGES.map((l) => (
+        <button key={l.lang} type="button" lang={l.lang} aria-pressed={lang === l.lang} onClick={() => setLang(l.lang)} title={l.name}>
+          {l.lang.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function WorkerLamp() {
   const workers = useWorkers();
   const info = useDesktopInfo();
   const [open, setOpen] = useState(false);
+  const t = useT();
   if (workers.isPending && !info) return null;
   const online = workers.data?.length ?? 0;
-  const text = online ? `${online} worker${online > 1 ? 's' : ''} online` : 'No worker';
+  const text = online ? t.shell.workersOnline(online) : t.shell.noWorker;
   if (!info) {
     return (
       <p className={`lamp-pill${online ? ' on' : ''}`} role="status">
@@ -83,13 +104,13 @@ function WorkerLamp() {
     );
   }
   // in the desktop app the light opens the engine panel (the app has no menu bar on Windows / Linux)
-  const label = info.worker === 'running' && online ? `Engine: ${VARIANT_LABEL[info.variant ?? ''] ?? 'ready'}`
+  const label = info.worker === 'running' && online ? t.shell.engineRuns(t.engine.variants[info.variant ?? ''] ?? t.shell.engineReady)
     : online ? text
-      : info.worker === 'starting' || info.worker === 'running' ? 'Engine starting'
-        : 'Engine off';
+      : info.worker === 'starting' || info.worker === 'running' ? t.shell.engineStarting
+        : t.shell.engineOff;
   return (
     <>
-      <button type="button" className={`lamp-pill lamp-btn${online ? ' on' : ''}`} aria-haspopup="dialog" onClick={() => setOpen(true)} title={`${text}. Engine settings`}>
+      <button type="button" className={`lamp-pill lamp-btn${online ? ' on' : ''}`} aria-haspopup="dialog" onClick={() => setOpen(true)} title={t.shell.engineSettings(text)}>
         <span className="lamp" aria-hidden="true" />
         <span className="lamp-text">{label}</span>
         <Icon name="down" size={14} />
@@ -99,27 +120,33 @@ function WorkerLamp() {
   );
 }
 
-export const SHORTCUTS: [string[], string][] = [
-  [['Space'], 'play or pause'],
-  [['←', '→'], 'previous or next note'],
-  [['↑', '↓'], 'move to another string, same pitch'],
-  [['L'], 'lock or unlock the note'],
-  [['Shift', '↑', '↓'], 'raise or lower the pitch a semitone'],
-  [['0', '…', '24'], 'put the selected note on that fret (same string)'],
-  [['N'], 'add a missed note at the playhead'],
-  [['Double-click'], 'add a note on that string, in the lane'],
-  [['Drag'], 'pick the notes in a box, in the lane (Shift adds)'],
-  [['Shift', 'Click'], 'add a note to the picked ones, or take it out'],
-  [['Delete'], 'delete the note, or all the picked ones'],
-  [['T'], 'tap the beat while listening'],
-  [['Ctrl', 'Z'], 'undo'],
-  [['Ctrl', 'Shift', 'Z'], 'redo'],
-  [['Esc'], 'deselect (and drop the picked notes)'],
-  [['?'], 'open this list'],
-];
+/** The editor's shortcuts: the keys to press (from the catalog when they are words) and what they do. */
+function shortcuts(t: Messages): [string[], string][] {
+  const k = t.keys;
+  const d = t.shortcuts;
+  return [
+    [[k.space], d.play],
+    [['←', '→'], d.step],
+    [['↑', '↓'], d.string],
+    [['L'], d.lock],
+    [[k.shift, '↑', '↓'], d.pitch],
+    [['0', '…', '24'], d.fret],
+    [['N'], d.add],
+    [[k.doubleClick], d.addInLane],
+    [[k.drag], d.box],
+    [[k.shift, k.click], d.pickOne],
+    [[k.delete], d.delete],
+    [['T'], d.tap],
+    [[k.ctrl, 'Z'], d.undo],
+    [[k.ctrl, k.shift, 'Z'], d.redo],
+    [[k.esc], d.deselect],
+    [['?'], d.list],
+  ];
+}
 
 export function KeyList({ compact = false }: { compact?: boolean }) {
-  const list = compact ? SHORTCUTS.slice(0, 5) : SHORTCUTS;
+  const all = shortcuts(useT());
+  const list = compact ? all.slice(0, 5) : all;
   return (
     <dl className="keys">
       {list.map(([ks, what]) => (
@@ -133,6 +160,7 @@ export function KeyList({ compact = false }: { compact?: boolean }) {
 }
 
 function ShortcutsDialog({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -144,8 +172,8 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
     <dialog ref={ref} className="sheet-dialog" aria-labelledby="keys-title" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="dialog-head">
-        <h2 id="keys-title" className="display-sm">Shortcuts</h2>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
+        <h2 id="keys-title" className="display-sm">{t.shell.shortcuts}</h2>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label={t.app.close}><Icon name="close" /></button>
       </div>
       <KeyList />
     </dialog>

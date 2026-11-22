@@ -15,6 +15,7 @@ import type { TabController } from '../components/TabView';
 import { toast } from '../components/Toaster';
 import Transport from '../components/Transport';
 import VideoCalibrate from '../components/VideoCalibrate';
+import { getT, useT } from '../i18n';
 import { fmtTime, keyLabel } from '../lib/format';
 import { cyclePosition, deleteNote, deleteNotes, getNote, insertNoteAt, measureRange, setFret, setLocked, setPosition, shiftPitch, stepLoc, type NoteLoc } from '../lib/scoreOps';
 import { bpmFromTaps } from '../lib/timeline';
@@ -36,14 +37,15 @@ export default function Workspace() {
   const qc = useQueryClient();
   const q = useTranscription(id);
   const t = q.data;
+  const m = useT();
 
-  if (q.isPending) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">Loading…</p></main></Shell>;
+  if (q.isPending) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">{m.app.loading}</p></main></Shell>;
   if (q.error || !t) {
     const missing = q.error instanceof ApiError && q.error.status === 404;
     return (
-      <Message title={missing ? 'Tab not found' : 'Could not load the tab'}>
-        <p className="muted" role="alert">{missing ? 'This tab does not exist. It may have been deleted.' : 'The server is not answering. Check that just app is still running, then reload.'}</p>
-        <Link to="/" className="btn">Back to your tabs</Link>
+      <Message title={missing ? m.workspace.notFound : m.workspace.loadFailed}>
+        <p className="muted" role="alert">{missing ? m.workspace.notFoundBody : m.workspace.serverDown}</p>
+        <Link to="/" className="btn">{m.workspace.backToTabs}</Link>
       </Message>
     );
   }
@@ -51,8 +53,8 @@ export default function Workspace() {
   if (t.status === 'failed' || t.status === 'canceled') {
     return (
       <Message title={t.title}>
-        <p className="banner bad" role="alert"><Icon name="alert" /> <span>{t.status === 'canceled' ? 'Analysis canceled.' : `Analysis failed: ${t.job?.error ?? 'unknown error'}. Try another file, or restart the worker.`}</span></p>
-        <Link to="/" className="btn">Try another file</Link>
+        <p className="banner bad" role="alert"><Icon name="alert" /> <span>{t.status === 'canceled' ? m.workspace.canceled : m.workspace.failed(t.job?.error ?? null)}</span></p>
+        <Link to="/" className="btn">{m.workspace.tryAnother}</Link>
       </Message>
     );
   }
@@ -61,6 +63,7 @@ export default function Workspace() {
 
 // ───────────────────────────── editor ─────────────────────────────
 function Editor({ t }: { t: Transcription }) {
+  const m = useT();
   const qc = useQueryClient();
   const score = useEditor((s) => s.score);
   const selection = useEditor((s) => s.selection);
@@ -115,8 +118,8 @@ function Editor({ t }: { t: Transcription }) {
     if (!sel) return;
     try {
       useEditor.getState().edit((s) => setPosition(s, sel, string, fret));
-    } catch (e) {
-      setNotice((e as Error).message);
+    } catch {
+      setNotice(getT().workspace.cannotMove);
     }
   }, []);
 
@@ -145,7 +148,7 @@ function Editor({ t }: { t: Transcription }) {
     if (!sc || !sel) return;
     const next = shiftPitch(sc, sel, semitones);
     if (next) useEditor.getState().edit(() => next);
-    else setNotice('That pitch is out of range for this tuning and capo.');
+    else setNotice(getT().workspace.pitchOutOfRange);
   }, []);
 
   const deleteSel = useCallback(() => {
@@ -153,7 +156,7 @@ function Editor({ t }: { t: Transcription }) {
     if (sc && picked.length) { // the notes picked together go in one step (one undo)
       useEditor.getState().edit((s) => deleteNotes(s, picked));
       useEditor.getState().select(null);
-      toast(`Deleted ${picked.length} note${picked.length > 1 ? 's' : ''}. Ctrl+Z brings them back.`);
+      toast(getT().workspace.deletedMany(picked.length));
       return;
     }
     if (!sc || !sel || !getNote(sc, sel)) return;
@@ -166,9 +169,9 @@ function Editor({ t }: { t: Transcription }) {
     const sc = useEditor.getState().score;
     if (!sc) return;
     const r = insertNoteAt(sc, getTime());
-    if (!r) { setNotice('Move the playhead inside the tab to add a note there.'); return; }
+    if (!r) { setNotice(getT().workspace.addInside); return; }
     if (r.added) useEditor.getState().edit(() => r.score);
-    else toast('A note already starts here. Change that one instead.');
+    else toast(getT().workspace.noteExists);
     useEditor.getState().select(r.loc);
   }, [getTime]);
 
@@ -177,9 +180,9 @@ function Editor({ t }: { t: Transcription }) {
     const sc = useEditor.getState().score;
     if (!sc) return;
     const r = insertNoteAt(sc, time, string);
-    if (!r) { setNotice('Add notes inside the tab (between its first and last bar).'); return; }
+    if (!r) { setNotice(getT().workspace.addInsideBars); return; }
     if (r.added) useEditor.getState().edit(() => r.score);
-    else toast('A note already starts here on this string. Change that one instead.');
+    else toast(getT().workspace.noteExistsOnString);
     useEditor.getState().select(r.loc);
   }, []);
 
@@ -198,7 +201,7 @@ function Editor({ t }: { t: Transcription }) {
     if (!sc || !sel) return;
     const next = setFret(sc, sel, fret);
     if (next) useEditor.getState().edit(() => next);
-    else setNotice(`Fret ${fret} is off the neck.`);
+    else setNotice(getT().workspace.offNeck(fret));
   }, []);
 
   useEditorKeys({ togglePlay, cycle, toggleLock, tap, shiftPitch: shiftSel, addNote, deleteNote: deleteSel, typeFret });
@@ -210,13 +213,13 @@ function Editor({ t }: { t: Transcription }) {
   }, [flushSave, reassemble]);
 
   const applyParams = (params: AssemblyParams) =>
-    void recompute({ assembly_params: params }, () => toast('Settings applied. Locked notes stayed put.'));
+    void recompute({ assembly_params: params }, () => toast(m.workspace.applied));
 
   const refingerMeasure = () => {
     const { score: sc, selection: sel } = useEditor.getState();
     if (!sc || !sel) return;
     const [from, to] = measureRange(sc, sel.m);
-    void recompute({ range: { from_s: from, to_s: to } }, () => toast(`Re-fingered bar ${sel.m + 1}`, 'refresh'));
+    void recompute({ range: { from_s: from, to_s: to } }, () => toast(m.workspace.refingered(sel.m + 1), 'refresh'));
   };
 
   const tapBpm = useMemo(() => bpmFromTaps(taps), [taps]);
@@ -225,7 +228,7 @@ function Editor({ t }: { t: Transcription }) {
     const sorted = [...taps].sort((a, b) => a - b);
     void recompute(
       { assembly_params: { ...score.assembly_params, timing: 'user_tapped', user_beats_s: sorted } },
-      () => { setTaps([]); toast('Rhythm rebuilt from your taps'); },
+      () => { setTaps([]); toast(m.workspace.rebuilt); },
     );
   };
 
@@ -235,22 +238,22 @@ function Editor({ t }: { t: Transcription }) {
     a.href = urls.export(t.id, fmt);
     a.download = '';
     a.click();
-    toast(`Downloading ${label}`, 'download');
+    toast(m.workspace.downloading(label), 'download');
   };
 
   const saveTruth = () => void flushSave().then(() => truth.save.mutate(undefined, {
-    onSuccess: (i) => toast(`Added to your test set (${i.notes} notes)`, 'check'),
+    onSuccess: (i) => toast(m.workspace.truthAdded(i.notes), 'check'),
     onError: (e) => setNotice(e.message),
   }));
-  const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast('Removed from your test set'), onError: (e) => setNotice(e.message) });
+  const removeTruth = () => truth.remove.mutate(undefined, { onSuccess: () => toast(m.workspace.truthRemoved), onError: (e) => setNotice(e.message) });
 
-  const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(`Restored version ${n}`, 'history') }));
+  const restoreTo = (n: number) => void flushSave().then(() => restore.mutate(n, { onSuccess: () => toast(m.workspace.restored(n), 'history') }));
 
-  if (!score) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">Opening the tab…</p></main></Shell>;
+  if (!score) return <Shell center={backLink}><main id="content" className="page"><p className="muted" role="status">{m.workspace.opening}</p></main></Shell>;
 
   const busy = reassemble.isPending || restore.isPending;
   const warnings = t.quality?.warnings ?? [];
-  const loopLabel = selection ? `bar ${selection.m + 1}` : null;
+  const loopLabel = selection ? m.workspace.bar(selection.m + 1) : null;
   const lastSlot = score.measures.at(-1)?.slots.at(-1);
   const key = t.quality?.key;
   const bpm = Math.round(score.measures[0]?.tempo_bpm ?? 0);
@@ -278,17 +281,17 @@ function Editor({ t }: { t: Transcription }) {
   return (
     <Shell center={backLink} tools={tools}>
       <main id="content" className="editor">
-        <section className="deck-col" aria-label="Playback">
+        <section className="deck-col" aria-label={m.workspace.playback}>
           <div className="deck-wrap">
-            <Metronome className="vt-deck" running={playing} beat={beatAt} bpm={bpm} label={`${key ? keyLabel(key) : 'tab'}, ${bpm}`} />
+            <Metronome className="vt-deck" running={playing} beat={beatAt} bpm={bpm} label={m.workspace.metroLabel(key ? keyLabel(key) : null, bpm)} />
             {src ? <button type="button" className="deck-hit" tabIndex={-1} aria-hidden="true" onClick={togglePlay} /> : null}
           </div>
           <div className="now">
             <h1 className="display track" title={t.title}>{t.title}</h1>
             <div className="chips">
               {key ? <span className="chip solid" data-testid="key">{keyLabel(key)}</span> : null}
-              <span className="chip">{bpm} BPM</span>
-              {t.quality?.separation?.used ? <span className="chip" data-testid="separated">Backing removed</span> : null}
+              <span className="chip">{m.workspace.bpm(bpm)}</span>
+              {t.quality?.separation?.used ? <span className="chip" data-testid="separated">{m.workspace.backingRemoved}</span> : null}
             </div>
           </div>
           {src && (!playsVideo || videoHost) ? (
@@ -306,26 +309,27 @@ function Editor({ t }: { t: Transcription }) {
               onPlayingChange={onPlaying}
               stems={stems}
             />
-          ) : src ? null : <p className="muted small">No original audio to play.</p>}
+          ) : src ? null : <p className="muted small">{m.workspace.noAudio}</p>}
         </section>
 
         <div className="work">
           {warnings.length ? (
             <div className="banner warn" role="status">
               <Icon name="alert" />
-              <div>{warnings.map((w) => <p key={w}>{w}</p>)}</div>
+              {/* the analysis writes its warnings in English (server strings are a later step) */}
+              <div data-i18n="server">{warnings.map((w) => <p key={w}>{w}</p>)}</div>
             </div>
           ) : null}
           {notice ? (
             <div className="banner bad" role="alert">
               <Icon name="alert" />
               <p>{notice}</p>
-              <button type="button" className="icon-btn small" aria-label="Dismiss" onClick={() => setNotice(null)}><Icon name="close" size={16} /></button>
+              <button type="button" className="icon-btn small" aria-label={m.app.dismiss} onClick={() => setNotice(null)}><Icon name="close" size={16} /></button>
             </div>
           ) : null}
 
           <section className="panel lane-panel" aria-labelledby="lane-h">
-            <h2 id="lane-h" className="pixel-h">Play-along</h2>
+            <h2 id="lane-h" className="pixel-h">{m.workspace.lane}</h2>
             <div className="screen">
               <Lane score={score} selection={selection} onSelect={select} getTime={getTime} onSeek={seek} picked={picked} onPickMany={pickMany} onAddAt={addAt} />
             </div>
@@ -336,8 +340,8 @@ function Editor({ t }: { t: Transcription }) {
               <Inspector score={score} selection={selection} picked={picked.length} onClearPicked={() => useEditor.getState().setPicked([])} onPick={pick} onToggleLock={toggleLock} onRefingerMeasure={refingerMeasure} onShiftPitch={shiftSel} onDelete={deleteSel} onAddNote={addNote} busy={busy} />
             </div>
             {videoAsset ? (
-              <section className="panel video-panel" aria-label="Video">
-                <h2 className="pixel-h">Video</h2>
+              <section className="panel video-panel" aria-label={m.workspace.video}>
+                <h2 className="pixel-h">{m.workspace.video}</h2>
                 <div className="video-box" ref={setVideoHost} />
                 {showNeck && neckTrack.data && videoHost && playsVideo ? <NeckOverlay host={videoHost} media={audioRef} track={neckTrack.data} /> : null}
                 <VideoStatus video={t.quality?.video ?? null} />
@@ -346,12 +350,12 @@ function Editor({ t }: { t: Transcription }) {
                     <input type="checkbox" role="switch" checked={showNeck} onChange={(e) => setShowNeck(e.target.checked)}
                       disabled={!neckTrack.data} data-testid="show-neck" />
                     <span className="switch-track" aria-hidden="true" />
-                    Show neck tracking
+                    {m.workspace.showNeck}
                   </label>
                 ) : null}
-                {wantsNeck && neckTrack.data === null ? <p className="muted small">Re-analyze with the video to see the neck tracking.</p> : null}
+                {wantsNeck && neckTrack.data === null ? <p className="muted small">{m.workspace.reanalyzeForNeck}</p> : null}
                 <button type="button" className="btn" onClick={() => setCalibrating(true)} data-testid="use-video">
-                  <Icon name="video" /> {t.quality?.video?.used ? 'Recalibrate the neck' : 'Use the video to pick strings and frets'}
+                  <Icon name="video" /> {t.quality?.video?.used ? m.workspace.recalibrate : m.workspace.useVideo}
                 </button>
               </section>
             ) : null}
@@ -359,19 +363,19 @@ function Editor({ t }: { t: Transcription }) {
 
           <section className="panel sheet" aria-labelledby="sheet-h">
             <div className="sheet-head">
-              <h2 id="sheet-h" className="pixel-h">Score</h2>
-              <p className="facts-line">{score.measures.length} bars, {fmtTime(lastSlot?.start_s ?? 0)}</p>
+              <h2 id="sheet-h" className="pixel-h">{m.workspace.score}</h2>
+              <p className="facts-line">{m.workspace.scoreFacts(score.measures.length, fmtTime(lastSlot?.start_s ?? 0))}</p>
               <div className="spacer" />
               <label className="switch">
                 <input type="checkbox" role="switch" checked={showStaff} onChange={(e) => setShowStaff(e.target.checked)} />
                 <span className="switch-track" aria-hidden="true" />
-                Show staff
+                {m.workspace.showStaff}
               </label>
             </div>
-            <Suspense fallback={<div className="tab-skeleton" role="status"><span className="sr-only">Loading the score…</span></div>}>
+            <Suspense fallback={<div className="tab-skeleton" role="status"><span className="sr-only">{m.workspace.loadingScore}</span></div>}>
               {tex ? (
                 <TabView tex={tex} score={score} selection={selection} onSelect={select} showStaff={showStaff} controllerRef={tabCtl as React.Ref<TabController>} onError={setNotice} />
-              ) : <div className="tab-skeleton" role="status"><span className="sr-only">Rendering the score…</span></div>}
+              ) : <div className="tab-skeleton" role="status"><span className="sr-only">{m.workspace.renderingScore}</span></div>}
             </Suspense>
           </section>
         </div>
@@ -382,7 +386,7 @@ function Editor({ t }: { t: Transcription }) {
           videoAssetId={videoAsset.asset_id}
           startTime={audioRef.current?.currentTime ?? 0}
           onClose={() => setCalibrating(false)}
-          onStarted={() => { setCalibrating(false); toast('Re-analyzing with video', 'video'); void flushSave().then(() => qc.invalidateQueries({ queryKey: keys.transcription(t.id) })); }}
+          onStarted={() => { setCalibrating(false); toast(m.workspace.reanalyzing, 'video'); void flushSave().then(() => qc.invalidateQueries({ queryKey: keys.transcription(t.id) })); }}
         />
       ) : null}
     </Shell>
@@ -392,11 +396,12 @@ function Editor({ t }: { t: Transcription }) {
 type VideoQuality = NonNullable<NonNullable<Transcription['quality']>['video']>;
 
 function VideoStatus({ video }: { video: VideoQuality | null }) {
-  if (!video) return <p className="muted small">The video is not used yet. Show the app where the neck is and it will help pick strings and frets.</p>;
-  if (!video.used) return <p className="muted small">The video did not help: {video.reason}</p>;
+  const m = useT();
+  if (!video) return <p className="muted small">{m.workspace.videoUnused}</p>;
+  if (!video.used) return <p className="muted small">{m.workspace.videoNoHelp(video.reason ?? '')}</p>;
   return (
     <p className="muted small" data-testid="video-status">
-      Using the video: neck tracked in {Math.round((video.tracked_ratio ?? 0) * 100)}% and hand visible in {Math.round((video.hands_ratio ?? 0) * 100)}% of frames, {video.notes_with_evidence} notes confirmed.
+      {m.workspace.videoUsed(Math.round((video.tracked_ratio ?? 0) * 100), Math.round((video.hands_ratio ?? 0) * 100), video.notes_with_evidence ?? 0)}
     </p>
   );
 }

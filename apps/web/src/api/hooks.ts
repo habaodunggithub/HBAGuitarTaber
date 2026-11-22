@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api, urls } from './client';
 import { ApiError } from './http';
+import { getT } from '../i18n';
 import type { JobSnapshot, ReassembleIn } from './types';
 
 export const keys = {
@@ -104,7 +105,7 @@ export function useJobEvents(jobId: string | null, onDone: () => void): JobProgr
       const data = (e as MessageEvent).data as string | undefined;
       if (data) {
         const d = JSON.parse(data) as { error?: string; canceled?: boolean };
-        setState((s) => ({ ...s, status: d.canceled ? 'canceled' : 'failed', error: d.error ?? 'Error' }));
+        setState((s) => ({ ...s, status: d.canceled ? 'canceled' : 'failed', error: d.error ?? getT().errors.generic }));
         es.close();
       } // else: transient connection error, EventSource retries by itself
     });

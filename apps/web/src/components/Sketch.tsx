@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useT } from '../i18n';
 import { toggleTheme, useTheme } from '../lib/theme';
 
 /**
@@ -8,6 +9,7 @@ import { toggleTheme, useTheme } from '../lib/theme';
  */
 export default function Sketch({ className }: { className?: string }) {
   const theme = useTheme();
+  const t = useT();
   const lampRef = useRef<SVGGElement>(null);
 
   // line boil: re-seed the wobble a few times a second, like redrawn animation frames
@@ -27,7 +29,7 @@ export default function Sketch({ className }: { className?: string }) {
 
   return (
     <div className={`sketch${className ? ` ${className}` : ''}`}>
-      <svg viewBox="0 0 900 760" role="img" aria-label="Ink drawing of an electric guitar leaning on a small amp">
+      <svg viewBox="0 0 900 760" role="img" aria-label={t.home.drawing}>
         <g className="stars" aria-hidden="true">
           <circle cx="520" cy="60" r="1.6" /><circle cx="610" cy="20" r="1.2" /><circle cx="700" cy="90" r="1.8" /><circle cx="430" cy="130" r="1.1" /><circle cx="790" cy="40" r="1.4" /><circle cx="330" cy="40" r="1.3" />
         </g>
@@ -47,7 +49,7 @@ export default function Sketch({ className }: { className?: string }) {
           <path className="ink hair" d="M572 452v6 M604 452l3 6 M636 452l-2 6 M668 452l4 5 M700 452v6" />
           {/* name badge on the grille corner: the leaning guitar covers the left of the amp */}
           <rect className="ink paper" x="636" y="634" width="84" height="20" rx="2" />
-          <text x="645" y="649" className="sk-text">TABER 15</text>
+          <text x="645" y="649" className="sk-text" data-i18n="as-is">TABER 15</text>
           <path className="ink hair" d="M455 680 L455 692 M745 680 L745 692" />
           <path className="ink thin hatch" d="M748 440 L760 448 L760 690 L748 680" {...P} />
 
@@ -76,7 +78,7 @@ export default function Sketch({ className }: { className?: string }) {
           className="lamp-switch"
           role="button"
           tabIndex={0}
-          aria-label={theme === 'night' ? 'Switch to the day desk' : 'Switch to the night desk'}
+          aria-label={theme === 'night' ? t.home.toDay : t.home.toNight}
           aria-pressed={theme === 'night'}
           onClick={flip}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } }}
