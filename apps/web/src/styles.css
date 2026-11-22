@@ -239,7 +239,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 26px; 
 .lang-pick button { all: unset; cursor: pointer; padding: 5px 9px; min-width: 22px; text-align: center; }
 .lang-pick button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .lang-pick button:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
-.crumb { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; padding: 6px 2px; }
+.crumb { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; padding: 6px 2px; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { .crumb:hover { color: var(--blue); } }
 .search { display: flex; align-items: center; gap: 10px; width: min(360px, 100%); height: 36px; padding: 0 2px; border-bottom: 1.2px solid var(--ink); color: var(--ink); cursor: text; }
 .search:focus-within { border-bottom-color: var(--blue); }

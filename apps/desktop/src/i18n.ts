@@ -152,8 +152,146 @@ export const en = {
 
 export type Messages = typeof en;
 
-/** Vietnamese: written in the ticket "Bản dịch tiếng Việt cho app" (null until then: the shell speaks English). */
-export const vi: Messages | null = null;
+/** Tiếng Việt (thuật ngữ theo GLOSSARY.md, như catalog của app web). */
+export const vi: Messages | null = {
+  language: { name: 'Tiếng Việt' },
+
+  setup: {
+    opening: 'đang mở sổ tay…',
+    title: 'Cài engine',
+    lede: 'Taber nghe bằng vài model: cao độ, điểm bắt đầu nốt, nhịp, và dây bạn đã chơi. Chúng chạy trên máy này, được tải một lần từ PyPI và PyTorch, vào',
+    install: 'Cài đặt',
+    keep: 'Giữ {variant}',
+    picked: 'hợp với máy này',
+    changeLaterMenu: 'có thể đổi sau, trong menu Engine',
+    changeLaterLight: 'có thể đổi sau, bằng đèn engine trên thanh trên cùng',
+    installing: 'Đang cài engine',
+    step: 'Bước',
+    onDisk: 'Trên ổ đĩa',
+    downloaded: 'Đã tải',
+    speed: 'Tốc độ',
+    time: 'Thời gian',
+    progress: 'Tiến độ tải',
+    once: 'Việc này chỉ làm một lần. Nếu mất mạng hoặc bạn đóng app, lần sau sẽ tải tiếp từ chỗ đã dừng.',
+    fullLog: 'Log đầy đủ:',
+    emptyLog: '(log trống)',
+    retry: 'Thử lại',
+    change: 'Đổi engine',
+    openLogs: 'Mở log',
+    exportDiagnostics: 'Xuất gói chẩn đoán',
+    quit: 'Thoát',
+  },
+
+  diagnostics: {
+    save: 'Lưu gói chẩn đoán',
+    zip: 'File nén zip',
+    failed: 'Không ghi được gói chẩn đoán',
+  },
+
+  variants: {
+    gpu: 'GPU NVIDIA',
+    gpuFound: (name: string) => `Nhanh nhất. Chạy các model trên ${name} của bạn.`,
+    gpuMissing: 'Nhanh nhất, nhưng cần card đồ hoạ NVIDIA, và máy này không có.',
+    gpuTooOld: (name: string, cap: string, min: string) =>
+      `${name} của bạn (compute ${cap}) quá cũ cho bản GPU này, bản này cần ${min} trở lên (dòng GTX 16 / RTX 20 trở lên). Các model sẽ chạy trên bộ xử lý sau một lần tải rất lớn: hãy chọn Bộ xử lý.`,
+    driverOld: (driver: string, min: number) => `Driver ${driver} cũ hơn ${min}: hãy cập nhật trước, nếu không các model sẽ chạy trên CPU.`,
+    cpu: 'Bộ xử lý',
+    cpuDetail: 'Mọi model chạy trên bộ xử lý. Tab như nhau, phân tích chậm hơn.',
+    lite: 'Gọn nhẹ',
+    liteDetail: 'Nhỏ nhất. Dò cao độ nhẹ hơn, không tách nhạc nền, không phân loại dây. Video vẫn dùng được.',
+  },
+
+  install: {
+    gettingReady: 'Đang chuẩn bị',
+    phases: {
+      python: 'Lấy Python',
+      download: 'Tải PyTorch',
+      packages: 'Cài engine',
+      check: 'Kiểm tra engine',
+      models: 'Tải các model',
+    },
+    python: (version: string) => `Đang lấy Python ${version}`,
+    wheel: (name: string, version: string) => `Đang tải ${name} ${version}`,
+    engine: 'Đang tải engine phân tích',
+    model: (model: string) => `Đang tải ${model}`,
+    of: (done: string, total: string) => `${done} / ${total}`,
+    rate: (rate: string, left: string) => `${rate}/s, còn khoảng ${left}`,
+    seconds: (s: number) => `${s} giây`,
+    minutes: (m: number) => `${m} phút`,
+    noSpace: (file: string, dir: string) =>
+      `Không đủ chỗ trống trên ổ đĩa cho ${file} (trong ${dir}). Hãy giải phóng bớt rồi thử lại: lần tải sẽ tiếp tục từ chỗ đã dừng.`,
+    downloadFailed: (file: string, why: string) =>
+      `Không tải được ${file}: ${why}. Kiểm tra kết nối mạng rồi thử lại: lần tải sẽ tiếp tục từ chỗ đã dừng.`,
+    damaged: (file: string) => `${file} tải về bị hỏng (sai checksum). Thử lại: file sẽ được tải lại từ đầu.`,
+  },
+
+  errors: {
+    apiStopped: (why: string) => `API đã dừng (${why})`,
+    apiDidNotStart: (why: string) => `API không khởi động được (${why})`,
+    apiSilent: 'API không trả lời trong 2 phút',
+    stopped: 'Engine đã dừng',
+    didNotStart: 'Engine không khởi động được',
+    notInstalled: 'Không cài được engine',
+    workerGaveUp: 'Worker phân tích cứ dừng liên tục',
+    workerGaveUpDetail: (logPath: string, tail: string) => `Các bản ghi mới sẽ chờ trong hàng đợi. Log ở:\n${logPath}\n\n${tail}`,
+    ok: 'OK',
+    openLog: 'Mở log',
+  },
+
+  removal: {
+    engineTitle: 'Xoá engine?',
+    engineDetail: (size: string) =>
+      `Việc này giải phóng ${size}: runtime Python, các model và cache. Tab và bản ghi của bạn vẫn còn. Taber sẽ khởi động lại và cài lại engine.`,
+    engineYes: 'Xoá engine',
+    everythingTitle: 'Xoá toàn bộ dữ liệu của Taber?',
+    everythingDetail: (size: string) =>
+      `Việc này xoá ${size}: mọi tab và bản ghi, engine, cài đặt và log. Không thể hoàn tác. Hãy xuất những tab bạn muốn giữ trước. Taber sẽ đóng và xoá nốt ngay sau đó; còn bản thân app thì gỡ như mọi app khác.`,
+    everythingYes: 'Xoá hết',
+    cancel: 'Huỷ',
+    failed: 'Không xoá được hết',
+  },
+
+  engineInfo: {
+    title: 'Engine',
+    engine: (variant: string) => `Engine: ${variant}`,
+    notInstalled: 'chưa cài',
+    gpu: (what: string) => `GPU: ${what}`,
+    gpuNotUsed: 'không dùng',
+    gpuNotUsedWhy: (why: string) => `không dùng (${why})`,
+    api: (state: string, url: string) => `API: ${state} tại ${url}`,
+    worker: (state: string) => `Worker trên máy: ${state}`,
+    data: (p: string) => `Dữ liệu: ${p}`,
+    files: (p: string) => `File engine: ${p}`,
+    cache: (p: string) => `Cache: ${p}`,
+    logs: (p: string) => `Log: ${p}`,
+  },
+
+  updates: {
+    available: (app: string, version: string) => `Đã có ${app} ${version}`,
+    availableDetail: (current: string) => `Bạn đang dùng ${current}. Tab và engine của bạn được giữ nguyên khi cài bản mới.`,
+    download: 'Tải về',
+    later: 'Để sau',
+    latest: 'Bạn đang dùng bản mới nhất',
+    failed: 'Không kiểm tra được bản mới',
+  },
+
+  menu: {
+    file: 'Tệp',
+    openData: 'Mở thư mục dữ liệu',
+    openLogs: 'Mở thư mục log',
+    view: 'Xem',
+    engine: 'Engine',
+    localWorker: 'Worker phân tích trên máy',
+    restart: 'Khởi động lại engine',
+    change: 'Đổi engine…',
+    info: 'Thông tin engine',
+    help: 'Trợ giúp',
+    downloadPage: 'Trang tải',
+    checkUpdates: 'Kiểm tra bản mới…',
+    report: 'Báo lỗi',
+    exportDiagnostics: 'Xuất gói chẩn đoán…',
+  },
+};
 
 const CATALOGS: Record<Lang, Messages | null> = { en, vi };
 
