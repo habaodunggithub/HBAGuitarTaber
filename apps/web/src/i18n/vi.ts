@@ -91,6 +91,7 @@ export const vi: Messages | null = {
     whenWrong: 'Khi có lỗi',
     openLogs: 'Mở thư mục log',
     copyDiagnostics: 'Sao chép thông tin chẩn đoán',
+    exportDiagnostics: 'Xuất gói chẩn đoán',
     copied: 'Đã sao chép. Dán vào tin nhắn của bạn, kèm các file log.',
     copyFailed: 'Không sao chép được',
     report: 'Báo lỗi',

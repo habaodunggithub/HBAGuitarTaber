@@ -178,7 +178,14 @@ export const vi: Messages | null = {
     retry: 'Thử lại',
     change: 'Đổi engine',
     openLogs: 'Mở log',
+    exportDiagnostics: 'Xuất gói chẩn đoán',
     quit: 'Thoát',
+  },
+
+  diagnostics: {
+    save: 'Lưu gói chẩn đoán',
+    zip: 'File nén zip',
+    failed: 'Không ghi được gói chẩn đoán',
   },
 
   variants: {
@@ -269,6 +276,7 @@ export const vi: Messages | null = {
     downloadPage: 'Trang tải',
     checkUpdates: 'Kiểm tra bản mới…',
     report: 'Báo lỗi',
+    exportDiagnostics: 'Xuất gói chẩn đoán…',
   },
 };
 
