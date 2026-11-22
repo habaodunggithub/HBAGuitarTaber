@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { lookup, useT } from '../i18n';
-import { fmtBytes } from '../lib/format';
 import { desktop, diagnostics, type DesktopAction, type DesktopInfo } from '../lib/desktop';
 import Icon from './Icon';
 import { toast } from './Toaster';
@@ -13,7 +12,7 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
   const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   // what each removal frees: measured when the panel opens (the runtime holds many files)
-  const [sizes, setSizes] = useState<{ engine: number; everything: number } | null>(null);
+  const [sizes, setSizes] = useState<{ engine: string; everything: string } | null>(null);
   useEffect(() => {
     let live = true;
     void desktop?.sizes().then((s) => live && setSizes(s));
@@ -21,7 +20,7 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
       live = false;
     };
   }, []);
-  const size = (n: number | undefined) => (n === undefined ? t.engine.measuring : fmtBytes(n));
+  const size = (s: string | undefined) => s ?? t.engine.measuring;
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();

@@ -117,7 +117,7 @@ export const en = {
     engineYes: 'Remove the engine',
     everythingTitle: 'Remove all of Taber\'s data?',
     everythingDetail: (size: string) =>
-      `This deletes ${size}: every tab and recording, the engine, the settings and the logs. It cannot be undone. Export the tabs you want to keep first. Taber then closes; remove the app itself as you would any other.`,
+      `This deletes ${size}: every tab and recording, the engine, the settings and the logs. It cannot be undone. Export the tabs you want to keep first. Taber closes and finishes deleting right after; remove the app itself as you would any other.`,
     everythingYes: 'Delete everything',
     cancel: 'Cancel',
     failed: 'Could not remove everything',

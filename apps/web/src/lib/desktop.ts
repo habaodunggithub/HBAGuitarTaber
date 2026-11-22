@@ -35,8 +35,8 @@ interface Bridge {
   action(name: DesktopAction): void;
   setWorker(on: boolean): void;
   setAutoUpdates(on: boolean): void;
-  /** bytes each removal would free (engine: runtime + caches; everything: all the app's data) */
-  sizes(): Promise<{ engine: number; everything: number } | null>;
+  /** the space each removal would free, written out (engine: runtime + caches; everything: all the app's data) */
+  sizes(): Promise<{ engine: string; everything: string } | null>;
 }
 
 declare global {

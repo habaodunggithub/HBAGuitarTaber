@@ -6,48 +6,70 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Layout } from './layout';
+import { APP_NAME, type Layout, topFolders } from './layout';
 
 export type Removal = 'engine' | 'everything';
 
-/** The app's own folders carry its name: anything else (a home folder, a drive root) is never deleted. */
+const NAMES = new Set([APP_NAME.toLowerCase(), 'hba-guitar-taber']);
+
+/**
+ * The app's own folders are named after it (or sit right inside one that is: runtime, cache, logs). A home
+ * folder, a drive root, or a folder that only mentions the name ("HBA Guitar Taber projects") never is.
+ */
 export function isOurs(p: string): boolean {
   const abs = path.resolve(p);
-  return /hba[ -]guitar[ -]taber/i.test(abs) && abs !== path.resolve(os.homedir()) && abs !== path.parse(abs).root;
+  if (abs === path.resolve(os.homedir()) || abs === path.parse(abs).root) return false;
+  return [abs, path.dirname(abs)].some((q) => NAMES.has(path.basename(q).toLowerCase()));
 }
 
 /**
  * What a removal deletes. The engine: the Python runtime and the caches (model files, stems, downloads); the next
- * start installs it again. Everything: that, plus the tabs, the recordings, the settings and the logs.
+ * start installs it again. Everything: the app's top folders (tabs, recordings, settings, logs, the engine) and
+ * `extra` (the window's own browser profile).
  */
-export function targets(layout: Layout, what: Removal): string[] {
-  const engine = [layout.runtime, layout.cache];
-  if (what === 'engine') return engine;
-  const home = path.dirname(layout.settingsFile); // holds data/, runtime/, settings.json (and cache/ and logs/ on Windows)
-  // on Linux the logs sit in …/state/hba-guitar-taber/logs: the app's folder there goes too
-  const logs = path.basename(layout.logs) === 'logs' && isOurs(path.dirname(layout.logs)) ? path.dirname(layout.logs) : layout.logs;
-  const all = [home, layout.cache, logs, ...engine];
-  // a folder inside another one on the list goes with it
-  return [...new Set(all.map((p) => path.resolve(p)))].filter((p, _, list) => !list.some((q) => q !== p && p.startsWith(q + path.sep)));
+export function targets(layout: Layout, what: Removal, extra: string[] = []): string[] {
+  return what === 'engine' ? [layout.runtime, layout.cache] : topFolders([...layout.roots, ...extra]);
 }
 
-/** Bytes under a folder (or a file), without following links; 0 when it is not there. */
-export function sizeOf(p: string): number {
+/** Bytes under a folder or file, without following links; what cannot be read counts 0. */
+export async function sizeOf(p: string): Promise<number> {
   let st: fs.Stats;
   try {
-    st = fs.lstatSync(p);
+    st = await fs.promises.lstat(p);
   } catch {
     return 0;
   }
   if (!st.isDirectory()) return st.isFile() ? st.size : 0;
+  let names: string[] = [];
+  try {
+    names = await fs.promises.readdir(p);
+  } catch {
+    return 0;
+  }
   let total = 0;
-  for (const e of fs.readdirSync(p)) total += sizeOf(path.join(p, e));
+  for (const n of names) total += await sizeOf(path.join(p, n));
   return total;
 }
 
-/** Deletes the folders of a removal. Throws, deleting nothing, if any of them is not the app's own. */
-export function remove(paths: string[]): void {
-  const foreign = paths.filter((p) => !isOurs(p));
-  if (foreign.length) throw new Error(`refusing to delete folders that are not the app's: ${foreign.join(', ')}`);
-  for (const p of paths) fs.rmSync(p, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+/** The space a list of folders takes. */
+export async function freed(paths: string[]): Promise<number> {
+  let total = 0;
+  for (const p of paths) total += await sizeOf(p);
+  return total;
+}
+
+/** Throws if a folder may not be deleted (see remove): to know before quitting, when the deleting comes after. */
+export function check(paths: string[], keep: string[] = []): void {
+  const inside = (p: string, k: string) => path.resolve(k) === path.resolve(p) || path.resolve(k).startsWith(path.resolve(p) + path.sep);
+  const bad = paths.filter((p) => !isOurs(p) || keep.some((k) => inside(p, k)));
+  if (bad.length) throw new Error(`refusing to delete: ${bad.join(', ')}`);
+}
+
+/**
+ * Deletes the folders of a removal. Throws, deleting nothing, if one of them is not the app's own or holds a folder
+ * in `keep` (the installed app itself, which a user may have put next to its data).
+ */
+export function remove(paths: string[], keep: string[] = []): void {
+  check(paths, keep);
+  for (const p of paths) fs.rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
 }

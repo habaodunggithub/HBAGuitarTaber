@@ -18,7 +18,8 @@ import {
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { newer, notice } from './updates';
 import { bundleEntries, systemFacts, zip } from './diagnostics';
-import { remove, type Removal, sizeOf, targets } from './removal';
+import { check, freed, remove, type Removal, targets } from './removal';
+import { cleanupRequest, runCleanup, startCleanup } from './cleanup';
 import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
@@ -27,7 +28,10 @@ const SELFTEST = process.env.TABER_DESKTOP_SELFTEST === '1';
 const MAC = process.platform === 'darwin';
 
 app.setName(APP_NAME);
-if (!app.requestSingleInstanceLock()) {
+// started again only to finish "Remove all data" after the app quit (src/cleanup.ts): nothing else runs
+const CLEANUP = cleanupRequest(process.argv);
+if (CLEANUP) runCleanup(CLEANUP);
+else if (!app.requestSingleInstanceLock()) {
   // a second API on the same SQLite file and data folder would fight the first one
   app.quit();
 }
@@ -408,9 +412,10 @@ async function checkForUpdates(manual: boolean) {
  * here in the main process that says what goes. The engine is stopped first so no process holds its files.
  */
 async function removeData(what: Removal) {
-  const paths = targets(layout, what);
-  const size = formatBytes(paths.reduce((n, p) => n + sizeOf(p), 0));
+  const paths = targets(layout, what, [app.getPath('userData')]);
+  const keep = [path.dirname(process.execPath), app.getAppPath()]; // never the installed app itself
   const r = t().removal;
+  const size = formatBytes(await freed(paths));
   const opts = {
     type: 'warning' as const,
     message: what === 'engine' ? r.engineTitle : r.everythingTitle,
@@ -423,19 +428,23 @@ async function removeData(what: Removal) {
   if (response !== 1) return;
   desktopLog.line(`removing ${what}: ${paths.join(', ')}`);
   try {
+    check(paths, keep);
     await backend?.stop();
     backend = null;
-    if (what === 'everything') await desktopLog.close(); // the logs folder goes too
-    remove(paths);
+    if (what === 'engine') {
+      remove(paths, keep);
+      delete settings.variant;
+      save();
+      app.relaunch(); // into the setup page, which installs the engine again
+    } else {
+      startCleanup(paths); // deletes once this process has ended (src/cleanup.ts)
+    }
+    app.exit(0);
   } catch (e) {
-    void dialog.showErrorBox(r.failed, (e as Error).message);
+    desktopLog.line(`removing ${what} failed: ${(e as Error).message}`);
+    dialog.showErrorBox(r.failed, (e as Error).message);
+    void boot(false); // the engine was stopped: start it again
   }
-  if (what === 'engine') {
-    delete settings.variant;
-    save();
-    app.relaunch();
-  }
-  app.exit(0);
 }
 
 // ───────────────────────────── diagnostics bundle ─────────────────────────────
@@ -613,8 +622,8 @@ ipcMain.handle('desktop:info', (e) => (fromApp(e) ? desktopInfo() : null));
 // the space each removal frees, for the Engine panel (walking the runtime takes a moment: asked when it opens)
 ipcMain.handle('desktop:sizes', async (e) => {
   if (!fromApp(e)) return null;
-  await new Promise((r) => setImmediate(r));
-  return { engine: targets(layout, 'engine').reduce((n, p) => n + sizeOf(p), 0), everything: targets(layout, 'everything').reduce((n, p) => n + sizeOf(p), 0) };
+  const all = targets(layout, 'everything', [app.getPath('userData')]);
+  return { engine: formatBytes(await freed(targets(layout, 'engine'))), everything: formatBytes(await freed(all)) };
 });
 ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
   if (!fromApp(e)) return;
@@ -702,7 +711,7 @@ app.on('second-instance', () => {
   win.focus();
 });
 
-app.whenReady().then(() => {
+if (!CLEANUP) app.whenReady().then(() => {
   fs.mkdirSync(layout.logs, { recursive: true });
   desktopLog = new LogFile(layout.logs, 'desktop');
   setLang(pickLang(settings.language, app.getPreferredSystemLanguages()));

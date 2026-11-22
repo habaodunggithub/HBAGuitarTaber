@@ -19,6 +19,8 @@ export interface Layout {
   cache: string;
   logs: string;
   settingsFile: string;
+  /** the app's own top folders (data and settings, cache, logs), none inside another: "Remove all data" deletes these */
+  roots: string[];
   /** read-only files shipped with the app */
   res: {
     root: string;
@@ -62,6 +64,12 @@ function homes(): { data: string; cache: string; logs: string } {
   };
 }
 
+/** The folders of a list that are not inside another one of it. */
+export function topFolders(list: string[]): string[] {
+  const abs = [...new Set(list.map((p) => path.resolve(p)))];
+  return abs.filter((p) => !abs.some((q) => q !== p && p.startsWith(q + path.sep)));
+}
+
 export function resolveLayout(resourcesRoot: string): Layout {
   const h = homes();
   const runtime = path.join(h.data, 'runtime');
@@ -75,6 +83,7 @@ export function resolveLayout(resourcesRoot: string): Layout {
     cache: h.cache,
     logs: h.logs,
     settingsFile: path.join(h.data, 'settings.json'),
+    roots: topFolders([h.data, h.cache, path.basename(h.logs) === 'logs' ? path.dirname(h.logs) : h.logs]),
     res: {
       root: resourcesRoot,
       web: path.join(resourcesRoot, 'web'),
