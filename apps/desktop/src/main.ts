@@ -16,7 +16,7 @@ import {
   formatBytes, type Manifest, type Phase, provision, readManifest, RuntimeError, type RuntimeState, runtimeStatus, type Variant,
 } from './runtime';
 import { loadSettings, saveSettings, type Settings } from './settings';
-import { lang, pickLang, setLang, t } from './i18n';
+import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
 const SITE = 'https://habaodunggithub.github.io/HBAGuitarTaber/';
@@ -269,7 +269,7 @@ async function install(variant: Variant): Promise<void> {
 }
 
 async function startBackend(): Promise<void> {
-  sendSetup({ screen: 'starting', message: t().install.opening });
+  sendSetup({ screen: 'starting', message: t().setup.opening });
   backend = new Backend({ layout, port: settings.port, startWorker: settings.startWorker });
   backend.on('port', (p: number) => {
     if (settings.port !== p) {
@@ -399,19 +399,20 @@ async function checkForUpdates(manual: boolean) {
 
 function engineInfo() {
   const r = runtime;
+  const i = t().engineInfo;
   const lines = [
-    `Engine: ${r?.variant ?? 'not installed'}`,
-    `Python ${r?.python ?? '?'}, torch ${r?.torch ?? 'not installed'}`,
-    `GPU: ${r?.cuda ? r.gpu : r?.gpuNote ? `not used (${r.gpuNote})` : 'not used'}`,
-    `API: ${backend?.apiState ?? 'stopped'} on ${backend?.url ?? '-'}`,
-    `Local worker: ${backend?.workerState ?? 'stopped'}`,
+    i.engine(r?.variant ?? i.notInstalled),
+    `Python ${r?.python ?? '?'}, torch ${r?.torch ?? i.notInstalled}`,
+    i.gpu(r?.cuda ? String(r.gpu) : r?.gpuNote ? i.gpuNotUsedWhy(r.gpuNote) : i.gpuNotUsed),
+    i.api(backend?.apiState ?? 'stopped', backend?.url ?? '-'),
+    i.worker(backend?.workerState ?? 'stopped'),
     '',
-    `Data: ${layout.data}`,
-    `Engine files: ${layout.runtime}`,
-    `Cache: ${layout.cache}`,
-    `Logs: ${layout.logs}`,
+    i.data(layout.data),
+    i.files(layout.runtime),
+    i.cache(layout.cache),
+    i.logs(layout.logs),
   ];
-  void dialog.showMessageBox({ type: 'info', message: 'Engine', detail: lines.join('\n') });
+  void dialog.showMessageBox({ type: 'info', message: i.title, detail: lines.join('\n') });
 }
 
 function buildMenu() {
@@ -534,11 +535,11 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
     case 'devtools': win?.webContents.toggleDevTools(); break;
     case 'language': {
       // the language picked in the app: kept in settings.json (the page's own storage follows the port), used here too
-      const l = pickLang(String(arg), []);
-      if (l !== arg) return;
-      settings.language = l;
+      // any language the app knows of, even before the shell has its words (t() falls back to English)
+      if (!LANGS.includes(arg as Lang)) return;
+      settings.language = arg as Lang;
       save();
-      setLang(l);
+      setLang(pickLang(settings.language, app.getPreferredSystemLanguages()));
       buildMenu();
       break;
     }
@@ -554,12 +555,18 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
 
 // ───────────────────────────── setup page IPC ─────────────────────────────
 
-// both pages ask once, while they load, so their first paint is already in the right language
-ipcMain.on('lang:get', (e) => {
-  e.returnValue = lang();
+// both pages ask once, while they load, so their first paint is already in the right language. Like every call,
+// checked against the sender: the setup page (file://) or the app page.
+const fromSetup = (e: IpcMainEvent) => (e.senderFrame?.url ?? '').startsWith('file:');
+ipcMain.on('setup:lang', (e) => {
+  e.returnValue = fromSetup(e) ? lang() : null;
 });
 ipcMain.on('setup:strings', (e) => {
-  e.returnValue = t().setup;
+  e.returnValue = fromSetup(e) ? t().setup : {};
+});
+// the app page gets the saved choice, not the shell's: the web app may have a language before the shell does
+ipcMain.on('desktop:lang', (e) => {
+  e.returnValue = fromApp(e) ? settings.language ?? null : null;
 });
 
 ipcMain.on('setup:ready', (e) => e.sender.send('setup:state', setupState));

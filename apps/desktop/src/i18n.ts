@@ -8,6 +8,7 @@
  */
 
 export type Lang = 'en' | 'vi';
+export const LANGS: readonly Lang[] = ['en', 'vi'];
 
 export const en = {
   language: { name: 'English' },
@@ -62,7 +63,6 @@ export const en = {
     python: (version: string) => `Getting Python ${version}`,
     wheel: (name: string, version: string) => `Downloading ${name} ${version}`,
     engine: 'Downloading the analysis engine',
-    checking: 'Checking the engine',
     model: (model: string) => `Downloading the ${model}`,
     of: (done: string, total: string) => `${done} of ${total}`,
     rate: (rate: string, left: string) => `${rate}/s, about ${left} left`,
@@ -73,10 +73,12 @@ export const en = {
     downloadFailed: (file: string, why: string) =>
       `Could not download ${file}: ${why}. Check the internet connection and try again: the download continues where it stopped.`,
     damaged: (file: string) => `${file} arrived damaged (checksum mismatch). Try again: it is downloaded from the start.`,
-    opening: 'Opening the notebook',
   },
 
   errors: {
+    apiStopped: (why: string) => `The API stopped (${why})`,
+    apiDidNotStart: (why: string) => `The API did not start (${why})`,
+    apiSilent: 'The API did not answer within 2 minutes',
     stopped: 'The engine stopped',
     didNotStart: 'The engine did not start',
     notInstalled: 'The engine could not be installed',
@@ -84,6 +86,21 @@ export const en = {
     workerGaveUpDetail: (logPath: string, tail: string) => `New recordings will wait in the queue. The log is at:\n${logPath}\n\n${tail}`,
     ok: 'OK',
     openLog: 'Open log',
+  },
+
+  engineInfo: {
+    title: 'Engine',
+    engine: (variant: string) => `Engine: ${variant}`,
+    notInstalled: 'not installed',
+    gpu: (what: string) => `GPU: ${what}`,
+    gpuNotUsed: 'not used',
+    gpuNotUsedWhy: (why: string) => `not used (${why})`,
+    api: (state: string, url: string) => `API: ${state} on ${url}`,
+    worker: (state: string) => `Local worker: ${state}`,
+    data: (p: string) => `Data: ${p}`,
+    files: (p: string) => `Engine files: ${p}`,
+    cache: (p: string) => `Cache: ${p}`,
+    logs: (p: string) => `Logs: ${p}`,
   },
 
   updates: {
@@ -123,7 +140,10 @@ function isLang(l: unknown): l is Lang {
   return typeof l === 'string' && l in CATALOGS && CATALOGS[l as Lang] !== null;
 }
 
-/** The saved choice if the app has that language, else the first of the computer's languages it has, else English. */
+/**
+ * The saved choice if the app has that language, else the first of the computer's languages it has, else English.
+ * Keep in step with initialLang() in apps/web/src/i18n/index.ts (the web app, in a browser).
+ */
 export function pickLang(saved: string | null | undefined, system: readonly string[]): Lang {
   if (isLang(saved)) return saved;
   for (const tag of system) {
@@ -147,9 +167,4 @@ export function lang(): Lang {
 /** The current language's messages (English for a language whose catalog does not exist yet). */
 export function t(): Messages {
   return CATALOGS[current] ?? en;
-}
-
-/** Fill {placeholders} in a setup-page string (the same rule static/setup.js uses). */
-export function fill(text: string, values: Record<string, string>): string {
-  return text.replace(/\{(\w+)\}/g, (m, k: string) => values[k] ?? m);
 }

@@ -45,7 +45,7 @@
     }
     const keep = $('keep');
     keep.hidden = !s.current;
-    if (s.current) keep.textContent = say('keep', { variant: s.current });
+    if (s.current) keep.textContent = say('keep', { variant: (s.variants.find((v) => v.id === s.current) || { title: s.current }).title });
     keep.onclick = () => window.taber.install(s.current);
     $('install').onclick = () => {
       const v = new FormData($('variants')).get('variant');
@@ -86,7 +86,7 @@
     show(s.screen);
     if (s.screen === 'choose') renderChoose(s);
     else if (s.screen === 'installing') renderInstalling(s);
-    else if (s.screen === 'starting') $('startMessage').textContent = `${s.message.toLowerCase()}…`;
+    else if (s.screen === 'starting') $('startMessage').textContent = s.message;
     else if (s.screen === 'error') {
       $('errTitle').textContent = s.title;
       $('errMessage').textContent = s.message;

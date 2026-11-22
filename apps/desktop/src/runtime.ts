@@ -409,7 +409,7 @@ export async function provision(
   for (const f of fetched) fs.rmSync(f, { force: true });
 
   // 3. Can the API and the pipeline import, and what does torch see?
-  onProgress({ phase: 'check', message: t().install.checking });
+  onProgress({ phase: 'check', message: t().install.phases.check });
   const out = await exec(layout.python, [layout.res.launch, 'check'], {
     env: cleanEnv(cacheEnv(layout)), log, signal, cwd: layout.runtime,
   });

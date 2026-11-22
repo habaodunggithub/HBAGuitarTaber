@@ -26,7 +26,7 @@ const STATES = [
     screen: 'installing', variant: 'cpu', phase: wrap(en.install.phases.download), message: wrap(en.install.engine),
     written: '120 MB of 600 MB', fraction: 0.2, rate: '5 MB/s', startedAt: Date.now(),
   },
-  { screen: 'starting', message: wrap(en.install.opening) },
+  { screen: 'starting', message: wrap(en.setup.opening) },
   { screen: 'error', title: wrap(en.errors.notInstalled), message: wrap('why'), logTail: '', logPath: '/logs/runtime.log' },
 ];
 
@@ -55,8 +55,6 @@ test('the shell speaks the saved language, else the computer one it has, else En
   expect(pickLang('en', ['fr-FR'])).toBe('en');
   expect(pickLang(undefined, ['fr-FR', 'en-GB'])).toBe('en');
   expect(pickLang('xx', ['de'])).toBe('en');
-  // Vietnamese is offered once its catalog exists (the translation ticket)
-  expect(['en', 'vi']).toContain(pickLang('vi', ['vi-VN']));
 });
 
 test('every screen of the setup page comes from the catalog', async ({ page }) => {
