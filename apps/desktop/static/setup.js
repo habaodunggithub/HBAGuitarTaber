@@ -98,6 +98,7 @@
   $('retry').onclick = () => window.taber.retry();
   $('change').onclick = () => window.taber.change();
   $('logs').onclick = () => window.taber.openLogs();
+  $('diag').onclick = () => window.taber.exportDiagnostics();
   $('quit').onclick = () => window.taber.quit();
   if (window.taber) window.taber.onState(render);
 })();

@@ -24,7 +24,7 @@ export interface DesktopInfo {
 
 export type DesktopAction =
   | 'restart-engine' | 'change-engine' | 'open-logs' | 'open-data' | 'check-updates' | 'report-problem' | 'download-page' | 'devtools'
-  | 'update-dismiss';
+  | 'update-dismiss' | 'export-diagnostics';
 
 interface Bridge {
   /** the language the user picked, kept by the desktop app (settings.json); null: none picked yet */

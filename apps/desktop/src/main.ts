@@ -17,6 +17,7 @@ import {
 } from './runtime';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { newer, notice } from './updates';
+import { bundleEntries, systemFacts, zip } from './diagnostics';
 import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
@@ -399,6 +400,46 @@ async function checkForUpdates(manual: boolean) {
   }
 }
 
+// ───────────────────────────── diagnostics bundle ─────────────────────────────
+
+/** Asks where to save the diagnostics bundle (src/diagnostics.ts), writes it, shows it in its folder. */
+async function exportDiagnostics() {
+  const day = new Date().toISOString().slice(0, 10);
+  const opts = {
+    title: t().diagnostics.save,
+    defaultPath: path.join(app.getPath('downloads'), `taber-diagnostics-${day}.zip`),
+    filters: [{ name: t().diagnostics.zip, extensions: ['zip'] }],
+  };
+  const { canceled, filePath } = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
+  if (canceled || !filePath) return;
+  let health: Record<string, unknown> | null = null;
+  if (backend?.port) {
+    try {
+      health = (await (await fetch(`${backend.url}/api/v1/health`, { signal: AbortSignal.timeout(3000) })).json()) as Record<string, unknown>;
+    } catch {
+      /* the engine is not answering: the logs say why */
+    }
+  }
+  const about = {
+    createdAt: new Date().toISOString(),
+    app: { name: APP_NAME, version: app.getVersion(), electron: process.versions.electron, platform: `${process.platform}-${process.arch}` },
+    engine: runtime ?? null,
+    pipeline: health?.pipeline ?? null,
+    api: { state: backend?.apiState ?? 'stopped', health },
+    worker: backend?.workerState ?? 'stopped',
+    hardware,
+    system: systemFacts(layout.data),
+    settings,
+    paths: { data: layout.data, runtime: layout.runtime, cache: layout.cache, logs: layout.logs },
+  };
+  try {
+    fs.writeFileSync(filePath, zip(bundleEntries(layout.logs, about)));
+    shell.showItemInFolder(filePath);
+  } catch (e) {
+    void dialog.showMessageBox({ type: 'warning', message: t().diagnostics.failed, detail: (e as Error).message });
+  }
+}
+
 // ───────────────────────────── menu ─────────────────────────────
 
 function engineInfo() {
@@ -474,6 +515,7 @@ function buildMenu() {
       submenu: [
         { label: t().menu.downloadPage, click: () => void shell.openExternal(SITE) },
         { label: t().menu.checkUpdates, click: () => void checkForUpdates(true) },
+        { label: t().menu.exportDiagnostics, click: () => void exportDiagnostics() },
         { label: t().menu.report, click: () => void shell.openExternal(`https://github.com/${REPO}/issues`) },
       ],
     },
@@ -539,6 +581,7 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
     case 'open-logs': void shell.openPath(layout.logs); break;
     case 'open-data': void shell.openPath(layout.data); break;
     case 'check-updates': void checkForUpdates(true); break;
+    case 'export-diagnostics': void exportDiagnostics(); break;
     case 'report-problem': void shell.openExternal(`https://github.com/${REPO}/issues`); break;
     case 'download-page': void shell.openExternal(SITE); break;
     case 'devtools': win?.webContents.toggleDevTools(); break;
@@ -603,6 +646,7 @@ ipcMain.on('setup:install', (_e, v: Variant) => {
 ipcMain.on('setup:retry', () => void boot(false));
 ipcMain.on('setup:change', () => void boot(true));
 ipcMain.on('setup:open-logs', () => void shell.openPath(layout.logs));
+ipcMain.on('setup:export-diagnostics', (e) => fromSetup(e) && void exportDiagnostics());
 ipcMain.on('setup:quit', () => app.quit());
 
 // ───────────────────────────── lifecycle ─────────────────────────────

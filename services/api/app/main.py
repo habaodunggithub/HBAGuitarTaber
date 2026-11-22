@@ -78,7 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/health")
     def health():
-        return {"ok": True, "version": app.version}
+        return {"ok": True, "version": app.version, "pipeline": settings.pipeline_version}
 
     spa: Path = settings.spa_dir
     if spa.exists() and (spa / "index.html").exists():

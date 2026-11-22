@@ -93,6 +93,7 @@ export const en = {
     whenWrong: 'When something goes wrong',
     openLogs: 'Open the logs folder',
     copyDiagnostics: 'Copy diagnostics',
+    exportDiagnostics: 'Export diagnostics bundle',
     copied: 'Copied. Paste it into your message, with the log files.',
     copyFailed: 'Could not copy',
     report: 'Report a problem',
