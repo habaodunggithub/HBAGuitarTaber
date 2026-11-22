@@ -99,7 +99,7 @@ export const en = {
     openData: 'Open the data folder',
     checkUpdates: 'Check for updates',
     autoUpdates: 'Look for a new version every day',
-    autoUpdatesHint: 'Taber asks GitHub which version is the latest. Nothing about you, your takes or your tabs is sent.',
+    autoUpdatesHint: 'Once a day Taber asks api.github.com which version is the latest. Like any web request it carries your computer\'s IP address; nothing else is sent: no version, no account, no takes or tabs.',
   },
 
   update: {

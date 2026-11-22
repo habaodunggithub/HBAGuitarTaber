@@ -55,7 +55,7 @@ export default function EngineDialog({ info, onClose }: { info: DesktopInfo; onC
         </span>
       </label>
       <label className="engine-toggle">
-        <input type="checkbox" checked={info.checkUpdates ?? true} onChange={(e) => desktop?.setAutoUpdates?.(e.currentTarget.checked)} data-testid="auto-updates" />
+        <input type="checkbox" checked={info.checkUpdates} onChange={(e) => desktop?.setAutoUpdates(e.currentTarget.checked)} data-testid="auto-updates" />
         <span>
           {t.engine.autoUpdates}
           <small>{t.engine.autoUpdatesHint}</small>

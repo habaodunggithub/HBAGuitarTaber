@@ -16,9 +16,9 @@ export interface DesktopInfo {
   worker: 'stopped' | 'starting' | 'running' | 'crashed' | string;
   workerEnabled: boolean;
   /** a newer release to tell the user about (not dismissed), else null */
-  update?: string | null;
+  update: string | null;
   /** look for a newer release once a day */
-  checkUpdates?: boolean;
+  checkUpdates: boolean;
   paths: { data: string; runtime: string; cache: string; logs: string };
 }
 
@@ -34,7 +34,7 @@ interface Bridge {
   onState(cb: (info: DesktopInfo) => void): () => void;
   action(name: DesktopAction): void;
   setWorker(on: boolean): void;
-  setAutoUpdates?(on: boolean): void;
+  setAutoUpdates(on: boolean): void;
 }
 
 declare global {

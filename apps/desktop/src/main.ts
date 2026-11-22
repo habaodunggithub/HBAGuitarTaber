@@ -359,13 +359,14 @@ async function selftest() {
 
 // ───────────────────────────── updates ─────────────────────────────
 
+/** The latest release tag seen, kept from the last check: a start later the same day skips the fetch. */
+let latestRelease: string | null = settings.latestRelease ?? null;
 
 /**
- * Asks GitHub for the latest release (no data about the user is sent), once a day unless asked from the menu.
- * Releases/latest leaves out drafts and pre-releases; the beta (0.9.x) goes out as ordinary releases to its testers.
+ * Asks GitHub for the latest release, once a day unless asked from the menu. The request carries the computer's IP
+ * address like any web request, a fixed User-Agent and nothing else. Releases/latest leaves out drafts and
+ * pre-releases; the beta (0.9.x) goes out as ordinary releases to its testers.
  */
-let latestRelease: string | null = null;
-
 async function checkForUpdates(manual: boolean) {
   if (!manual && (!settings.checkUpdates || Date.now() - (settings.lastUpdateCheck ?? 0) < 86_400_000)) return;
   try {
@@ -377,7 +378,8 @@ async function checkForUpdates(manual: boolean) {
     save();
     if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
     const rel = (await r.json()) as { tag_name: string; html_url: string };
-    latestRelease = rel.tag_name;
+    latestRelease = settings.latestRelease = rel.tag_name;
+    save();
     sendDesktopState(); // the app page shows a small notice in its top bar, unless this version was dismissed
     if (manual && newer(rel.tag_name, app.getVersion())) {
       const { response } = await dialog.showMessageBox({
@@ -512,7 +514,7 @@ function desktopInfo(): DesktopInfo {
     api: backend?.apiState ?? 'stopped',
     worker: backend?.workerState ?? 'stopped',
     workerEnabled: settings.startWorker,
-    update: notice(latestRelease, app.getVersion(), settings.dismissedUpdate),
+    update: settings.checkUpdates ? notice(latestRelease, app.getVersion(), settings.dismissedUpdate) : null,
     checkUpdates: settings.checkUpdates,
     paths: { data: layout.data, runtime: layout.runtime, cache: layout.cache, logs: layout.logs },
   };
