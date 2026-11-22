@@ -18,6 +18,7 @@ import {
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { newer, notice } from './updates';
 import { bundleEntries, systemFacts, zip } from './diagnostics';
+import { remove, type Removal, sizeOf, targets } from './removal';
 import { lang, LANGS, type Lang, pickLang, setLang, t } from './i18n';
 
 const REPO = 'habaodunggithub/HBAGuitarTaber';
@@ -400,6 +401,43 @@ async function checkForUpdates(manual: boolean) {
   }
 }
 
+// ───────────────────────────── removing data ─────────────────────────────
+
+/**
+ * Removes the engine (then restarts into the setup page) or all the app's data (then quits), after a confirmation
+ * here in the main process that says what goes. The engine is stopped first so no process holds its files.
+ */
+async function removeData(what: Removal) {
+  const paths = targets(layout, what);
+  const size = formatBytes(paths.reduce((n, p) => n + sizeOf(p), 0));
+  const r = t().removal;
+  const opts = {
+    type: 'warning' as const,
+    message: what === 'engine' ? r.engineTitle : r.everythingTitle,
+    detail: what === 'engine' ? r.engineDetail(size) : r.everythingDetail(size),
+    buttons: [r.cancel, what === 'engine' ? r.engineYes : r.everythingYes],
+    defaultId: 0,
+    cancelId: 0,
+  };
+  const { response } = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
+  if (response !== 1) return;
+  desktopLog.line(`removing ${what}: ${paths.join(', ')}`);
+  try {
+    await backend?.stop();
+    backend = null;
+    if (what === 'everything') await desktopLog.close(); // the logs folder goes too
+    remove(paths);
+  } catch (e) {
+    void dialog.showErrorBox(r.failed, (e as Error).message);
+  }
+  if (what === 'engine') {
+    delete settings.variant;
+    save();
+    app.relaunch();
+  }
+  app.exit(0);
+}
+
 // ───────────────────────────── diagnostics bundle ─────────────────────────────
 
 /** Asks where to save the diagnostics bundle (src/diagnostics.ts), writes it, shows it in its folder. */
@@ -572,6 +610,12 @@ function sendDesktopState() {
 }
 
 ipcMain.handle('desktop:info', (e) => (fromApp(e) ? desktopInfo() : null));
+// the space each removal frees, for the Engine panel (walking the runtime takes a moment: asked when it opens)
+ipcMain.handle('desktop:sizes', async (e) => {
+  if (!fromApp(e)) return null;
+  await new Promise((r) => setImmediate(r));
+  return { engine: targets(layout, 'engine').reduce((n, p) => n + sizeOf(p), 0), everything: targets(layout, 'everything').reduce((n, p) => n + sizeOf(p), 0) };
+});
 ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
   if (!fromApp(e)) return;
   switch (action) {
@@ -581,6 +625,8 @@ ipcMain.on('desktop:action', (e, action: unknown, arg: unknown) => {
     case 'open-data': void shell.openPath(layout.data); break;
     case 'check-updates': void checkForUpdates(true); break;
     case 'export-diagnostics': void exportDiagnostics(); break;
+    case 'remove-engine': void removeData('engine'); break;
+    case 'remove-everything': void removeData('everything'); break;
     case 'report-problem': void shell.openExternal(`https://github.com/${REPO}/issues`); break;
     case 'download-page': void shell.openExternal(SITE); break;
     case 'devtools': win?.webContents.toggleDevTools(); break;

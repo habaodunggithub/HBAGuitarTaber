@@ -30,6 +30,7 @@ test('in the desktop app a new version shows as a small note in the top bar, and
       setWorker: () => undefined,
       setAutoUpdates: (on: boolean) => sent.push(`auto-updates:${on}`),
       setLanguage: () => undefined,
+      sizes: async () => ({ engine: 1.5e9, everything: 2.5e9 }),
     };
   });
   await page.goto('/');
@@ -39,5 +40,8 @@ test('in the desktop app a new version shows as a small note in the top bar, and
   await note.getByRole('button', { name: 'Hide until the next version' }).click();
   await page.locator('.lamp-btn').click();
   await page.getByTestId('auto-updates').click(); // the box follows the desktop's state: here only the call matters
-  expect(await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent)).toEqual(['download-page', 'update-dismiss', 'auto-updates:false']);
+  // the space each removal frees, and the removals themselves (the desktop asks before deleting)
+  await expect(page.getByTestId('remove-engine')).toContainText('1,430.5');
+  await page.getByTestId('remove-engine').click();
+  expect(await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent)).toEqual(['download-page', 'update-dismiss', 'auto-updates:false', 'remove-engine']);
 });

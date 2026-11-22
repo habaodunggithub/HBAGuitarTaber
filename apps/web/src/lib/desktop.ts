@@ -24,7 +24,7 @@ export interface DesktopInfo {
 
 export type DesktopAction =
   | 'restart-engine' | 'change-engine' | 'open-logs' | 'open-data' | 'check-updates' | 'report-problem' | 'download-page' | 'devtools'
-  | 'update-dismiss' | 'export-diagnostics';
+  | 'update-dismiss' | 'export-diagnostics' | 'remove-engine' | 'remove-everything';
 
 interface Bridge {
   /** the language the user picked, kept by the desktop app (settings.json); null: none picked yet */
@@ -35,6 +35,8 @@ interface Bridge {
   action(name: DesktopAction): void;
   setWorker(on: boolean): void;
   setAutoUpdates(on: boolean): void;
+  /** bytes each removal would free (engine: runtime + caches; everything: all the app's data) */
+  sizes(): Promise<{ engine: number; everything: number } | null>;
 }
 
 declare global {
